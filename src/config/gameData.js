@@ -13,9 +13,20 @@ function loadGuildsFromEnv() {
     if (guildName && guildName.trim() !== '' && guildRoleId && guildRoleId.trim() !== '') {
       guilds.push({
         name: guildName.trim(),
-        roleId: guildRoleId.trim()
+        roleId: guildRoleId.trim(),
+        isVisitor: false
       });
     }
+  }
+  
+  // Add "Visitor" option if configured
+  const visitorRoleId = process.env.VISITOR_ROLE_ID;
+  if (visitorRoleId && visitorRoleId.trim() !== '') {
+    guilds.push({
+      name: 'Visitor',
+      roleId: visitorRoleId.trim(),
+      isVisitor: true
+    });
   }
   
   return guilds;
