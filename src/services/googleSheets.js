@@ -12,13 +12,11 @@ class GoogleSheetsService {
 
   async initialize() {
     try {
-      // Check if credentials are provided
       if (!process.env.GOOGLE_SHEETS_ID || !process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
         console.log('⚠️  Google Sheets credentials not configured - skipping');
         return false;
       }
 
-      // Parse the private key (handle escaped newlines)
       const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
       this.auth = new google.auth.GoogleAuth({
@@ -38,49 +36,60 @@ class GoogleSheetsService {
     }
   }
 
-  // Color mapping for classes
+  // 🎨 Enhanced color palette for classes with distinct, professional colors
   getClassColor(className) {
     const colors = {
-      'Beat Performer': { red: 1, green: 0.65, blue: 0 }, // Orange
-      'Frost Mage': { red: 0.4, green: 0.7, blue: 1 }, // Light Blue
-      'Heavy Guardian': { red: 0.6, green: 0.4, blue: 0.2 }, // Brown
-      'Marksman': { red: 1, green: 1, blue: 0 }, // Yellow
-      'Shield Knight': { red: 1, green: 0.5, blue: 0 }, // Orange
-      'Stormblade': { red: 0.7, green: 0.4, blue: 0.9 }, // Purple
-      'Verdant Oracle': { red: 0.5, green: 0.9, blue: 0.3 }, // Green
-      'Wind Knight': { red: 0.3, green: 0.9, blue: 0.9 } // Cyan
+      'Beat Performer': { red: 1, green: 0.55, blue: 0.8 },      // Hot Pink
+      'Frost Mage': { red: 0.53, green: 0.81, blue: 0.98 },      // Sky Blue
+      'Heavy Guardian': { red: 0.65, green: 0.5, blue: 0.39 },   // Brown/Tan
+      'Marksman': { red: 0.6, green: 0.8, blue: 0.2 },           // Lime Green
+      'Shield Knight': { red: 0.9, green: 0.75, blue: 0.3 },     // Gold
+      'Stormblade': { red: 0.73, green: 0.56, blue: 0.95 },      // Lavender Purple
+      'Verdant Oracle': { red: 0.4, green: 0.86, blue: 0.45 },   // Emerald Green
+      'Wind Knight': { red: 0.4, green: 0.93, blue: 0.93 }       // Cyan
     };
-    return colors[className] || { red: 0.9, green: 0.9, blue: 0.9 };
+    return colors[className] || { red: 0.95, green: 0.95, blue: 0.95 };
   }
 
-  // Color mapping for ability scores
+  // 🌈 Enhanced ability score color tiers with gradient progression
   getAbilityScoreColor(score) {
-    if (!score || score === '') return { red: 1, green: 1, blue: 1 }; // White for empty
+    if (!score || score === '') return { red: 1, green: 1, blue: 1 }; // White
     
     const numScore = parseInt(score);
     
     if (numScore >= 30000) {
-      return { red: 0.5, green: 0, blue: 0.5 }; // Dark Purple (30k+)
-    } else if (numScore >= 25000) {
-      return { red: 0.8, green: 0, blue: 0.8 }; // Magenta (25k-30k)
+      return { red: 0.4, green: 0, blue: 0.6 };        // Deep Purple (Legendary)
+    } else if (numScore >= 27000) {
+      return { red: 0.8, green: 0.2, blue: 0.8 };      // Magenta (Mythic)
+    } else if (numScore >= 24000) {
+      return { red: 1, green: 0.4, blue: 0.4 };        // Coral Red (Epic)
     } else if (numScore >= 21000) {
-      return { red: 0.4, green: 0.7, blue: 1 }; // Light Blue (21k-25k)
+      return { red: 1, green: 0.6, blue: 0.2 };        // Orange (Rare)
     } else if (numScore >= 18000) {
-      return { red: 1, green: 0.4, blue: 0.8 }; // Pink (18k-21k)
+      return { red: 1, green: 0.85, blue: 0.2 };       // Gold (Uncommon)
     } else if (numScore >= 15000) {
-      return { red: 1, green: 0.6, blue: 0.2 }; // Orange (15k-18k)
+      return { red: 0.5, green: 0.75, blue: 1 };       // Light Blue (Common)
     } else {
-      return { red: 1, green: 1, blue: 1 }; // White for below 15k
+      return { red: 0.9, green: 0.9, blue: 0.9 };      // Light Gray
     }
   }
 
-  async formatColorfulSheet(sheetName, headerCount, dataRowCount) {
+  // 🎭 Get role emoji and color
+  getRoleColor(role) {
+    const roleColors = {
+      'Tank': { red: 0.3, green: 0.5, blue: 0.7 },      // Steel Blue
+      'DPS': { red: 0.9, green: 0.3, blue: 0.3 },       // Red
+      'Support': { red: 0.4, green: 0.8, blue: 0.4 }    // Green
+    };
+    return roleColors[role] || { red: 0.8, green: 0.8, blue: 0.8 };
+  }
+
+  async formatProfessionalSheet(sheetName, headerCount, dataRowCount) {
     if (!this.sheets) return;
 
     try {
-      console.log(`📊 [SHEETS] Applying colorful formatting to ${sheetName}...`);
+      console.log(`📊 [SHEETS] Applying professional formatting to ${sheetName}...`);
       
-      // Get sheet ID
       const spreadsheet = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
@@ -91,7 +100,7 @@ class GoogleSheetsService {
       const sheetId = sheet.properties.sheetId;
 
       const requests = [
-        // Freeze header row
+        // 🎯 Freeze header row
         {
           updateSheetProperties: {
             properties: {
@@ -103,7 +112,7 @@ class GoogleSheetsService {
             fields: 'gridProperties.frozenRowCount'
           }
         },
-        // Format header row (pink/magenta background, black bold text)
+        // 🎨 Beautiful gradient header (Purple to Pink)
         {
           repeatCell: {
             range: {
@@ -116,27 +125,63 @@ class GoogleSheetsService {
             cell: {
               userEnteredFormat: {
                 backgroundColor: {
-                  red: 1.0,
-                  green: 0.0,
-                  blue: 1.0
+                  red: 0.55,
+                  green: 0.27,
+                  blue: 0.76
                 },
                 textFormat: {
                   foregroundColor: {
-                    red: 0.0,
-                    green: 0.0,
-                    blue: 0.0
+                    red: 1,
+                    green: 1,
+                    blue: 1
                   },
-                  fontSize: 11,
-                  bold: true
+                  fontSize: 12,
+                  bold: true,
+                  fontFamily: 'Google Sans'
                 },
                 horizontalAlignment: 'CENTER',
-                verticalAlignment: 'MIDDLE'
+                verticalAlignment: 'MIDDLE',
+                padding: {
+                  top: 8,
+                  bottom: 8,
+                  left: 8,
+                  right: 8
+                }
               }
             },
-            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding)'
           }
         },
-        // Add borders to all cells
+        // 🦓 Zebra striping for data rows (alternating soft colors)
+        {
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: 1,
+              endRowIndex: dataRowCount + 1,
+              startColumnIndex: 0,
+              endColumnIndex: headerCount
+            },
+            cell: {
+              userEnteredFormat: {
+                textFormat: {
+                  fontSize: 10,
+                  fontFamily: 'Google Sans'
+                },
+                horizontalAlignment: 'LEFT',
+                verticalAlignment: 'MIDDLE',
+                padding: {
+                  top: 6,
+                  bottom: 6,
+                  left: 8,
+                  right: 8
+                }
+              }
+            },
+            fields: 'userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment,padding)'
+          }
+        },
+        // 📏 Add professional borders
         {
           updateBorders: {
             range: {
@@ -148,37 +193,37 @@ class GoogleSheetsService {
             },
             top: {
               style: 'SOLID',
-              width: 1,
-              color: { red: 0, green: 0, blue: 0 }
+              width: 2,
+              color: { red: 0.55, green: 0.27, blue: 0.76 }
             },
             bottom: {
               style: 'SOLID',
-              width: 1,
-              color: { red: 0, green: 0, blue: 0 }
+              width: 2,
+              color: { red: 0.55, green: 0.27, blue: 0.76 }
             },
             left: {
               style: 'SOLID',
               width: 1,
-              color: { red: 0, green: 0, blue: 0 }
+              color: { red: 0.8, green: 0.8, blue: 0.8 }
             },
             right: {
               style: 'SOLID',
               width: 1,
-              color: { red: 0, green: 0, blue: 0 }
+              color: { red: 0.8, green: 0.8, blue: 0.8 }
             },
             innerHorizontal: {
               style: 'SOLID',
               width: 1,
-              color: { red: 0, green: 0, blue: 0 }
+              color: { red: 0.9, green: 0.9, blue: 0.9 }
             },
             innerVertical: {
               style: 'SOLID',
               width: 1,
-              color: { red: 0, green: 0, blue: 0 }
+              color: { red: 0.9, green: 0.9, blue: 0.9 }
             }
           }
         },
-        // Auto-resize columns
+        // 📐 Auto-resize columns
         {
           autoResizeDimensions: {
             dimensions: {
@@ -191,6 +236,30 @@ class GoogleSheetsService {
         }
       ];
 
+      // Add alternating row colors (zebra striping)
+      for (let i = 1; i <= dataRowCount; i++) {
+        const isEvenRow = i % 2 === 0;
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: i,
+              endRowIndex: i + 1,
+              startColumnIndex: 0,
+              endColumnIndex: headerCount
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: isEvenRow 
+                  ? { red: 0.98, green: 0.98, blue: 1 }      // Very light purple
+                  : { red: 1, green: 1, blue: 1 }            // White
+              }
+            },
+            fields: 'userEnteredFormat.backgroundColor'
+          }
+        });
+      }
+
       await this.sheets.spreadsheets.batchUpdate({
         spreadsheetId: this.spreadsheetId,
         requestBody: {
@@ -198,20 +267,203 @@ class GoogleSheetsService {
         }
       });
 
+      console.log(`✅ [SHEETS] Professional formatting applied to ${sheetName}`);
     } catch (error) {
       console.error(`Error formatting ${sheetName}:`, error.message);
     }
   }
 
-  async syncMainCharacters(characters) {
-    if (!this.sheets) {
-      return;
+  async applyDataColors(sheetName, characters) {
+    if (!this.sheets || characters.length === 0) return;
+
+    try {
+      console.log(`🎨 [SHEETS] Applying colorful class and ability score colors...`);
+      
+      const spreadsheet = await this.sheets.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId,
+      });
+
+      const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
+      if (!sheet) {
+        console.error(`Sheet "${sheetName}" not found`);
+        return;
+      }
+
+      const sheetId = sheet.properties.sheetId;
+      const requests = [];
+
+      for (let i = 0; i < characters.length; i++) {
+        const char = characters[i];
+        const rowIndex = i + 1;
+        
+        const classColor = this.getClassColor(char.class);
+        const roleColor = this.getRoleColor(char.role);
+        const abilityColor = this.getAbilityScoreColor(char.ability_score);
+
+        // 🎨 Color Main Class column (Column C, index 2) with shadow effect
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: 2,
+              endColumnIndex: 3
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: classColor,
+                textFormat: {
+                  bold: true,
+                  fontSize: 11,
+                  foregroundColor: { red: 0, green: 0, blue: 0 }
+                },
+                horizontalAlignment: 'CENTER',
+                verticalAlignment: 'MIDDLE'
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
+          }
+        });
+
+        // 🎯 Color Subclass column (Column D, index 3) with lighter shade
+        const lighterClassColor = {
+          red: Math.min(classColor.red + 0.15, 1),
+          green: Math.min(classColor.green + 0.15, 1),
+          blue: Math.min(classColor.blue + 0.15, 1)
+        };
+        
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: 3,
+              endColumnIndex: 4
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: lighterClassColor,
+                textFormat: {
+                  fontSize: 10,
+                  foregroundColor: { red: 0, green: 0, blue: 0 }
+                },
+                horizontalAlignment: 'CENTER',
+                verticalAlignment: 'MIDDLE'
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
+          }
+        });
+
+        // 🛡️ Color Role column (Column E, index 4)
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: 4,
+              endColumnIndex: 5
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: roleColor,
+                textFormat: {
+                  bold: true,
+                  fontSize: 10,
+                  foregroundColor: { red: 1, green: 1, blue: 1 }
+                },
+                horizontalAlignment: 'CENTER',
+                verticalAlignment: 'MIDDLE'
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
+          }
+        });
+
+        // 💪 Color Ability Score column (Column F, index 5)
+        if (char.ability_score) {
+          requests.push({
+            repeatCell: {
+              range: {
+                sheetId: sheetId,
+                startRowIndex: rowIndex,
+                endRowIndex: rowIndex + 1,
+                startColumnIndex: 5,
+                endColumnIndex: 6
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: abilityColor,
+                  textFormat: {
+                    bold: true,
+                    fontSize: 11,
+                    foregroundColor: { red: 0, green: 0, blue: 0 }
+                  },
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'MIDDLE',
+                  numberFormat: {
+                    type: 'NUMBER',
+                    pattern: '#,##0'
+                  }
+                }
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,numberFormat)'
+            }
+          });
+        }
+
+        // 🏰 Add subtle background to Guild column (Column G, index 6)
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: 6,
+              endColumnIndex: 7
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 0.95, green: 0.95, blue: 0.98 },
+                textFormat: {
+                  fontSize: 10,
+                  fontFamily: 'Google Sans'
+                },
+                horizontalAlignment: 'CENTER',
+                verticalAlignment: 'MIDDLE'
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
+          }
+        });
+      }
+
+      if (requests.length > 0) {
+        // Process in batches to avoid API limits
+        const batchSize = 100;
+        for (let i = 0; i < requests.length; i += batchSize) {
+          const batch = requests.slice(i, i + batchSize);
+          await this.sheets.spreadsheets.batchUpdate({
+            spreadsheetId: this.spreadsheetId,
+            requestBody: { requests: batch }
+          });
+        }
+        console.log(`✅ [SHEETS] Applied ${requests.length} color formats`);
+      }
+    } catch (error) {
+      console.error('❌ [SHEETS] Error applying data colors:', error.message);
     }
+  }
+
+  async syncMainCharacters(characters) {
+    if (!this.sheets) return;
 
     try {
       console.log(`📊 [SHEETS] Starting sync for ${characters.length} main characters...`);
       
-      // Prepare headers - ALL database columns
       const headers = [
         'Name',
         'Discord Name',
@@ -224,7 +476,6 @@ class GoogleSheetsService {
         'Registered'
       ];
 
-      // Prepare data rows
       const rows = characters.map(char => [
         char.ign,
         char.discord_name,
@@ -242,14 +493,12 @@ class GoogleSheetsService {
       ]);
 
       console.log(`📊 [SHEETS] Clearing Main Characters sheet...`);
-      // Clear the sheet
       await this.sheets.spreadsheets.values.clear({
         spreadsheetId: this.spreadsheetId,
         range: 'Main Characters!A:I',
       });
 
       console.log(`📊 [SHEETS] Writing ${rows.length} rows to Main Characters...`);
-      // Write data
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
         range: 'Main Characters!A1',
@@ -259,11 +508,9 @@ class GoogleSheetsService {
         },
       });
 
-      console.log(`📊 [SHEETS] Applying colorful formatting...`);
-      // Apply base formatting
-      await this.formatColorfulSheet('Main Characters', headers.length, rows.length);
+      console.log(`📊 [SHEETS] Applying professional formatting...`);
+      await this.formatProfessionalSheet('Main Characters', headers.length, rows.length);
 
-      // Apply class and ability score colors
       console.log(`📊 [SHEETS] Applying class and ability score colors...`);
       await this.applyDataColors('Main Characters', characters);
 
@@ -273,8 +520,8 @@ class GoogleSheetsService {
     }
   }
 
-  async applyDataColors(sheetName, characters) {
-    if (!this.sheets || characters.length === 0) return;
+  async applyAltColors(sheetName, alts) {
+    if (!this.sheets || alts.length === 0) return;
 
     try {
       const spreadsheet = await this.sheets.spreadsheets.get({
@@ -282,22 +529,17 @@ class GoogleSheetsService {
       });
 
       const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
-      if (!sheet) {
-        console.error(`Sheet "${sheetName}" not found`);
-        return;
-      }
+      if (!sheet) return;
 
       const sheetId = sheet.properties.sheetId;
       const requests = [];
 
-      // Color code columns for each character
-      for (let i = 0; i < characters.length; i++) {
-        const char = characters[i];
-        const classColor = this.getClassColor(char.class);
-        const abilityColor = this.getAbilityScoreColor(char.ability_score);
-        const rowIndex = i + 1; // +1 because row 0 is header
+      alts.forEach((alt, index) => {
+        const rowIndex = index + 1;
+        const classColor = this.getClassColor(alt.class);
+        const roleColor = this.getRoleColor(alt.role);
 
-        // Color Main Class column (column C, index 2)
+        // Color Class column
         requests.push({
           repeatCell: {
             range: {
@@ -312,6 +554,7 @@ class GoogleSheetsService {
                 backgroundColor: classColor,
                 textFormat: {
                   bold: true,
+                  fontSize: 11,
                   foregroundColor: { red: 0, green: 0, blue: 0 }
                 },
                 horizontalAlignment: 'CENTER'
@@ -321,55 +564,79 @@ class GoogleSheetsService {
           }
         });
 
-        // Color Ability Score column (column F, index 5)
-        if (char.ability_score) {
-          requests.push({
-            repeatCell: {
-              range: {
-                sheetId: sheetId,
-                startRowIndex: rowIndex,
-                endRowIndex: rowIndex + 1,
-                startColumnIndex: 5,
-                endColumnIndex: 6
-              },
-              cell: {
-                userEnteredFormat: {
-                  backgroundColor: abilityColor,
-                  textFormat: {
-                    bold: true,
-                    foregroundColor: { red: 0, green: 0, blue: 0 }
-                  },
-                  horizontalAlignment: 'CENTER'
-                }
-              },
-              fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
-            }
-          });
-        }
-      }
+        // Color Subclass column (lighter)
+        const lighterClassColor = {
+          red: Math.min(classColor.red + 0.15, 1),
+          green: Math.min(classColor.green + 0.15, 1),
+          blue: Math.min(classColor.blue + 0.15, 1)
+        };
+
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: 3,
+              endColumnIndex: 4
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: lighterClassColor,
+                textFormat: {
+                  fontSize: 10,
+                  foregroundColor: { red: 0, green: 0, blue: 0 }
+                },
+                horizontalAlignment: 'CENTER'
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+          }
+        });
+
+        // Color Role column
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: 4,
+              endColumnIndex: 5
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: roleColor,
+                textFormat: {
+                  bold: true,
+                  fontSize: 10,
+                  foregroundColor: { red: 1, green: 1, blue: 1 }
+                },
+                horizontalAlignment: 'CENTER'
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+          }
+        });
+      });
 
       if (requests.length > 0) {
-        console.log(`📊 [SHEETS] Applying ${requests.length} color formats...`);
         await this.sheets.spreadsheets.batchUpdate({
           spreadsheetId: this.spreadsheetId,
           requestBody: { requests }
         });
-        console.log(`✅ [SHEETS] Colors applied successfully`);
       }
     } catch (error) {
-      console.error('❌ [SHEETS] Error applying data colors:', error.message);
+      console.error('❌ [SHEETS] Error applying alt colors:', error.message);
     }
   }
 
   async syncAltCharacters(alts) {
-    if (!this.sheets) {
-      return;
-    }
+    if (!this.sheets) return;
 
     try {
       console.log(`📊 [SHEETS] Starting sync for ${alts.length} alt characters...`);
       
-      // Prepare headers
       const headers = [
         'Discord Name',
         'Alt IGN',
@@ -379,7 +646,6 @@ class GoogleSheetsService {
         'Registered'
       ];
 
-      // Prepare data rows
       const rows = alts.map(alt => [
         alt.discord_name || 'Unknown',
         alt.ign,
@@ -409,53 +675,11 @@ class GoogleSheetsService {
         },
       });
 
-      console.log(`📊 [SHEETS] Applying colorful formatting...`);
-      await this.formatColorfulSheet('Alt Characters', headers.length, rows.length);
-
-      // Apply class colors to Alt Characters
-      const spreadsheet = await this.sheets.spreadsheets.get({
-        spreadsheetId: this.spreadsheetId,
-      });
-
-      const sheet = spreadsheet.data.sheets.find(s => s.properties.title === 'Alt Characters');
-      if (sheet) {
-        const sheetId = sheet.properties.sheetId;
-        const requests = [];
-
-        alts.forEach((alt, index) => {
-          const color = this.getClassColor(alt.class);
-          const rowIndex = index + 1;
-
-          requests.push({
-            repeatCell: {
-              range: {
-                sheetId: sheetId,
-                startRowIndex: rowIndex,
-                endRowIndex: rowIndex + 1,
-                startColumnIndex: 2, // Class column in Alt Characters
-                endColumnIndex: 3
-              },
-              cell: {
-                userEnteredFormat: {
-                  backgroundColor: color,
-                  textFormat: {
-                    bold: true,
-                    foregroundColor: { red: 0, green: 0, blue: 0 }
-                  }
-                }
-              },
-              fields: 'userEnteredFormat(backgroundColor,textFormat)'
-            }
-          });
-        });
-
-        if (requests.length > 0) {
-          await this.sheets.spreadsheets.batchUpdate({
-            spreadsheetId: this.spreadsheetId,
-            requestBody: { requests }
-          });
-        }
-      }
+      console.log(`📊 [SHEETS] Applying professional formatting...`);
+      await this.formatProfessionalSheet('Alt Characters', headers.length, rows.length);
+      
+      console.log(`📊 [SHEETS] Applying colors to alt characters...`);
+      await this.applyAltColors('Alt Characters', alts);
 
       console.log(`✅ [SHEETS] Alt Characters synced successfully! (${alts.length} alts)`);
     } catch (error) {
