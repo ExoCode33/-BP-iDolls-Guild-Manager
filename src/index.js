@@ -40,6 +40,25 @@ commands.forEach(command => {
 
 console.log(`\n✅ Loaded ${commands.length} commands total\n`);
 
+// Auto-sync interval (1 minute)
+let autoSyncInterval = null;
+
+async function performAutoSync() {
+  try {
+    if (!googleSheets.sheets) {
+      // Google Sheets not configured, skip
+      return;
+    }
+
+    console.log(`⏰ [AUTO-SYNC] Starting automatic sync...`);
+    const allCharacters = await queries.getAllCharacters();
+    const allAlts = await queries.getAllAlts();
+    await googleSheets.fullSync(allCharacters, allAlts);
+  } catch (error) {
+    console.error('❌ [AUTO-SYNC] Error during automatic sync:', error.message);
+  }
+}
+
 // Ready event
 client.once(Events.ClientReady, async (c) => {
   console.log('═══════════════════════════════════════════════════');
@@ -60,13 +79,26 @@ client.once(Events.ClientReady, async (c) => {
   // Initialize Google Sheets
   console.log('📊 Initializing Google Sheets...');
   try {
-    await googleSheets.initialize();
+    const sheetsInitialized = await googleSheets.initialize();
+    
+    if (sheetsInitialized) {
+      // Perform initial sync
+      console.log('📊 Performing initial sync...');
+      await performAutoSync();
+      
+      // Start auto-sync every 1 minute (60000 ms)
+      console.log('⏰ Starting auto-sync (every 1 minute)...');
+      autoSyncInterval = setInterval(performAutoSync, 60000);
+      console.log('✅ Auto-sync enabled!\n');
+    } else {
+      console.log('⚠️  Google Sheets not configured - auto-sync disabled\n');
+    }
   } catch (error) {
-    console.error('⚠️  Google Sheets not configured (this is optional)');
-    console.error('   Commands will work, but data won\'t sync to sheets.');
+    console.error('⚠️  Google Sheets initialization error:', error.message);
+    console.error('   Auto-sync will be disabled.\n');
   }
 
-  console.log('\n═══════════════════════════════════════════════════');
+  console.log('═══════════════════════════════════════════════════');
   console.log('🎮 Bot is ready to accept commands!');
   console.log('═══════════════════════════════════════════════════');
   console.log('\n⚠️  IMPORTANT: If commands are not showing in Discord:');
@@ -89,6 +121,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
       await command.execute(interaction);
       console.log(`✅ Command /${interaction.commandName} executed successfully`);
+      
+      // Trigger immediate sync after command execution (in background)
+      if (googleSheets.sheets) {
+        console.log(`🔄 [INSTANT-SYNC] Triggering sync after command...`);
+        performAutoSync().catch(err => console.error('❌ [INSTANT-SYNC] Failed:', err.message));
+      }
     } catch (error) {
       console.error(`❌ Error executing /${interaction.commandName}:`, error);
       
@@ -292,6 +330,13 @@ process.on('unhandledRejection', error => {
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n\n🛑 Shutting down bot...');
+  
+  // Clear auto-sync interval
+  if (autoSyncInterval) {
+    clearInterval(autoSyncInterval);
+    console.log('⏰ Auto-sync stopped');
+  }
+  
   client.destroy();
   process.exit(0);
 });
