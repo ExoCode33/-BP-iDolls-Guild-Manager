@@ -1,31 +1,32 @@
 import { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { GAME_DATA, getRoleFromClass, getTimezoneRegions, getCountriesInRegion, getTimezonesForCountry } from '../config/gameData.js';
+import { GAME_DATA, getRoleFromClass, getTimezoneRegions, getCountriesInRegion, getTimezonesForCountry, getGuilds } from '../config/gameData.js';
 import { queries } from '../database/queries.js';
 import googleSheets from '../services/googleSheets.js';
+import { verifyGuildRole, notifyModerators, getGuildVerificationWarning, areGuildsConfigured } from '../utils/guildVerification.js';
 
 // Smart timezone suggestions based on country
 const SMART_TIMEZONE_SUGGESTIONS = {
-  'United States': 'America/New_York',      // Eastern Time (40% of US population)
-  'Canada': 'America/Toronto',              // Eastern Time (most populous)
-  'Mexico': 'America/Mexico_City',          // Central Mexico (largest metro)
-  'United Kingdom': 'Europe/London',        // Only option
-  'Australia': 'Australia/Sydney',          // Most populous city
-  'Germany': 'Europe/Berlin',               // Only option
-  'France': 'Europe/Paris',                 // Only option
-  'Brazil': 'America/Sao_Paulo',            // Most populous
-  'Japan': 'Asia/Tokyo',                    // Only option
-  'China': 'Asia/Shanghai',                 // Most populous
-  'India': 'Asia/Kolkata',                  // Only option
-  'Russia': 'Europe/Moscow',                // Most populous
-  'South Korea': 'Asia/Seoul',              // Only option
-  'Spain': 'Europe/Madrid',                 // Most populous
-  'Italy': 'Europe/Rome',                   // Only option
-  'Netherlands': 'Europe/Amsterdam',        // Only option
-  'Poland': 'Europe/Warsaw',                // Only option
-  'Argentina': 'America/Argentina/Buenos_Aires', // Only option
-  'Colombia': 'America/Bogota',             // Only option
-  'Indonesia': 'Asia/Jakarta',              // Most populous (WIB)
-  'Turkey': 'Europe/Istanbul',              // Only option
+  'United States': 'America/New_York',
+  'Canada': 'America/Toronto',
+  'Mexico': 'America/Mexico_City',
+  'United Kingdom': 'Europe/London',
+  'Australia': 'Australia/Sydney',
+  'Germany': 'Europe/Berlin',
+  'France': 'Europe/Paris',
+  'Brazil': 'America/Sao_Paulo',
+  'Japan': 'Asia/Tokyo',
+  'China': 'Asia/Shanghai',
+  'India': 'Asia/Kolkata',
+  'Russia': 'Europe/Moscow',
+  'South Korea': 'Asia/Seoul',
+  'Spain': 'Europe/Madrid',
+  'Italy': 'Europe/Rome',
+  'Netherlands': 'Europe/Amsterdam',
+  'Poland': 'Europe/Warsaw',
+  'Argentina': 'America/Argentina/Buenos_Aires',
+  'Colombia': 'America/Bogota',
+  'Indonesia': 'Asia/Jakarta',
+  'Turkey': 'Europe/Istanbul',
 };
 
 export default {
@@ -144,13 +145,47 @@ export default {
 
       state.subclass = selectedSubclass;
 
+      // Check if guilds are configured
+      if (!areGuildsConfigured()) {
+        // Skip guild selection, go straight to timezone
+        const regions = getTimezoneRegions();
+        
+        const regionMenu = new StringSelectMenuBuilder()
+          .setCustomId('timezone_region_select')
+          .setPlaceholder('Select your region')
+          .addOptions(
+            regions.map(region => ({
+              label: region,
+              value: region
+            }))
+          );
+
+        const searchButton = new ButtonBuilder()
+          .setCustomId('timezone_search')
+          .setLabel('🔍 Search for Timezone')
+          .setStyle(ButtonStyle.Primary);
+
+        const row1 = new ActionRowBuilder().addComponents(regionMenu);
+        const row2 = new ActionRowBuilder().addComponents(searchButton);
+
+        await interaction.update({
+          content: `✅ Class: **${state.className}** (${state.role})\n✅ Subclass: **${selectedSubclass}**\n\nStep 3: Select your region or search for your timezone`,
+          components: [row1, row2]
+        });
+        
+        return;
+      }
+
+      // Show guild selection
+      const guilds = getGuilds();
+      
       const guildMenu = new StringSelectMenuBuilder()
         .setCustomId('guild_select')
         .setPlaceholder('Select your guild')
         .addOptions(
-          GAME_DATA.guilds[state.role].map(guild => ({
-            label: guild,
-            value: guild
+          guilds.map(guild => ({
+            label: guild.name,
+            value: guild.name
           }))
         );
 
@@ -634,9 +669,38 @@ export default {
         subclass: state.subclass,
         abilityScore,
         timezone: state.timezone,
-        guild: state.guild
+        guild: state.guild || null
       });
       console.log(`✅ [REGISTER-MODAL] Character saved to database`);
+
+      // Verify guild role if guilds are configured
+      let roleWarning = '';
+      if (areGuildsConfigured() && state.guild) {
+        console.log(`🔍 [REGISTER-MODAL] Verifying guild role...`);
+        try {
+          const member = await interaction.guild.members.fetch(interaction.user.id);
+          const verification = verifyGuildRole(member, state.guild);
+          
+          if (!verification.hasRole) {
+            console.log(`⚠️  [REGISTER-MODAL] User does not have required guild role`);
+            
+            // Notify moderators
+            await notifyModerators(
+              interaction.client,
+              member,
+              state.guild,
+              verification.guild.roleId,
+              ign
+            );
+            
+            roleWarning = `\n\n${getGuildVerificationWarning(state.guild)}`;
+          } else {
+            console.log(`✅ [REGISTER-MODAL] User has required guild role`);
+          }
+        } catch (verifyError) {
+          console.error('⚠️  [REGISTER-MODAL] Could not verify guild role:', verifyError.message);
+        }
+      }
 
       console.log(`🔍 [REGISTER-MODAL] Attempting to update nickname...`);
       try {
@@ -663,6 +727,9 @@ export default {
       interaction.client.registrationStates.delete(interaction.user.id);
 
       console.log(`🔍 [REGISTER-MODAL] Sending success reply...`);
+      
+      const guildText = state.guild ? `🏰 **Guild:** ${state.guild}\n` : '';
+      
       await interaction.editReply({
         content: `✅ **Registration Complete!**\n\n` +
           `👤 **Discord:** ${state.discordName}\n` +
@@ -671,9 +738,10 @@ export default {
           `🛡️ **Role:** ${state.role}\n` +
           `💪 **Ability Score:** ${abilityScore || 'Not provided'}\n` +
           `🌍 **Timezone:** ${state.timezone}\n` +
-          `🏰 **Guild:** ${state.guild}\n\n` +
-          `Your nickname has been updated to your IGN!\n` +
-          `Use \`/addalt\` to register alt characters.`
+          guildText +
+          `\nYour nickname has been updated to your IGN!\n` +
+          `Use \`/addalt\` to register alt characters.` +
+          roleWarning
       });
       console.log(`✅ [REGISTER-MODAL] Success reply sent!`);
 
