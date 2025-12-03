@@ -18,6 +18,8 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+console.log('🚀 Starting Guild Manager Bot...\n');
+
 // Create client
 const client = new Client({
   intents: [
@@ -33,25 +35,42 @@ client.commands = new Collection();
 const commands = [register, addalt, viewchar, update, sync];
 commands.forEach(command => {
   client.commands.set(command.data.name, command);
+  console.log(`📝 Loaded command: /${command.data.name}`);
 });
+
+console.log(`\n✅ Loaded ${commands.length} commands total\n`);
 
 // Ready event
 client.once(Events.ClientReady, async (c) => {
-  console.log(`✅ Logged in as ${c.user.tag}`);
+  console.log('═══════════════════════════════════════════════════');
+  console.log(`✅ Bot is online!`);
+  console.log(`👤 Logged in as: ${c.user.tag}`);
+  console.log(`🆔 Bot ID: ${c.user.id}`);
+  console.log(`🌐 Connected to ${c.guilds.cache.size} server(s)`);
+  console.log('═══════════════════════════════════════════════════\n');
   
   // Initialize database
+  console.log('🗄️  Initializing database...');
   try {
     await queries.initializeDatabase();
   } catch (error) {
-    console.error('Failed to initialize database:', error);
+    console.error('❌ Failed to initialize database:', error.message);
   }
 
   // Initialize Google Sheets
+  console.log('📊 Initializing Google Sheets...');
   try {
     await googleSheets.initialize();
   } catch (error) {
-    console.error('Failed to initialize Google Sheets:', error);
+    console.error('❌ Failed to initialize Google Sheets:', error.message);
   }
+
+  console.log('\n═══════════════════════════════════════════════════');
+  console.log('🎮 Bot is ready to accept commands!');
+  console.log('═══════════════════════════════════════════════════');
+  console.log('\n⚠️  IMPORTANT: If commands are not showing in Discord:');
+  console.log('   Run: npm run deploy');
+  console.log('   This registers the slash commands with Discord.\n');
 });
 
 // Command interaction handler
@@ -60,14 +79,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const command = client.commands.get(interaction.commandName);
 
     if (!command) {
-      console.error(`No command matching ${interaction.commandName} was found.`);
+      console.error(`❌ No command matching ${interaction.commandName} was found.`);
       return;
     }
 
+    console.log(`💬 ${interaction.user.tag} used /${interaction.commandName}`);
+
     try {
       await command.execute(interaction);
+      console.log(`✅ Command /${interaction.commandName} executed successfully`);
     } catch (error) {
-      console.error('Error executing command:', error);
+      console.error(`❌ Error executing /${interaction.commandName}:`, error);
       
       const errorMessage = { 
         content: '❌ There was an error executing this command!', 
@@ -84,6 +106,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   // Handle select menu interactions
   if (interaction.isStringSelectMenu()) {
+    console.log(`🔽 ${interaction.user.tag} selected: ${interaction.customId}`);
+    
     try {
       // Register command select menus
       if (interaction.customId === 'class_select') {
@@ -113,8 +137,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } else if (interaction.customId === 'update_timezone_select') {
         await update.handleUpdateTimezoneSelect(interaction);
       }
+      
+      console.log(`✅ Select menu handled: ${interaction.customId}`);
     } catch (error) {
-      console.error('Error handling select menu:', error);
+      console.error(`❌ Error handling select menu ${interaction.customId}:`, error);
       
       const errorMessage = { 
         content: '❌ An error occurred!', 
@@ -131,6 +157,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   // Handle modal submissions
   if (interaction.isModalSubmit()) {
+    console.log(`📝 ${interaction.user.tag} submitted modal: ${interaction.customId}`);
+    
     try {
       if (interaction.customId === 'register_modal') {
         await register.handleModalSubmit(interaction);
@@ -139,8 +167,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } else if (interaction.customId === 'update_ability_score_modal') {
         await update.handleAbilityScoreModalSubmit(interaction);
       }
+      
+      console.log(`✅ Modal handled: ${interaction.customId}`);
     } catch (error) {
-      console.error('Error handling modal submission:', error);
+      console.error(`❌ Error handling modal ${interaction.customId}:`, error);
       
       const errorMessage = { 
         content: '❌ An error occurred!', 
@@ -158,8 +188,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 // Error handling
 process.on('unhandledRejection', error => {
-  console.error('Unhandled promise rejection:', error);
+  console.error('❌ Unhandled promise rejection:', error);
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\n\n🛑 Shutting down bot...');
+  client.destroy();
+  process.exit(0);
 });
 
 // Login
+console.log('🔐 Logging in to Discord...\n');
 client.login(process.env.DISCORD_TOKEN);
