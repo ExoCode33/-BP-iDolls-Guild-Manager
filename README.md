@@ -1,294 +1,98 @@
-# Guild Manager Discord Bot
+# Setup Guide
 
-A comprehensive Discord bot for managing guild member characters with PostgreSQL database and Google Sheets integration. Built for Railway deployment with modern slash commands.
+## Files to Copy:
 
-## Features
+1. `gameData.js` → Replace `src/config/gameData.js`
+2. `guildVerification.js` → Create `src/utils/guildVerification.js` (new file)
+3. `googleSheets.js` → Replace `src/services/googleSheets.js`
+4. `register.js` → Replace `src/commands/register.js`
+5. `update.js` → Replace `src/commands/update.js`
+6. `index.js` → Replace `src/index.js`
 
-- ✅ **Character Registration** - Register main characters with full details
-- ✅ **Alt Character Support** - Add unlimited alt characters
-- ✅ **Automatic Role Detection** - Roles automatically assigned based on class/subclass
-- ✅ **Nickname Management** - Automatically updates Discord nicknames to IGN
-- ✅ **PostgreSQL Database** - Persistent data storage
-- ✅ **Google Sheets Integration** - Real-time sync with spreadsheets
-- ✅ **Dropdown Menus** - User-friendly selection for classes, subclasses, guilds, and timezones
-- ✅ **Update Commands** - Easily update character information
-- ✅ **Well-Organized Structure** - Easy to extend and maintain
-
-## Project Structure
+## Environment Variables (Railway):
 
 ```
-guild-manager-bot/
-├── src/
-│   ├── commands/           # Slash commands
-│   │   ├── register.js     # Main character registration
-│   │   ├── addalt.js       # Alt character registration
-│   │   ├── viewchar.js     # View characters
-│   │   ├── update.js       # Update character info
-│   │   └── sync.js         # Manual Google Sheets sync
-│   ├── config/
-│   │   └── gameData.js     # Game classes, roles, and configuration
-│   ├── database/
-│   │   ├── db.js           # Database connection
-│   │   └── queries.js      # Database queries
-│   ├── services/
-│   │   └── googleSheets.js # Google Sheets integration
-│   ├── index.js            # Main bot file
-│   └── deploy-commands.js  # Command deployment script
-├── database/
-│   └── schema.sql          # Database schema
-├── package.json
-├── .env.example
-└── README.md
-```
+GUILD_1_NAME=Your Guild Name
+GUILD_1_ROLE_ID=123456789012345678
+GUILD_2_NAME=Another Guild
+GUILD_2_ROLE_ID=234567890123456789
+GUILD_3_NAME=
+GUILD_3_ROLE_ID=
+GUILD_4_NAME=
+GUILD_4_ROLE_ID=
+GUILD_5_NAME=
+GUILD_5_ROLE_ID=
 
-## Setup Instructions
+VISITOR_ROLE_ID=987654321098765432
 
-### 1. Discord Bot Setup
+MODERATOR_ROLE_ID=111111111111111111
+MODERATOR_NOTIFICATION_CHANNEL_ID=222222222222222222
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click "New Application" and give it a name
-3. Go to the "Bot" section:
-   - Click "Add Bot"
-   - Enable "SERVER MEMBERS INTENT" under Privileged Gateway Intents
-   - Copy the bot token (you'll need this for `.env`)
-4. Go to "OAuth2" > "General":
-   - Copy the "CLIENT ID" (you'll need this for `.env`)
-5. Go to "OAuth2" > "URL Generator":
-   - Select scopes: `bot`, `applications.commands`
-   - Select bot permissions: `Manage Nicknames`, `Send Messages`, `Use Slash Commands`
-   - Copy the generated URL and use it to invite the bot to your server
-
-### 2. PostgreSQL Database Setup
-
-#### For Railway:
-1. Go to your Railway project
-2. Click "New" > "Database" > "PostgreSQL"
-3. Once created, go to the PostgreSQL service
-4. Copy the "DATABASE_URL" from the "Connect" tab
-
-#### For Local Development:
-```bash
-# Install PostgreSQL locally
-# Create a database
-createdb guild_manager
-
-# Your DATABASE_URL will be:
-# postgresql://username:password@localhost:5432/guild_manager
-```
-
-### 3. Google Sheets Setup
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the Google Sheets API:
-   - Go to "APIs & Services" > "Library"
-   - Search for "Google Sheets API"
-   - Click "Enable"
-4. Create a service account:
-   - Go to "APIs & Services" > "Credentials"
-   - Click "Create Credentials" > "Service Account"
-   - Fill in the details and click "Create"
-   - Skip granting roles and click "Done"
-5. Create a key for the service account:
-   - Click on the service account you just created
-   - Go to "Keys" tab
-   - Click "Add Key" > "Create New Key"
-   - Choose "JSON" and click "Create"
-   - Save the downloaded JSON file securely
-6. From the JSON file, you'll need:
-   - `client_email` → This is your `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-   - `private_key` → This is your `GOOGLE_PRIVATE_KEY`
-7. Create a Google Sheet:
-   - Go to [Google Sheets](https://sheets.google.com/)
-   - Create a new spreadsheet
-   - Create two sheets named: "Main Characters" and "Alt Characters"
-   - Share the spreadsheet with your service account email (the `client_email` from the JSON)
-   - Give it "Editor" access
-   - Copy the spreadsheet ID from the URL (it's the long string between `/d/` and `/edit`)
-
-### 4. Environment Variables
-
-Create a `.env` file in the root directory:
-
-```env
-# Discord Configuration
-DISCORD_TOKEN=your_bot_token_here
-CLIENT_ID=your_client_id_here
-GUILD_ID=your_guild_id_here  # Optional: for faster command deployment during development
-
-# PostgreSQL Configuration
-DATABASE_URL=postgresql://username:password@host:port/database
-
-# Google Sheets Configuration
-GOOGLE_SHEETS_ID=your_spreadsheet_id_here
+GOOGLE_SHEETS_ID=1wgEO_nzTSxWrK1sRq_rBHzVbfvZf6dLyoCWGMOyW74M
 GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@project.iam.gserviceaccount.com
-GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYour\nPrivate\nKey\nHere\n-----END PRIVATE KEY-----\n"
+GOOGLE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n
 ```
 
-**Important Notes:**
-- For `GUILD_ID`: Right-click your Discord server icon > "Copy Server ID" (you need Developer Mode enabled in Discord settings)
-- For `GOOGLE_PRIVATE_KEY`: Keep the quotes and the `\n` characters - they're important!
-
-### 5. Installation
+## Deploy:
 
 ```bash
-# Install dependencies
-npm install
-
-# Deploy slash commands to Discord
 npm run deploy
-
-# Start the bot
 npm start
 ```
 
-### 6. Railway Deployment
+## Features:
 
-1. Install Railway CLI: `npm install -g @railway/cli`
-2. Login: `railway login`
-3. Initialize project: `railway init`
-4. Add environment variables in Railway dashboard
-5. Deploy: `railway up`
+✨ **NEW - Automatic Sync:**
+- Google Sheets syncs **every 1 minute** automatically
+- Also syncs **immediately** after any register/update command
+- Beautiful formatting with colors, borders, and frozen headers
 
-Or use Railway's GitHub integration:
-1. Push your code to GitHub
-2. Connect your Railway project to your GitHub repo
-3. Add environment variables in Railway dashboard
-4. Railway will automatically deploy
+✨ **Detailed Logging:**
+- See every sync in your Railway logs
+- Timestamps for every action
+- Easy to track what's happening
 
-## Database Schema
+## Commands:
 
-### Characters Table
-- `discord_id` - User's Discord ID
-- `discord_name` - User's Discord username
-- `ign` - In-game name
-- `role` - Character role (Tank/DPS/Support)
-- `class` - Character class
-- `subclass` - Character subclass
-- `ability_score` - Total combat power/gear score
-- `timezone` - User's timezone
-- `guild` - User's guild (Guild 1, 2, or 3)
-- `is_main` - Whether this is the main character
+- `/register` - Register main character
+- `/addalt` - Add alt character
+- `/viewchar` - View characters
+- `/update` - Update character info
+- `/sync` - Manual sync to Google Sheets (Admin)
 
-### Alt Characters Table
-- `discord_id` - User's Discord ID
-- `main_character_id` - Reference to main character
-- `ign` - Alt character's in-game name
-- `role` - Character role
-- `class` - Character class
-- `subclass` - Character subclass
+## Google Sheets Format:
 
-## Available Commands
+Your sheets will automatically have:
+- 🔵 Blue header bar with white text
+- 📌 Frozen header (stays at top when scrolling)
+- 🦓 Zebra striping (alternating row colors)
+- 📏 Auto-sized columns
+- 📅 Formatted dates (Dec 3, 2025)
+- 🔲 Clean borders
 
-### `/register`
-Register your main character. Walks you through:
-1. Class selection
-2. Subclass selection
-3. Guild selection
-4. Timezone selection
-5. IGN and ability score input
+## Logs You'll See:
 
-### `/addalt`
-Add an alt character. Asks for:
-1. Class
-2. Subclass
-3. IGN
-
-### `/viewchar [user]`
-View your own or another user's registered characters
-
-### `/update <field>`
-Update your main character information:
-- `class` - Change class and subclass
-- `ability_score` - Update your ability score
-- `guild` - Change your guild
-- `timezone` - Update your timezone
-
-### `/sync` (Admin only)
-Manually sync all data to Google Sheets
-
-## Game Data Configuration
-
-The bot supports the following classes and subclasses:
-
-- **Beat Performer** (Support)
-  - Dissonance
-  - Concerto
-- **Frost Mage** (DPS)
-  - Icicle
-  - Frostbeam
-- **Heavy Guardian** (Tank)
-  - Earthfort
-  - Block
-- **Marksman** (DPS)
-  - Wildpack
-  - Falconry
-- **Shield Knight** (Tank)
-  - Recovery
-  - Shield
-- **Stormblade** (DPS)
-  - Iaido
-  - Moonstrike
-- **Verdant Oracle** (Support)
-  - Smite
-  - Lifebind
-- **Wind Knight** (DPS)
-  - Vanguard
-  - Skyward
-
-## Extending the Bot
-
-### Adding New Classes/Subclasses
-
-Edit `src/config/gameData.js`:
-
-```javascript
-'New Class Name': {
-  subclasses: ['Subclass1', 'Subclass2'],
-  role: 'DPS' // or 'Tank', 'Support'
-}
+```
+⏰ [AUTO-SYNC] Starting automatic sync...
+🔄 [SHEETS] ========== FULL SYNC STARTED (Dec 3, 03:30:15 PM) ==========
+📊 [SHEETS] Starting sync for 25 main characters...
+📊 [SHEETS] Clearing Main Characters sheet...
+📊 [SHEETS] Writing 25 rows to Main Characters...
+📊 [SHEETS] Applying formatting to Main Characters...
+✅ [SHEETS] Main Characters synced successfully! (25 characters)
+📊 [SHEETS] Starting sync for 10 alt characters...
+📊 [SHEETS] Clearing Alt Characters sheet...
+📊 [SHEETS] Writing 10 rows to Alt Characters...
+📊 [SHEETS] Applying formatting to Alt Characters...
+✅ [SHEETS] Alt Characters synced successfully! (10 alts)
+✅ [SHEETS] ========== FULL SYNC COMPLETE (Dec 3, 03:30:15 PM) ==========
 ```
 
-### Adding New Commands
+## How It Works:
 
-1. Create a new file in `src/commands/`
-2. Follow the structure of existing commands
-3. Import and add to the commands array in `src/index.js`
-4. Run `npm run deploy` to register the new command
+1. **On Bot Start:** Initial sync happens immediately
+2. **Every Minute:** Automatic sync keeps sheet updated
+3. **After Commands:** Instant sync when someone registers/updates
+4. **Manual Trigger:** Admins can run `/sync` anytime
 
-### Adding More Guilds
-
-Edit `src/config/gameData.js`:
-
-```javascript
-guilds: ['Guild 1', 'Guild 2', 'Guild 3', 'Guild 4']
-```
-
-## Troubleshooting
-
-### Commands not showing up
-- Make sure you ran `npm run deploy`
-- If using `GUILD_ID`, commands update instantly
-- Global commands can take up to 1 hour to propagate
-
-### Bot can't change nicknames
-- Check bot role position in server settings (must be above member roles)
-- Verify "Manage Nicknames" permission is enabled
-
-### Database connection errors
-- Verify your `DATABASE_URL` is correct
-- For Railway, make sure the database is in the same project
-- Check Railway logs for detailed error messages
-
-### Google Sheets not syncing
-- Verify the service account email has Editor access to the sheet
-- Check that sheet names are exactly "Main Characters" and "Alt Characters"
-- Ensure the private key in `.env` has proper formatting with `\n`
-
-## License
-
-MIT
-
-## Support
-
-For issues or questions, please open an issue on the GitHub repository.
+Your Google Sheet stays perfectly up-to-date without any manual work!
