@@ -235,9 +235,9 @@ class GoogleSheetsService {
         char.guild || '',
         char.timezone || '',
         new Date(char.created_at).toLocaleDateString('en-US', { 
-          year: 'numeric', 
           month: 'short', 
-          day: 'numeric' 
+          day: 'numeric',
+          year: 'numeric'
         })
       ]);
 
@@ -253,7 +253,7 @@ class GoogleSheetsService {
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
         range: 'Main Characters!A1',
-        valueInputOption: 'RAW',
+        valueInputOption: 'USER_ENTERED',
         resource: {
           values: [headers, ...rows],
         },
@@ -264,6 +264,7 @@ class GoogleSheetsService {
       await this.formatColorfulSheet('Main Characters', headers.length, rows.length);
 
       // Apply class and ability score colors
+      console.log(`📊 [SHEETS] Applying class and ability score colors...`);
       await this.applyDataColors('Main Characters', characters);
 
       console.log(`✅ [SHEETS] Main Characters synced successfully! (${characters.length} characters)`);
@@ -273,7 +274,7 @@ class GoogleSheetsService {
   }
 
   async applyDataColors(sheetName, characters) {
-    if (!this.sheets) return;
+    if (!this.sheets || characters.length === 0) return;
 
     try {
       const spreadsheet = await this.sheets.spreadsheets.get({
@@ -281,17 +282,20 @@ class GoogleSheetsService {
       });
 
       const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
-      if (!sheet) return;
+      if (!sheet) {
+        console.error(`Sheet "${sheetName}" not found`);
+        return;
+      }
 
       const sheetId = sheet.properties.sheetId;
-
       const requests = [];
 
-      // Color code columns
-      characters.forEach((char, index) => {
+      // Color code columns for each character
+      for (let i = 0; i < characters.length; i++) {
+        const char = characters[i];
         const classColor = this.getClassColor(char.class);
         const abilityColor = this.getAbilityScoreColor(char.ability_score);
-        const rowIndex = index + 1; // +1 because row 0 is header
+        const rowIndex = i + 1; // +1 because row 0 is header
 
         // Color Main Class column (column C, index 2)
         requests.push({
@@ -300,7 +304,7 @@ class GoogleSheetsService {
               sheetId: sheetId,
               startRowIndex: rowIndex,
               endRowIndex: rowIndex + 1,
-              startColumnIndex: 2, // Main Class column
+              startColumnIndex: 2,
               endColumnIndex: 3
             },
             cell: {
@@ -309,45 +313,51 @@ class GoogleSheetsService {
                 textFormat: {
                   bold: true,
                   foregroundColor: { red: 0, green: 0, blue: 0 }
-                }
+                },
+                horizontalAlignment: 'CENTER'
               }
             },
-            fields: 'userEnteredFormat(backgroundColor,textFormat)'
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
           }
         });
 
         // Color Ability Score column (column F, index 5)
-        requests.push({
-          repeatCell: {
-            range: {
-              sheetId: sheetId,
-              startRowIndex: rowIndex,
-              endRowIndex: rowIndex + 1,
-              startColumnIndex: 5, // Ability Score column
-              endColumnIndex: 6
-            },
-            cell: {
-              userEnteredFormat: {
-                backgroundColor: abilityColor,
-                textFormat: {
-                  bold: true,
-                  foregroundColor: { red: 0, green: 0, blue: 0 }
+        if (char.ability_score) {
+          requests.push({
+            repeatCell: {
+              range: {
+                sheetId: sheetId,
+                startRowIndex: rowIndex,
+                endRowIndex: rowIndex + 1,
+                startColumnIndex: 5,
+                endColumnIndex: 6
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: abilityColor,
+                  textFormat: {
+                    bold: true,
+                    foregroundColor: { red: 0, green: 0, blue: 0 }
+                  },
+                  horizontalAlignment: 'CENTER'
                 }
-              }
-            },
-            fields: 'userEnteredFormat(backgroundColor,textFormat)'
-          }
-        });
-      });
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+            }
+          });
+        }
+      }
 
       if (requests.length > 0) {
+        console.log(`📊 [SHEETS] Applying ${requests.length} color formats...`);
         await this.sheets.spreadsheets.batchUpdate({
           spreadsheetId: this.spreadsheetId,
           requestBody: { requests }
         });
+        console.log(`✅ [SHEETS] Colors applied successfully`);
       }
     } catch (error) {
-      console.error('Error applying data colors:', error.message);
+      console.error('❌ [SHEETS] Error applying data colors:', error.message);
     }
   }
 
