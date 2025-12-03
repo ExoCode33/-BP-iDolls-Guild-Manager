@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder } from 'discord.js';
-import { GAME_DATA, getRoleFromClass } from '../config/gameData.js';
+import { GAME_DATA, getRoleFromClass, getTimezoneCountries, getTimezonesForCountry, getGuildsForRole } from '../config/gameData.js';
 import { queries } from '../database/queries.js';
 import googleSheets from '../services/googleSheets.js';
 
@@ -114,11 +114,14 @@ export default {
   },
 
   async handleGuildUpdate(interaction) {
+    const state = interaction.client.updateStates.get(interaction.user.id);
+    const role = state.currentValue.role;
+    
     const guildMenu = new StringSelectMenuBuilder()
       .setCustomId('update_guild_select')
       .setPlaceholder('Select your new guild')
       .addOptions(
-        GAME_DATA.guilds.map(guild => ({
+        getGuildsForRole(role).map(guild => ({
           label: guild,
           value: guild
         }))
@@ -134,20 +137,22 @@ export default {
   },
 
   async handleTimezoneUpdate(interaction) {
-    const timezoneMenu = new StringSelectMenuBuilder()
-      .setCustomId('update_timezone_select')
-      .setPlaceholder('Select your new timezone')
+    const countries = getTimezoneCountries();
+    
+    const countryMenu = new StringSelectMenuBuilder()
+      .setCustomId('update_timezone_country_select')
+      .setPlaceholder('Select your country/region')
       .addOptions(
-        GAME_DATA.timezones.map(tz => ({
-          label: tz,
-          value: tz
+        countries.slice(0, 25).map(country => ({
+          label: country,
+          value: country
         }))
       );
 
-    const row = new ActionRowBuilder().addComponents(timezoneMenu);
+    const row = new ActionRowBuilder().addComponents(countryMenu);
 
     await interaction.reply({
-      content: '🔄 **Updating Timezone**\n\nSelect your new timezone:',
+      content: '🔄 **Updating Timezone**\n\nStep 1: Select your country/region:',
       components: [row],
       ephemeral: true
     });
@@ -206,11 +211,76 @@ export default {
         });
       }
 
-      // Update character in database
+      state.newSubclass = selectedSubclass;
+
+      // Check if role changed - if so, need to select new guild
+      if (state.newRole !== state.currentValue.role) {
+        const guildMenu = new StringSelectMenuBuilder()
+          .setCustomId('update_guild_after_class_select')
+          .setPlaceholder('Select your new guild (role changed)')
+          .addOptions(
+            getGuildsForRole(state.newRole).map(guild => ({
+              label: guild,
+              value: guild
+            }))
+          );
+
+        const row = new ActionRowBuilder().addComponents(guildMenu);
+
+        await interaction.update({
+          content: `✅ New Class: **${state.newClass}** (${selectedSubclass})\n` +
+            `⚠️ Your role changed from **${state.currentValue.role}** to **${state.newRole}**\n\n` +
+            `Please select a new guild for your role:`,
+          components: [row]
+        });
+      } else {
+        // Role didn't change, just update
+        await queries.updateCharacter(state.discordId, state.mainCharIGN, {
+          class: state.newClass,
+          subclass: selectedSubclass,
+          role: state.newRole
+        });
+
+        // Sync to Google Sheets (background)
+        syncInBackground();
+
+        interaction.client.updateStates.delete(interaction.user.id);
+
+        await interaction.update({
+          content: `✅ **Character Updated!**\n\n` +
+            `⚔️ **New Class:** ${state.newClass} (${selectedSubclass})\n` +
+            `🛡️ **Role:** ${state.newRole}`,
+          components: []
+        });
+      }
+
+    } catch (error) {
+      console.error('Error handling update subclass selection:', error);
+      await interaction.update({
+        content: '❌ An error occurred while updating. Please try again.',
+        components: []
+      });
+    }
+  },
+
+  async handleUpdateGuildAfterClassSelect(interaction) {
+    try {
+      const selectedGuild = interaction.values[0];
+      const state = interaction.client.updateStates.get(interaction.user.id);
+      
+      if (!state) {
+        return interaction.update({
+          content: '❌ Update session expired. Please use `/update` again.',
+          components: []
+        });
+      }
+
+      // Update with new class, subclass, role, and guild
       await queries.updateCharacter(state.discordId, state.mainCharIGN, {
         class: state.newClass,
-        subclass: selectedSubclass,
-        role: state.newRole
+        subclass: state.newSubclass,
+        role: state.newRole,
+        guild: selectedGuild
       });
 
       // Sync to Google Sheets (background)
@@ -220,13 +290,14 @@ export default {
 
       await interaction.update({
         content: `✅ **Character Updated!**\n\n` +
-          `⚔️ **New Class:** ${state.newClass} (${selectedSubclass})\n` +
-          `🛡️ **New Role:** ${state.newRole}`,
+          `⚔️ **New Class:** ${state.newClass} (${state.newSubclass})\n` +
+          `🛡️ **New Role:** ${state.newRole}\n` +
+          `🏰 **New Guild:** ${selectedGuild}`,
         components: []
       });
 
     } catch (error) {
-      console.error('Error handling update subclass selection:', error);
+      console.error('Error handling guild update after class change:', error);
       await interaction.update({
         content: '❌ An error occurred while updating. Please try again.',
         components: []
@@ -264,6 +335,50 @@ export default {
       console.error('Error handling guild update:', error);
       await interaction.update({
         content: '❌ An error occurred while updating. Please try again.',
+        components: []
+      });
+    }
+  },
+
+  async handleUpdateTimezoneCountrySelect(interaction) {
+    try {
+      const selectedCountry = interaction.values[0];
+      const state = interaction.client.updateStates.get(interaction.user.id);
+      
+      if (!state) {
+        return interaction.update({
+          content: '❌ Update session expired. Please use `/update` again.',
+          components: []
+        });
+      }
+
+      state.timezoneCountry = selectedCountry;
+      
+      // Get timezones for selected country
+      const timezones = getTimezonesForCountry(selectedCountry);
+      
+      const timezoneMenu = new StringSelectMenuBuilder()
+        .setCustomId('update_timezone_select')
+        .setPlaceholder('Select your timezone/city')
+        .addOptions(
+          timezones.map(tz => ({
+            label: tz.label,
+            description: tz.utc,
+            value: tz.value
+          }))
+        );
+
+      const row = new ActionRowBuilder().addComponents(timezoneMenu);
+
+      await interaction.update({
+        content: `🔄 **Updating Timezone**\n\n✅ Country: **${selectedCountry}**\n\nStep 2: Select your specific timezone/city:`,
+        components: [row]
+      });
+
+    } catch (error) {
+      console.error('Error handling timezone country update:', error);
+      await interaction.update({
+        content: '❌ An error occurred. Please try again.',
         components: []
       });
     }
