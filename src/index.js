@@ -135,6 +135,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await update.handleUpdateSubclassSelect(interaction);
       } else if (interaction.customId === 'update_guild_select') {
         await update.handleUpdateGuildSelect(interaction);
+      } else if (interaction.customId === 'update_guild_after_class_select') {
+        await update.handleUpdateGuildAfterClassSelect(interaction);
       } else if (interaction.customId === 'update_timezone_select') {
         await update.handleUpdateTimezoneSelect(interaction);
       }
