@@ -199,6 +199,8 @@ class GoogleSheetsService {
     }
 
     try {
+      console.log(`📊 [SHEETS] Starting sync for ${characters.length} main characters...`);
+      
       // Prepare headers
       const headers = [
         'Discord Name',
@@ -229,12 +231,14 @@ class GoogleSheetsService {
         })
       ]);
 
+      console.log(`📊 [SHEETS] Clearing Main Characters sheet...`);
       // Clear and update the sheet
       await this.sheets.spreadsheets.values.clear({
         spreadsheetId: this.spreadsheetId,
         range: 'Main Characters!A:I',
       });
 
+      console.log(`📊 [SHEETS] Writing ${rows.length} rows to Main Characters...`);
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
         range: 'Main Characters!A1',
@@ -244,12 +248,13 @@ class GoogleSheetsService {
         },
       });
 
+      console.log(`📊 [SHEETS] Applying formatting to Main Characters...`);
       // Apply formatting
       await this.formatSheet('Main Characters', headers.length);
 
-      console.log(`✅ Synced ${characters.length} main characters to Google Sheets (formatted)`);
+      console.log(`✅ [SHEETS] Main Characters synced successfully! (${characters.length} characters)`);
     } catch (error) {
-      console.error('❌ Error syncing main characters to Google Sheets:', error);
+      console.error('❌ [SHEETS] Error syncing main characters:', error.message);
     }
   }
 
@@ -259,6 +264,8 @@ class GoogleSheetsService {
     }
 
     try {
+      console.log(`📊 [SHEETS] Starting sync for ${alts.length} alt characters...`);
+      
       // Prepare headers
       const headers = [
         'Discord Name',
@@ -283,12 +290,14 @@ class GoogleSheetsService {
         })
       ]);
 
+      console.log(`📊 [SHEETS] Clearing Alt Characters sheet...`);
       // Clear and update the sheet
       await this.sheets.spreadsheets.values.clear({
         spreadsheetId: this.spreadsheetId,
         range: 'Alt Characters!A:F',
       });
 
+      console.log(`📊 [SHEETS] Writing ${rows.length} rows to Alt Characters...`);
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
         range: 'Alt Characters!A1',
@@ -298,18 +307,30 @@ class GoogleSheetsService {
         },
       });
 
+      console.log(`📊 [SHEETS] Applying formatting to Alt Characters...`);
       // Apply formatting
       await this.formatSheet('Alt Characters', headers.length);
 
-      console.log(`✅ Synced ${alts.length} alt characters to Google Sheets (formatted)`);
+      console.log(`✅ [SHEETS] Alt Characters synced successfully! (${alts.length} alts)`);
     } catch (error) {
-      console.error('❌ Error syncing alt characters to Google Sheets:', error);
+      console.error('❌ [SHEETS] Error syncing alt characters:', error.message);
     }
   }
 
   async fullSync(mainCharacters, altCharacters) {
+    const timestamp = new Date().toLocaleString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+    });
+    console.log(`\n🔄 [SHEETS] ========== FULL SYNC STARTED (${timestamp}) ==========`);
+    
     await this.syncMainCharacters(mainCharacters);
     await this.syncAltCharacters(altCharacters);
+    
+    console.log(`✅ [SHEETS] ========== FULL SYNC COMPLETE (${timestamp}) ==========\n`);
   }
 }
 
