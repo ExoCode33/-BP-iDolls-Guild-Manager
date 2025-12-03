@@ -203,7 +203,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
             components: [row]
           });
         }
-      }
       } else if (interaction.customId === 'timezone_back_to_country') {
         const state = client.registrationStates?.get(interaction.user.id);
         if (state) {
