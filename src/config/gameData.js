@@ -1,3 +1,26 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Load guilds dynamically from environment variables
+function loadGuildsFromEnv() {
+  const guilds = [];
+  
+  for (let i = 1; i <= 5; i++) {
+    const guildName = process.env[`GUILD_${i}_NAME`];
+    const guildRoleId = process.env[`GUILD_${i}_ROLE_ID`];
+    
+    // Only add guild if both name and role ID are provided
+    if (guildName && guildName.trim() !== '' && guildRoleId && guildRoleId.trim() !== '') {
+      guilds.push({
+        name: guildName.trim(),
+        roleId: guildRoleId.trim()
+      });
+    }
+  }
+  
+  return guilds;
+}
+
 // Game data configuration
 export const GAME_DATA = {
   classes: {
@@ -35,12 +58,8 @@ export const GAME_DATA = {
     }
   },
   
-  // Role-based guilds
-  guilds: {
-    Tank: ['Tank Guild 1', 'Tank Guild 2', 'Tank Guild 3'],
-    DPS: ['DPS Guild 1', 'DPS Guild 2', 'DPS Guild 3'],
-    Support: ['Support Guild 1', 'Support Guild 2', 'Support Guild 3']
-  },
+  // Load guilds from environment variables
+  guilds: loadGuildsFromEnv(),
   
   // Comprehensive timezone data organized by country/region
   timezonesByCountry: {
@@ -362,9 +381,19 @@ export function getSubclassesForClass(className) {
   return GAME_DATA.classes[className]?.subclasses || [];
 }
 
-// Helper function to get guilds for a role
-export function getGuildsForRole(role) {
-  return GAME_DATA.guilds[role] || [];
+// Helper function to get all guilds
+export function getGuilds() {
+  return GAME_DATA.guilds;
+}
+
+// Helper function to get guild by name
+export function getGuildByName(guildName) {
+  return GAME_DATA.guilds.find(g => g.name === guildName);
+}
+
+// Helper function to get guild by role ID
+export function getGuildByRoleId(roleId) {
+  return GAME_DATA.guilds.find(g => g.roleId === roleId);
 }
 
 // Helper function to validate class and subclass combination
