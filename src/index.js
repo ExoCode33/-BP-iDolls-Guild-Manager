@@ -1,8 +1,7 @@
 import { Client, Collection, Events, GatewayIntentBits } from 'discord.js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { readdirSync } from 'fs';
+import { dirname } from 'path';
 import { queries } from './database/queries.js';
 import googleSheets from './services/googleSheets.js';
 
@@ -117,8 +116,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await register.handleSubclassSelect(interaction);
       } else if (interaction.customId === 'guild_select') {
         await register.handleGuildSelect(interaction);
+      } else if (interaction.customId === 'timezone_region_select') {
+        await register.handleTimezoneRegionSelect(interaction);
+      } else if (interaction.customId === 'timezone_country_select') {
+        await register.handleTimezoneCountrySelect(interaction);
       } else if (interaction.customId === 'timezone_select') {
         await register.handleTimezoneSelect(interaction);
+      } else if (interaction.customId === 'timezone_search_result_select') {
+        await register.handleTimezoneSearchResultSelect(interaction);
       }
       
       // Addalt command select menus
@@ -137,13 +142,79 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await update.handleUpdateGuildSelect(interaction);
       } else if (interaction.customId === 'update_guild_after_class_select') {
         await update.handleUpdateGuildAfterClassSelect(interaction);
+      } else if (interaction.customId === 'update_timezone_region_select') {
+        await update.handleUpdateTimezoneRegionSelect(interaction);
+      } else if (interaction.customId === 'update_timezone_country_select') {
+        await update.handleUpdateTimezoneCountrySelect(interaction);
       } else if (interaction.customId === 'update_timezone_select') {
         await update.handleUpdateTimezoneSelect(interaction);
+      } else if (interaction.customId === 'update_timezone_search_result_select') {
+        await update.handleUpdateTimezoneSearchResultSelect(interaction);
       }
       
       console.log(`✅ Select menu handled: ${interaction.customId}`);
     } catch (error) {
       console.error(`❌ Error handling select menu ${interaction.customId}:`, error);
+      
+      const errorMessage = { 
+        content: '❌ An error occurred!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    }
+  }
+
+  // Handle button interactions
+  if (interaction.isButton()) {
+    console.log(`🔘 ${interaction.user.tag} clicked button: ${interaction.customId}`);
+    
+    try {
+      // Register timezone buttons
+      if (interaction.customId === 'timezone_search') {
+        await register.handleTimezoneSearch(interaction);
+      } else if (interaction.customId === 'accept_suggested_timezone') {
+        await register.handleAcceptSuggestedTimezone(interaction);
+      } else if (interaction.customId === 'choose_different_timezone') {
+        await register.handleChooseDifferentTimezone(interaction);
+      } else if (interaction.customId === 'timezone_back_to_region') {
+        await register.handleGuildSelect(interaction);
+      } else if (interaction.customId === 'timezone_back_to_country') {
+        const state = client.registrationStates?.get(interaction.user.id);
+        if (state) {
+          await register.handleTimezoneRegionSelect({
+            ...interaction,
+            values: [state.timezoneRegion]
+          });
+        }
+      } else if (interaction.customId === 'timezone_back_to_suggestion') {
+        const state = client.registrationStates?.get(interaction.user.id);
+        if (state) {
+          await register.handleTimezoneCountrySelect({
+            ...interaction,
+            values: [state.timezoneCountry]
+          });
+        }
+      } else if (interaction.customId === 'timezone_search_back') {
+        await register.handleTimezoneSearch(interaction);
+      }
+      
+      // Update timezone buttons
+      else if (interaction.customId === 'update_timezone_search') {
+        await update.handleUpdateTimezoneSearch(interaction);
+      } else if (interaction.customId === 'update_accept_suggested_timezone') {
+        await update.handleUpdateAcceptSuggestedTimezone(interaction);
+      } else if (interaction.customId === 'update_choose_different_timezone') {
+        await update.handleUpdateChooseDifferentTimezone(interaction);
+      }
+      
+      console.log(`✅ Button handled: ${interaction.customId}`);
+    } catch (error) {
+      console.error(`❌ Error handling button ${interaction.customId}:`, error);
       
       const errorMessage = { 
         content: '❌ An error occurred!', 
@@ -169,6 +240,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await addalt.handleAltModalSubmit(interaction);
       } else if (interaction.customId === 'update_ability_score_modal') {
         await update.handleAbilityScoreModalSubmit(interaction);
+      } else if (interaction.customId === 'timezone_search_modal') {
+        await register.handleTimezoneSearchSubmit(interaction);
+      } else if (interaction.customId === 'update_timezone_search_modal') {
+        await update.handleUpdateTimezoneSearchSubmit(interaction);
       }
       
       console.log(`✅ Modal handled: ${interaction.customId}`);
