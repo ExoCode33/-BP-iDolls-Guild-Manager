@@ -146,8 +146,8 @@ class GoogleSheetsService {
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
                 padding: {
-                  top: 14,
-                  bottom: 14,
+                  top: 12,
+                  bottom: 12,
                   left: 12,
                   right: 12
                 }
@@ -171,7 +171,7 @@ class GoogleSheetsService {
                   fontSize: 10,
                   fontFamily: 'Google Sans'
                 },
-                horizontalAlignment: 'LEFT',
+                horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
                 padding: {
                   top: 10,
@@ -454,7 +454,7 @@ class GoogleSheetsService {
                 textFormat: {
                   bold: true,
                   fontSize: 10,
-                  foregroundColor: { red: 1, green: 1, blue: 1 }  // White text for contrast
+                  foregroundColor: { red: 1, green: 1, blue: 1 }
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE'
@@ -480,7 +480,7 @@ class GoogleSheetsService {
                 textFormat: {
                   bold: true,
                   fontSize: 10,
-                  foregroundColor: { red: 1, green: 1, blue: 1 }  // White text for vibrant backgrounds
+                  foregroundColor: { red: 1, green: 1, blue: 1 }
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
@@ -512,8 +512,7 @@ class GoogleSheetsService {
                 backgroundColor: lighterColor,
                 textFormat: {
                   fontSize: 10,
-                  italic: true,
-                  foregroundColor: { red: 0.3, green: 0.3, blue: 0.35 }  // Dark gray for contrast
+                  foregroundColor: { red: 0.3, green: 0.3, blue: 0.35 }
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE'
@@ -539,7 +538,7 @@ class GoogleSheetsService {
                 textFormat: {
                   bold: true,
                   fontSize: 10,
-                  foregroundColor: { red: 1, green: 1, blue: 1 }  // White text for contrast
+                  foregroundColor: { red: 1, green: 1, blue: 1 }
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE'
@@ -566,7 +565,7 @@ class GoogleSheetsService {
                   textFormat: {
                     bold: true,
                     fontSize: 10,
-                    foregroundColor: { red: 1, green: 1, blue: 1 }  // White text for vibrant backgrounds
+                    foregroundColor: { red: 1, green: 1, blue: 1 }
                   },
                   horizontalAlignment: 'CENTER',
                   verticalAlignment: 'MIDDLE',
@@ -581,7 +580,7 @@ class GoogleSheetsService {
           });
         }
 
-        // Guild column with icon-ready design (only for main characters)
+        // Guild column (only for main characters)
         if (member.guild && member.guild !== '') {
           requests.push({
             repeatCell: {
@@ -594,12 +593,11 @@ class GoogleSheetsService {
               },
               cell: {
                 userEnteredFormat: {
-                  backgroundColor: { red: 0.92, green: 0.88, blue: 0.98 },  // Rich lavender
+                  backgroundColor: { red: 0.92, green: 0.88, blue: 0.98 },
                   textFormat: {
                     fontSize: 10,
                     bold: true,
-                    fontFamily: 'Google Sans',
-                    foregroundColor: { red: 0.35, green: 0.2, blue: 0.65 }   // Deep purple text
+                    foregroundColor: { red: 0.35, green: 0.2, blue: 0.65 }
                   },
                   horizontalAlignment: 'CENTER',
                   verticalAlignment: 'MIDDLE'
@@ -610,7 +608,7 @@ class GoogleSheetsService {
           });
         }
         
-        // Timezone column with globe-icon ready design (only for main characters)
+        // Timezone column (only for main characters)
         if (member.timezone && member.timezone !== '') {
           requests.push({
             repeatCell: {
@@ -623,11 +621,10 @@ class GoogleSheetsService {
               },
               cell: {
                 userEnteredFormat: {
-                  backgroundColor: { red: 1, green: 0.95, blue: 0.85 },      // Warm cream
+                  backgroundColor: { red: 1, green: 0.95, blue: 0.85 },
                   textFormat: {
-                    fontSize: 9,
-                    fontFamily: 'Google Sans',
-                    foregroundColor: { red: 0.55, green: 0.4, blue: 0.15 }   // Warm brown text
+                    fontSize: 10,
+                    foregroundColor: { red: 0.55, green: 0.4, blue: 0.15 }
                   },
                   horizontalAlignment: 'CENTER',
                   verticalAlignment: 'MIDDLE'
@@ -638,7 +635,7 @@ class GoogleSheetsService {
           });
         }
         
-        // Registered column with calendar-icon ready design
+        // Registered column
         requests.push({
           repeatCell: {
             range: {
@@ -650,11 +647,10 @@ class GoogleSheetsService {
             },
             cell: {
               userEnteredFormat: {
-                backgroundColor: { red: 0.94, green: 0.94, blue: 0.96 },   // Cool gray
+                backgroundColor: { red: 0.94, green: 0.94, blue: 0.96 },
                 textFormat: {
-                  fontSize: 9,
-                  italic: true,
-                  foregroundColor: { red: 0.45, green: 0.45, blue: 0.5 }   // Medium gray text
+                  fontSize: 10,
+                  foregroundColor: { red: 0.45, green: 0.45, blue: 0.5 }
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE'
