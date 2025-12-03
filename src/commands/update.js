@@ -1,7 +1,8 @@
 import { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { GAME_DATA, getRoleFromClass, getTimezoneRegions, getCountriesInRegion, getTimezonesForCountry, getGuildsForRole } from '../config/gameData.js';
+import { GAME_DATA, getRoleFromClass, getTimezoneRegions, getCountriesInRegion, getTimezonesForCountry, getGuilds } from '../config/gameData.js';
 import { queries } from '../database/queries.js';
 import googleSheets from '../services/googleSheets.js';
+import { verifyGuildRole, notifyModerators, getGuildVerificationWarning, areGuildsConfigured } from '../utils/guildVerification.js';
 
 // Helper function to sync in background
 const syncInBackground = () => {
@@ -128,16 +129,23 @@ export default {
   },
 
   async handleGuildUpdate(interaction) {
-    const state = interaction.client.updateStates.get(interaction.user.id);
-    const role = state.currentValue.role;
+    // Check if guilds are configured
+    if (!areGuildsConfigured()) {
+      return interaction.reply({
+        content: '❌ Guilds are not configured on this server.',
+        ephemeral: true
+      });
+    }
+    
+    const guilds = getGuilds();
     
     const guildMenu = new StringSelectMenuBuilder()
       .setCustomId('update_guild_select')
       .setPlaceholder('Select your new guild')
       .addOptions(
-        getGuildsForRole(role).map(guild => ({
-          label: guild,
-          value: guild
+        guilds.map(guild => ({
+          label: guild.name,
+          value: guild.name
         }))
       );
 
@@ -233,15 +241,17 @@ export default {
 
       state.newSubclass = selectedSubclass;
 
-      // Check if role changed
-      if (state.newRole !== state.currentValue.role) {
+      // Check if role changed and guilds are configured
+      if (state.newRole !== state.currentValue.role && areGuildsConfigured()) {
+        const guilds = getGuilds();
+        
         const guildMenu = new StringSelectMenuBuilder()
           .setCustomId('update_guild_after_class_select')
           .setPlaceholder('Select your new guild (role changed)')
           .addOptions(
-            getGuildsForRole(state.newRole).map(guild => ({
-              label: guild,
-              value: guild
+            guilds.map(guild => ({
+              label: guild.name,
+              value: guild.name
             }))
           );
 
@@ -250,7 +260,7 @@ export default {
         await interaction.update({
           content: `✅ New Class: **${state.newClass}** (${selectedSubclass})\n` +
             `⚠️ Your role changed from **${state.currentValue.role}** to **${state.newRole}**\n\n` +
-            `Please select a new guild for your role:`,
+            `Please select a guild:`,
           components: [row]
         });
       } else {
@@ -299,6 +309,29 @@ export default {
         guild: selectedGuild
       });
 
+      // Verify guild role
+      let roleWarning = '';
+      if (areGuildsConfigured()) {
+        try {
+          const member = await interaction.guild.members.fetch(state.discordId);
+          const verification = verifyGuildRole(member, selectedGuild);
+          
+          if (!verification.hasRole) {
+            await notifyModerators(
+              interaction.client,
+              member,
+              selectedGuild,
+              verification.guild.roleId,
+              state.mainCharIGN
+            );
+            
+            roleWarning = `\n\n${getGuildVerificationWarning(selectedGuild)}`;
+          }
+        } catch (verifyError) {
+          console.error('Could not verify guild role:', verifyError.message);
+        }
+      }
+
       syncInBackground();
       interaction.client.updateStates.delete(interaction.user.id);
 
@@ -306,7 +339,8 @@ export default {
         content: `✅ **Character Updated!**\n\n` +
           `⚔️ **New Class:** ${state.newClass} (${state.newSubclass})\n` +
           `🛡️ **New Role:** ${state.newRole}\n` +
-          `🏰 **New Guild:** ${selectedGuild}`,
+          `🏰 **New Guild:** ${selectedGuild}` +
+          roleWarning,
         components: []
       });
 
@@ -335,11 +369,34 @@ export default {
         guild: selectedGuild
       });
 
+      // Verify guild role
+      let roleWarning = '';
+      if (areGuildsConfigured()) {
+        try {
+          const member = await interaction.guild.members.fetch(state.discordId);
+          const verification = verifyGuildRole(member, selectedGuild);
+          
+          if (!verification.hasRole) {
+            await notifyModerators(
+              interaction.client,
+              member,
+              selectedGuild,
+              verification.guild.roleId,
+              state.mainCharIGN
+            );
+            
+            roleWarning = `\n\n${getGuildVerificationWarning(selectedGuild)}`;
+          }
+        } catch (verifyError) {
+          console.error('Could not verify guild role:', verifyError.message);
+        }
+      }
+
       syncInBackground();
       interaction.client.updateStates.delete(interaction.user.id);
 
       await interaction.update({
-        content: `✅ **Guild Updated!**\n\n🏰 **New Guild:** ${selectedGuild}`,
+        content: `✅ **Guild Updated!**\n\n🏰 **New Guild:** ${selectedGuild}` + roleWarning,
         components: []
       });
 
