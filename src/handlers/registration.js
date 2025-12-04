@@ -242,16 +242,18 @@ export async function handleCharacterDetailsModal(interaction) {
     if (type === 'main') {
       const abilityScore = interaction.fields.getTextInputValue('ability_score');
       
-      // Store IGN and ability score, then show timezone selection
-      stateManager.setRegistrationState(userId, {
+      // Update state with IGN and ability score FIRST
+      const updatedState = {
         ...state,
         step: 'timezone',
         ign: ign,
         abilityScore: abilityScore || null
-      });
+      };
       
-      // ✅ NEW: Show smart timezone region selection
-      await showTimezoneRegionSelection(interaction, userId, state);
+      stateManager.setRegistrationState(userId, updatedState);
+      
+      // ✅ NEW: Show smart timezone region selection with updated state
+      await showTimezoneRegionSelection(interaction, userId, updatedState);
     } else {
       // For alt, save directly (no timezone needed)
       await saveAltCharacter(interaction, userId, state, ign);
@@ -288,13 +290,19 @@ async function showTimezoneRegionSelection(interaction, userId, state) {
     .setColor('#6640D9')
     .setTitle('⭐ Register Main Character')
     .setDescription('**Step 3a:** Select your region for timezone')
-    .addFields(
-      { name: '🎭 Class', value: state.class, inline: true },
-      { name: '🎯 Subclass', value: state.subclass, inline: true },
-      { name: '🎮 IGN', value: state.ign, inline: true }
-    )
     .setFooter({ text: '💡 Choose your geographic region' })
     .setTimestamp();
+  
+  // Only add fields if they exist
+  if (state.class) {
+    embed.addFields({ name: '🎭 Class', value: state.class, inline: true });
+  }
+  if (state.subclass) {
+    embed.addFields({ name: '🎯 Subclass', value: state.subclass, inline: true });
+  }
+  if (state.ign) {
+    embed.addFields({ name: '🎮 IGN', value: state.ign, inline: true });
+  }
 
   await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
 }
@@ -539,9 +547,13 @@ async function saveMainCharacter(interaction, userId, state, ign, guild, member)
     // Clear state
     stateManager.clearRegistrationState(userId);
     
-    // ✅ FIXED: Return to updated main menu with detailed view
+    // ✅ FIXED: Delete success message and show clean menu
     setTimeout(async () => {
       try {
+        // Delete the success message
+        await interaction.deleteReply();
+        
+        // Show fresh menu
         const editMemberDetails = await import('../commands/edit-member-details.js');
         await editMemberDetails.default.showMainMenu(interaction, false);
       } catch (error) {
@@ -608,9 +620,13 @@ async function saveAltCharacter(interaction, userId, state, ign) {
     // Clear state
     stateManager.clearRegistrationState(userId);
     
-    // ✅ FIXED: Return to updated main menu with detailed view
+    // ✅ FIXED: Delete success message and show clean menu
     setTimeout(async () => {
       try {
+        // Delete the success message
+        await interaction.deleteReply();
+        
+        // Show fresh menu
         const editMemberDetails = await import('../commands/edit-member-details.js');
         await editMemberDetails.default.showMainMenu(interaction, false);
       } catch (error) {
