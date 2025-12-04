@@ -201,6 +201,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await admin.handleClose(interaction);
       }
       
+      // ✅ NEW: Timezone back buttons
+      else if (interaction.customId.startsWith('back_from_timezone_')) {
+        await registrationHandlers.handleBackFromTimezone(interaction);
+      }
+      else if (interaction.customId.startsWith('back_to_region_')) {
+        await registrationHandlers.handleBackToRegion(interaction);
+      }
+      else if (interaction.customId.startsWith('back_to_country_')) {
+        await registrationHandlers.handleBackToCountry(interaction);
+      }
+      
       console.log(`✅ Button handled: ${interaction.customId}`);
     } catch (error) {
       console.error(`❌ Error handling button ${interaction.customId}:`, error);
