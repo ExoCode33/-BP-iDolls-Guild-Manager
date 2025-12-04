@@ -57,7 +57,7 @@ export async function handleAddAlt(interaction) {
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // Show class selection menu
+    // Show class selection menu (same flow as main character)
     await showClassSelection(interaction, userId, 'alt');
     
   } catch (error) {
@@ -183,28 +183,8 @@ export async function handleSubclassSelection(interaction) {
       role: role
     });
 
-    if (type === 'main') {
-      // Show ability score dropdown for main character
-      await showAbilityScoreSelection(interaction, userId, state, selectedClass, selectedSubclass);
-    } else {
-      // For alt, show simple IGN modal (no ability score, no guild, no timezone)
-      const modal = new ModalBuilder()
-        .setCustomId(`ign_modal_${type}_${userId}`)
-        .setTitle('Alt Character Name');
-
-      const ignInput = new TextInputBuilder()
-        .setCustomId('ign')
-        .setLabel('In-Game Name (IGN)')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Enter your character name')
-        .setRequired(true)
-        .setMaxLength(100);
-
-      const row = new ActionRowBuilder().addComponents(ignInput);
-      modal.addComponents(row);
-
-      await interaction.showModal(modal);
-    }
+    // Both main and alt now follow same flow (ability score → guild → timezone/IGN)
+    await showAbilityScoreSelection(interaction, userId, state, selectedClass, selectedSubclass, type);
     
   } catch (error) {
     console.error('Error in handleSubclassSelection:', error);
@@ -216,7 +196,7 @@ export async function handleSubclassSelection(interaction) {
   }
 }
 
-async function showAbilityScoreSelection(interaction, userId, state, selectedClass, selectedSubclass) {
+async function showAbilityScoreSelection(interaction, userId, state, selectedClass, selectedSubclass, type) {
   const abilityScoreRanges = [
     { label: '10k or smaller', value: '10000', description: 'Ability Score: ≤10,000' },
     { label: '10k - 12k', value: '11000', description: 'Ability Score: 10,001 - 12,000' },
@@ -250,11 +230,18 @@ async function showAbilityScoreSelection(interaction, userId, state, selectedCla
     .setPlaceholder('💪 Select your ability score range')
     .addOptions(abilityScoreRanges);
 
-  const row = new ActionRowBuilder().addComponents(selectMenu);
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_subclass_${userId}`)
+    .setLabel('Back')
+    .setStyle(ButtonStyle.Secondary)
+    .setEmoji('◀️');
+
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton);
 
   const embed = new EmbedBuilder()
     .setColor('#6640D9')
-    .setTitle('⭐ Register Main Character')
+    .setTitle(`⭐ Register ${type === 'main' ? 'Main' : 'Alt'} Character`)
     .setDescription('**Step 3:** Select your ability score range')
     .addFields(
       { name: '🎭 Class', value: selectedClass, inline: true },
@@ -263,7 +250,7 @@ async function showAbilityScoreSelection(interaction, userId, state, selectedCla
     .setFooter({ text: '💪 Choose the range closest to your ability score' })
     .setTimestamp();
 
-  await interaction.update({ embeds: [embed], components: [row] });
+  await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
 export async function handleAbilityScoreSelection(interaction) {
@@ -298,12 +285,18 @@ async function showGuildSelectionEarly(interaction, userId, state) {
   const guilds = GAME_DATA.guilds;
   
   if (guilds.length === 0) {
-    // No guilds configured, skip to timezone
+    // No guilds configured, skip to next step
     stateManager.setRegistrationState(userId, {
       ...state,
       guild: null
     });
-    await showSmartTimezoneSelection(interaction, userId, state);
+    
+    // Main goes to timezone, alt goes to IGN
+    if (state.type === 'main') {
+      await showSmartTimezoneSelection(interaction, userId, state);
+    } else {
+      await showIGNModal(interaction, userId);
+    }
     return;
   }
 
@@ -318,11 +311,18 @@ async function showGuildSelectionEarly(interaction, userId, state) {
       }))
     );
 
-  const row = new ActionRowBuilder().addComponents(selectMenu);
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_ability_${userId}`)
+    .setLabel('Back')
+    .setStyle(ButtonStyle.Secondary)
+    .setEmoji('◀️');
+
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton);
 
   const embed = new EmbedBuilder()
     .setColor('#6640D9')
-    .setTitle('⭐ Register Main Character')
+    .setTitle(`⭐ Register ${state.type === 'main' ? 'Main' : 'Alt'} Character`)
     .setDescription('**Step 4:** Select your guild')
     .addFields(
       { name: '🎭 Class', value: state.class, inline: true },
@@ -332,7 +332,7 @@ async function showGuildSelectionEarly(interaction, userId, state) {
     .setFooter({ text: '🏰 Choose your guild affiliation' })
     .setTimestamp();
 
-  await interaction.update({ embeds: [embed], components: [row] });
+  await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
 export async function handleGuildSelectionEarly(interaction) {
@@ -354,13 +354,36 @@ export async function handleGuildSelectionEarly(interaction) {
       guild: selectedGuild
     });
 
-    // Show smart timezone selection
-    await showSmartTimezoneSelection(interaction, userId, state);
+    // Main goes to timezone, alt goes to IGN modal
+    if (state.type === 'main') {
+      await showSmartTimezoneSelection(interaction, userId, state);
+    } else {
+      await showIGNModal(interaction, userId);
+    }
     
   } catch (error) {
     console.error('Error in handleGuildSelectionEarly:', error);
     stateManager.clearRegistrationState(interaction.user.id);
   }
+}
+
+async function showIGNModal(interaction, userId) {
+  const modal = new ModalBuilder()
+    .setCustomId(`ign_modal_alt_${userId}`)
+    .setTitle('Final Step: Character Name');
+
+  const ignInput = new TextInputBuilder()
+    .setCustomId('ign')
+    .setLabel('In-Game Name (IGN)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Enter your character name')
+    .setRequired(true)
+    .setMaxLength(100);
+
+  const row = new ActionRowBuilder().addComponents(ignInput);
+  modal.addComponents(row);
+
+  await interaction.showModal(modal);
 }
 
 async function showSmartTimezoneSelection(interaction, userId, state) {
@@ -681,7 +704,7 @@ async function saveAltCharacter(interaction, userId, state, ign) {
       return interaction.editReply({ embeds: [embed] });
     }
 
-    // Save alt character (no ability score, no guild, no timezone)
+    // Save alt character WITH ability score and guild (like main)
     const altData = {
       discordId: userId,
       discordName: interaction.user.tag,
@@ -689,9 +712,9 @@ async function saveAltCharacter(interaction, userId, state, ign) {
       role: state.role,
       className: state.class,
       subclass: state.subclass,
-      abilityScore: null,  // Alts don't have ability score
-      guild: null,         // Alts don't have guild
-      isMain: false        // ✅ NEW: Mark as alt character
+      abilityScore: state.abilityScore ? parseInt(state.abilityScore) : null,  // ✅ NOW INCLUDED
+      guild: state.guild || null,  // ✅ NOW INCLUDED
+      isMain: false
     };
 
     await queries.createCharacter(altData);
@@ -708,12 +731,20 @@ async function saveAltCharacter(interaction, userId, state, ign) {
       .setFooter({ text: '💡 Returning to menu...' })
       .setTimestamp();
 
+    if (state.abilityScore) {
+      embed.addFields({ name: '💪 Ability Score', value: `~${parseInt(state.abilityScore).toLocaleString()}`, inline: true });
+    }
+
+    if (state.guild) {
+      embed.addFields({ name: '🏰 Guild', value: state.guild, inline: true });
+    }
+
     await interaction.editReply({ embeds: [embed] });
     
     // Clear state
     stateManager.clearRegistrationState(userId);
     
-    // Show menu as followUp
+    // Show menu
     setTimeout(async () => {
       try {
         const editMemberDetails = await import('../commands/edit-member-details.js');
@@ -1054,6 +1085,147 @@ export async function handleBackToCountry(interaction) {
     
   } catch (error) {
     console.error('Error in handleBackToCountry:', error);
+  }
+}
+
+export async function handleBackToCountry(interaction) {
+  try {
+    const userId = interaction.user.id;
+    const state = stateManager.getRegistrationState(userId);
+    
+    if (!state || !state.selectedRegion) {
+      return interaction.reply({
+        content: '❌ Session expired. Please start over.',
+        ephemeral: true
+      });
+    }
+
+    const countries = getCountriesInRegion(state.selectedRegion);
+    
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId(`select_timezone_country_${userId}`)
+      .setPlaceholder('🌍 Select your country')
+      .addOptions(
+        countries.map(country => ({
+          label: country,
+          value: country
+        }))
+      );
+
+    const backButton = new ButtonBuilder()
+      .setCustomId(`back_to_region_${userId}`)
+      .setLabel('Back to Regions')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️');
+
+    const row1 = new ActionRowBuilder().addComponents(selectMenu);
+    const row2 = new ActionRowBuilder().addComponents(backButton);
+
+    const embed = new EmbedBuilder()
+      .setColor('#6640D9')
+      .setTitle('⭐ Register Main Character')
+      .setDescription('**Step:** Select your country')
+      .addFields(
+        { name: '🌍 Region', value: state.selectedRegion, inline: true }
+      )
+      .setFooter({ text: '💡 Choose your country or go back' })
+      .setTimestamp();
+
+    await interaction.update({ embeds: [embed], components: [row1, row2] });
+    
+  } catch (error) {
+    console.error('Error in handleBackToCountry:', error);
+  }
+}
+
+// ✅ NEW: Back button handlers for registration flow
+export async function handleBackToSubclass(interaction) {
+  try {
+    const userId = interaction.user.id;
+    const state = stateManager.getRegistrationState(userId);
+    
+    if (!state || !state.class) {
+      return interaction.reply({
+        content: '❌ Session expired. Please start over.',
+        ephemeral: true
+      });
+    }
+
+    const subclasses = getSubclassesForClass(state.class);
+    
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId(`select_subclass_${state.type}_${userId}`)
+      .setPlaceholder('🎯 Choose your subclass')
+      .addOptions(
+        subclasses.map(subclass => ({
+          label: subclass,
+          value: subclass
+        }))
+      );
+
+    const backButton = new ButtonBuilder()
+      .setCustomId(`back_to_class_${userId}`)
+      .setLabel('Back')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️');
+
+    const row1 = new ActionRowBuilder().addComponents(selectMenu);
+    const row2 = new ActionRowBuilder().addComponents(backButton);
+
+    const embed = new EmbedBuilder()
+      .setColor('#6640D9')
+      .setTitle(`⭐ ${state.type === 'main' ? 'Register Main Character' : 'Add Alt Character'}`)
+      .setDescription(`**Step 2:** Select your ${state.class} subclass`)
+      .addFields({
+        name: '🎭 Selected Class',
+        value: state.class,
+        inline: true
+      })
+      .setFooter({ text: '💡 Choose your specialization' })
+      .setTimestamp();
+
+    await interaction.update({ embeds: [embed], components: [row1, row2] });
+    
+  } catch (error) {
+    console.error('Error in handleBackToSubclass:', error);
+  }
+}
+
+export async function handleBackToAbility(interaction) {
+  try {
+    const userId = interaction.user.id;
+    const state = stateManager.getRegistrationState(userId);
+    
+    if (!state) {
+      return interaction.reply({
+        content: '❌ Session expired. Please start over.',
+        ephemeral: true
+      });
+    }
+
+    await showAbilityScoreSelection(interaction, userId, state, state.class, state.subclass, state.type);
+    
+  } catch (error) {
+    console.error('Error in handleBackToAbility:', error);
+  }
+}
+
+export async function handleBackToClass(interaction) {
+  try {
+    const userId = interaction.user.id;
+    const state = stateManager.getRegistrationState(userId);
+    
+    if (!state) {
+      return interaction.reply({
+        content: '❌ Session expired. Please start over.',
+        ephemeral: true
+      });
+    }
+
+    await showClassSelection(interaction, userId, state.type);
+    
+  } catch (error) {
+    console.error('Error in handleBackToClass:', error);
   }
 }
 
