@@ -1088,56 +1088,6 @@ export async function handleBackToCountry(interaction) {
   }
 }
 
-export async function handleBackToCountry(interaction) {
-  try {
-    const userId = interaction.user.id;
-    const state = stateManager.getRegistrationState(userId);
-    
-    if (!state || !state.selectedRegion) {
-      return interaction.reply({
-        content: '❌ Session expired. Please start over.',
-        ephemeral: true
-      });
-    }
-
-    const countries = getCountriesInRegion(state.selectedRegion);
-    
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(`select_timezone_country_${userId}`)
-      .setPlaceholder('🌍 Select your country')
-      .addOptions(
-        countries.map(country => ({
-          label: country,
-          value: country
-        }))
-      );
-
-    const backButton = new ButtonBuilder()
-      .setCustomId(`back_to_region_${userId}`)
-      .setLabel('Back to Regions')
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji('◀️');
-
-    const row1 = new ActionRowBuilder().addComponents(selectMenu);
-    const row2 = new ActionRowBuilder().addComponents(backButton);
-
-    const embed = new EmbedBuilder()
-      .setColor('#6640D9')
-      .setTitle('⭐ Register Main Character')
-      .setDescription('**Step:** Select your country')
-      .addFields(
-        { name: '🌍 Region', value: state.selectedRegion, inline: true }
-      )
-      .setFooter({ text: '💡 Choose your country or go back' })
-      .setTimestamp();
-
-    await interaction.update({ embeds: [embed], components: [row1, row2] });
-    
-  } catch (error) {
-    console.error('Error in handleBackToCountry:', error);
-  }
-}
-
 // ✅ NEW: Back button handlers for registration flow
 export async function handleBackToSubclass(interaction) {
   try {
