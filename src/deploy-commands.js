@@ -2,20 +2,16 @@ import { REST, Routes } from 'discord.js';
 import dotenv from 'dotenv';
 
 // Import commands
-import register from './commands/register.js';
-import addalt from './commands/addalt.js';
-import viewchar from './commands/viewchar.js';
-import update from './commands/update.js';
-import sync from './commands/sync.js';
+import editMemberDetails from './commands/edit-member-details.js';
+import admin from './commands/admin.js';
+import viewChar from './commands/view-char.js';
 
 dotenv.config();
 
 const commands = [
-  register.data.toJSON(),
-  addalt.data.toJSON(),
-  viewchar.data.toJSON(),
-  update.data.toJSON(),
-  sync.data.toJSON(),
+  editMemberDetails.data.toJSON(),
+  admin.data.toJSON(),
+  viewChar.data.toJSON(),
 ];
 
 // Construct and prepare an instance of the REST module
