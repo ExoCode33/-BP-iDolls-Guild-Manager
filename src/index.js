@@ -11,6 +11,11 @@ import editMemberDetails from './commands/edit-member-details.js';
 import admin from './commands/admin.js';
 import viewChar from './commands/view-char.js';
 
+// Handlers
+import * as registrationHandlers from './handlers/registration.js';
+import * as updateHandlers from './handlers/update.js';
+import * as removeHandlers from './handlers/remove.js';
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -83,7 +88,6 @@ client.once(Events.ClientReady, async (c) => {
     const sheetsInitialized = await googleSheets.initialize();
     
     if (sheetsInitialized) {
-      // REMOVED: Initial sync on startup
       console.log('✅ Google Sheets initialized (auto-sync will run periodically)');
       
       // Start periodic auto-sync
@@ -149,7 +153,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
     
     try {
       // Edit Member Details buttons
-      if (interaction.customId.startsWith('edit_view_chars_')) {
+      if (interaction.customId.startsWith('edit_add_main_')) {
+        await registrationHandlers.handleAddMain(interaction);
+      }
+      else if (interaction.customId.startsWith('edit_add_alt_')) {
+        await registrationHandlers.handleAddAlt(interaction);
+      }
+      else if (interaction.customId.startsWith('edit_update_main_')) {
+        await updateHandlers.handleUpdateMain(interaction);
+      }
+      else if (interaction.customId.startsWith('edit_remove_main_')) {
+        await removeHandlers.handleRemoveMain(interaction);
+      }
+      else if (interaction.customId.startsWith('edit_remove_alt_')) {
+        await removeHandlers.handleRemoveAlt(interaction);
+      }
+      else if (interaction.customId.startsWith('edit_view_chars_')) {
         await editMemberDetails.handleViewChars(interaction);
       }
       else if (interaction.customId.startsWith('edit_back_to_menu_')) {
@@ -157,6 +176,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       else if (interaction.customId.startsWith('edit_close_')) {
         await editMemberDetails.handleClose(interaction);
+      }
+      
+      // Remove confirmation buttons
+      else if (interaction.customId.startsWith('confirm_remove_main_')) {
+        await removeHandlers.handleConfirmRemoveMain(interaction);
+      }
+      else if (interaction.customId.startsWith('cancel_remove_main_')) {
+        await removeHandlers.handleCancelRemoveMain(interaction);
+      }
+      else if (interaction.customId.startsWith('confirm_remove_alt_')) {
+        await removeHandlers.handleConfirmRemoveAlt(interaction);
+      }
+      else if (interaction.customId.startsWith('cancel_remove_alt_')) {
+        await removeHandlers.handleCancelRemoveAlt(interaction);
       }
       
       // Admin buttons
@@ -167,17 +200,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('admin_close_')) {
         await admin.handleClose(interaction);
       }
-      
-      // TODO: Add handlers for other buttons when handler files are created:
-      // - edit_add_main_
-      // - edit_update_main_
-      // - edit_remove_main_
-      // - edit_add_alt_
-      // - edit_remove_alt_
-      // - admin_add_main_
-      // - admin_remove_main_
-      // - admin_add_alt_
-      // - admin_remove_alt_
       
       console.log(`✅ Button handled: ${interaction.customId}`);
     } catch (error) {
@@ -201,7 +223,35 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.log(`🔽 ${interaction.user.tag} selected: ${interaction.customId}`);
     
     try {
-      // TODO: Add handlers when handler files are created
+      // Registration flow selects
+      if (interaction.customId.startsWith('select_class_')) {
+        await registrationHandlers.handleClassSelection(interaction);
+      }
+      else if (interaction.customId.startsWith('select_subclass_')) {
+        await registrationHandlers.handleSubclassSelection(interaction);
+      }
+      else if (interaction.customId.startsWith('select_guild_')) {
+        await registrationHandlers.handleGuildSelection(interaction);
+      }
+      
+      // Update flow selects
+      else if (interaction.customId.startsWith('update_option_')) {
+        await updateHandlers.handleUpdateOptionSelection(interaction);
+      }
+      else if (interaction.customId.startsWith('update_class_')) {
+        await updateHandlers.handleUpdateClassSelection(interaction);
+      }
+      else if (interaction.customId.startsWith('update_subclass_')) {
+        await updateHandlers.handleUpdateSubclassSelection(interaction);
+      }
+      else if (interaction.customId.startsWith('update_guild_')) {
+        await updateHandlers.handleUpdateGuildSelection(interaction);
+      }
+      
+      // Remove flow selects
+      else if (interaction.customId.startsWith('select_alt_remove_')) {
+        await removeHandlers.handleAltSelectionForRemoval(interaction);
+      }
       
       console.log(`✅ Select menu handled: ${interaction.customId}`);
     } catch (error) {
@@ -225,7 +275,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.log(`📝 ${interaction.user.tag} submitted modal: ${interaction.customId}`);
     
     try {
-      // TODO: Add handlers when handler files are created
+      // Registration modals
+      if (interaction.customId.startsWith('character_details_')) {
+        await registrationHandlers.handleCharacterDetailsModal(interaction);
+      }
+      
+      // Update modals
+      else if (interaction.customId.startsWith('update_ign_modal_')) {
+        await updateHandlers.handleUpdateModal(interaction, 'ign');
+      }
+      else if (interaction.customId.startsWith('update_ability_modal_')) {
+        await updateHandlers.handleUpdateModal(interaction, 'ability_score');
+      }
+      else if (interaction.customId.startsWith('update_timezone_modal_')) {
+        await updateHandlers.handleUpdateModal(interaction, 'timezone');
+      }
       
       console.log(`✅ Modal handled: ${interaction.customId}`);
     } catch (error) {
