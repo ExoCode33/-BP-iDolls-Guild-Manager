@@ -461,6 +461,63 @@ class GoogleSheetsService {
         });
       }
 
+      // Apply base formatting to ALL data cells first
+      for (let i = 0; i < members.length; i++) {
+        const rowIndex = i + 1;
+        
+        // Base white background for Discord Name and IGN
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: 0,
+              endColumnIndex: 2
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 1, green: 1, blue: 1 },
+                textFormat: {
+                  fontSize: 10,
+                  fontFamily: 'Arial',
+                  foregroundColor: { red: 0.1, green: 0.1, blue: 0.1 }
+                },
+                horizontalAlignment: 'CENTER',
+                verticalAlignment: 'MIDDLE'
+              }
+            },
+            fields: 'userEnteredFormat'
+          }
+        });
+
+        // Light gray for Timezone and Registered
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: 8,
+              endColumnIndex: 10
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 0.95, green: 0.95, blue: 0.96 },
+                textFormat: {
+                  fontSize: 10,
+                  fontFamily: 'Arial',
+                  foregroundColor: { red: 0.3, green: 0.3, blue: 0.35 }
+                },
+                horizontalAlignment: 'CENTER',
+                verticalAlignment: 'MIDDLE'
+              }
+            },
+            fields: 'userEnteredFormat'
+          }
+        });
+      }
+
       for (let i = 0; i < members.length; i++) {
         const member = members[i];
         const rowIndex = i + 1;
@@ -501,15 +558,15 @@ class GoogleSheetsService {
           this.addPillCell(requests, sheetId, rowIndex, 7, guildColor, true, 10);
         }
         
-        // Add white borders between pills for separation - CRITICAL for pill effect
+        // Add white borders between ALL pills for separation - spans entire row
         requests.push({
           updateBorders: {
             range: {
               sheetId: sheetId,
               startRowIndex: rowIndex,
               endRowIndex: rowIndex + 1,
-              startColumnIndex: 2,
-              endColumnIndex: 8
+              startColumnIndex: 0,
+              endColumnIndex: 10
             },
             left: {
               style: 'SOLID',
