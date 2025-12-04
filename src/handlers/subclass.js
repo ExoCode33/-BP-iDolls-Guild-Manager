@@ -18,7 +18,7 @@ export async function handleAddSubclassToMain(interaction) {
         .setDescription('You need a main character before adding subclasses!')
         .setTimestamp();
       
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply({ embeds: [embed], flags: 64 });
     }
 
     // Initialize state for subclass
@@ -38,7 +38,7 @@ export async function handleAddSubclassToMain(interaction) {
     console.error('Error in handleAddSubclassToMain:', error);
     await interaction.reply({
       content: '❌ An error occurred. Please try again.',
-      ephemeral: true
+      flags: 64
     });
   }
 }
@@ -58,7 +58,7 @@ export async function handleAddSubclassToAlt(interaction) {
         .setDescription('You need at least one alt character before adding subclasses to it!')
         .setTimestamp();
       
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply({ embeds: [embed], flags: 64 });
     }
 
     if (alts.length === 1) {
@@ -84,7 +84,7 @@ export async function handleAddSubclassToAlt(interaction) {
     console.error('Error in handleAddSubclassToAlt:', error);
     await interaction.reply({
       content: '❌ An error occurred. Please try again.',
-      ephemeral: true
+      flags: 64
     });
   }
 }
@@ -136,7 +136,7 @@ export async function handleAltSelectionForSubclass(interaction) {
     if (!selectedAlt) {
       return interaction.reply({
         content: '❌ Alt character not found. Please try again.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -190,7 +190,7 @@ async function showSubclassClassSelection(interaction, userId, parentType, paren
     .setDescription(`**Step ${parentType === 'alt' ? '2' : '1'}:** Select the class for this subclass`)
     .addFields({
       name: '🎮 Parent Character',
-      value: parentIGN,
+      value: String(parentIGN),
       inline: true
     })
     .setFooter({ text: '💡 This subclass will be under ' + parentIGN })
@@ -207,10 +207,12 @@ export async function handleSubclassClassSelection(interaction) {
     const selectedClass = interaction.values[0];
     const state = stateManager.getRegistrationState(userId);
     
+    console.log('📊 [DEBUG] handleSubclassClassSelection - state:', JSON.stringify(state));
+    
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -261,8 +263,8 @@ async function showSubclassSubclassSelection(interaction, userId, state, selecte
     .setTitle(`📌 Add Subclass to ${parentType}`)
     .setDescription(`**Step ${parentType === 'Alt' ? '3' : '2'}:** Select the subclass specialization`)
     .addFields(
-      { name: '🎮 Parent Character', value: state.parentIGN, inline: true },
-      { name: '🎭 Class', value: selectedClass, inline: true }
+      { name: '🎮 Parent Character', value: String(state.parentIGN), inline: true },
+      { name: '🎭 Class', value: String(selectedClass), inline: true }
     )
     .setFooter({ text: '💡 Choose your specialization' })
     .setTimestamp();
@@ -278,25 +280,33 @@ export async function handleSubclassSubclassSelection(interaction) {
     const selectedSubclass = interaction.values[0];
     const state = stateManager.getRegistrationState(userId);
     
+    console.log('📊 [DEBUG] handleSubclassSubclassSelection - state:', JSON.stringify(state));
+    console.log('📊 [DEBUG] handleSubclassSubclassSelection - selectedSubclass:', selectedSubclass);
+    
     if (!state || !state.class) {
+      console.log('❌ [DEBUG] State validation failed in handleSubclassSubclassSelection');
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
     const role = getRoleFromClass(state.class);
     
-    // Update state
-    stateManager.setRegistrationState(userId, {
+    // Update state with new values
+    const updatedState = {
       ...state,
       subclass: selectedSubclass,
       role: role,
       step: 'ability_score'
-    });
+    };
+    
+    console.log('📊 [DEBUG] handleSubclassSubclassSelection - updatedState:', JSON.stringify(updatedState));
+    
+    stateManager.setRegistrationState(userId, updatedState);
 
-    // Show ability score selection
-    await showSubclassAbilityScoreSelection(interaction, userId, state);
+    // Show ability score selection with updated state
+    await showSubclassAbilityScoreSelection(interaction, userId, updatedState);
     
   } catch (error) {
     console.error('Error in handleSubclassSubclassSelection:', error);
@@ -307,6 +317,15 @@ export async function handleSubclassSubclassSelection(interaction) {
 // ==================== SUBCLASS ABILITY SCORE SELECTION ====================
 
 async function showSubclassAbilityScoreSelection(interaction, userId, state) {
+  // Validate state has required fields
+  if (!state || !state.class || !state.subclass) {
+    console.error('❌ Invalid state in showSubclassAbilityScoreSelection:', state);
+    return interaction.reply({
+      content: '❌ Session data is incomplete. Please start over.',
+      flags: 64
+    });
+  }
+
   const abilityScoreRanges = [
     { label: '10k or smaller', value: '10000', description: 'Ability Score: ≤10,000' },
     { label: '10k - 12k', value: '11000', description: 'Ability Score: 10,001 - 12,000' },
@@ -356,9 +375,9 @@ async function showSubclassAbilityScoreSelection(interaction, userId, state) {
     .setTitle(`📌 Add Subclass to ${parentType}`)
     .setDescription(`**Step ${parentType === 'Alt' ? '4' : '3'}:** Select ability score for this subclass`)
     .addFields(
-      { name: '🎮 Parent Character', value: state.parentIGN, inline: true },
-      { name: '🎭 Class', value: state.class, inline: true },
-      { name: '🎯 Subclass', value: state.subclass, inline: true }
+      { name: '🎮 Parent Character', value: String(state.parentIGN), inline: true },
+      { name: '🎭 Class', value: String(state.class), inline: true },
+      { name: '🎯 Subclass', value: String(state.subclass), inline: true }
     )
     .setFooter({ text: '💪 Choose the range closest to this subclass\'s ability score' })
     .setTimestamp();
@@ -374,10 +393,12 @@ export async function handleSubclassAbilityScoreSelection(interaction) {
     const selectedScore = interaction.values[0];
     const state = stateManager.getRegistrationState(userId);
     
+    console.log('📊 [DEBUG] handleSubclassAbilityScoreSelection - state:', JSON.stringify(state));
+    
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -394,7 +415,7 @@ export async function handleSubclassAbilityScoreSelection(interaction) {
 
 async function saveSubclass(interaction, userId, state, abilityScore) {
   try {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     // Create subclass
     const subclassData = {
@@ -408,6 +429,8 @@ async function saveSubclass(interaction, userId, state, abilityScore) {
       subclassType: state.characterType  // 'main_subclass' or 'alt_subclass'
     };
 
+    console.log('📊 [DEBUG] saveSubclass - subclassData:', JSON.stringify(subclassData));
+
     await queries.createSubclass(subclassData);
 
     const parentType = state.characterType === 'main_subclass' ? 'Main' : 'Alt';
@@ -417,7 +440,7 @@ async function saveSubclass(interaction, userId, state, abilityScore) {
       .setTitle('✅ Subclass Added!')
       .setDescription(`Subclass has been successfully added to your ${parentType.toLowerCase()} character.`)
       .addFields(
-        { name: '🎮 Parent Character', value: state.parentIGN, inline: true },
+        { name: '🎮 Parent Character', value: String(state.parentIGN), inline: true },
         { name: '🎭 Class', value: `${state.class} (${state.subclass})`, inline: true },
         { name: '💪 Ability Score', value: `~${parseInt(abilityScore).toLocaleString()}`, inline: true }
       )
