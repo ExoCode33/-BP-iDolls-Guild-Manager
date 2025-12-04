@@ -368,7 +368,13 @@ async function showSmartTimezoneSelection(interaction, userId, state) {
   const now = new Date();
   const utcHour = now.getUTCHours();
   const utcMinute = now.getUTCMinutes();
-  const utcTime = `${utcHour.toString().padStart(2, '0')}:${utcMinute.toString().padStart(2, '0')} UTC`;
+  
+  // Try to estimate user's local time from their interaction timestamp
+  // Discord interactions include the user's local timestamp
+  const userLocalTime = new Date(interaction.createdTimestamp);
+  const userHour = userLocalTime.getHours();
+  const userMinute = userLocalTime.getMinutes();
+  const estimatedTime = `${userHour.toString().padStart(2, '0')}:${userMinute.toString().padStart(2, '0')}`;
 
   // Generate time options (every hour from 00:00 to 23:00)
   const timeOptions = [];
@@ -379,12 +385,17 @@ async function showSmartTimezoneSelection(interaction, userId, state) {
       value: hour.toString()
     };
     
+    // Mark the closest hour to user's estimated time
+    if (hour === userHour || hour === (userHour + 1) % 24) {
+      option.description = '← Close to your time';
+    }
+    
     timeOptions.push(option);
   }
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_current_time_${userId}`)
-    .setPlaceholder(`🕐 What time is it for you now?`)
+    .setPlaceholder(`🕐 Select the time closest to yours`)
     .addOptions(timeOptions);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
@@ -392,13 +403,13 @@ async function showSmartTimezoneSelection(interaction, userId, state) {
   const embed = new EmbedBuilder()
     .setColor('#6640D9')
     .setTitle('⭐ Register Main Character')
-    .setDescription(`**Step 5:** What time is it for you right now?\n\n🕐 **Current UTC time:** ${utcTime}\n💡 Select the hour closest to your current local time (not UTC)`)
+    .setDescription(`**Step 5:** What time is it for you right now?\n\n🕐 **Your estimated local time:** ~${estimatedTime}\n💡 Select the hour closest to your current local time\n\n*This helps us suggest your timezone*`)
     .addFields(
       { name: '🎭 Class', value: state.class, inline: true },
       { name: '🎯 Subclass', value: state.subclass, inline: true },
       { name: '💪 Ability Score', value: `~${parseInt(state.abilityScore).toLocaleString()}`, inline: true }
     )
-    .setFooter({ text: '🌍 This helps us suggest your timezone' })
+    .setFooter({ text: '🌍 We\'ll suggest timezones based on your selection' })
     .setTimestamp();
   
   if (state.guild) {
