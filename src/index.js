@@ -247,8 +247,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.log(`🔽 ${interaction.user.tag} selected: ${interaction.customId}`);
     
     try {
+      // Subclass selects (MUST BE FIRST - more specific patterns)
+      if (interaction.customId.startsWith('select_subclass_class_')) {
+        await subclassHandlers.handleSubclassClassSelection(interaction);
+      }
+      else if (interaction.customId.startsWith('select_subclass_subclass_')) {
+        await subclassHandlers.handleSubclassSubclassSelection(interaction);
+      }
+      else if (interaction.customId.startsWith('select_subclass_ability_score_')) {
+        await subclassHandlers.handleSubclassAbilityScoreSelection(interaction);
+      }
+      else if (interaction.customId.startsWith('select_alt_for_subclass_')) {
+        await subclassHandlers.handleAltSelectionForSubclass(interaction);
+      }
+      
       // Character registration selects
-      if (interaction.customId.startsWith('select_class_')) {
+      else if (interaction.customId.startsWith('select_class_')) {
         await characterHandlers.handleClassSelection(interaction);
       }
       else if (interaction.customId.startsWith('select_subclass_')) {
@@ -270,20 +284,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       else if (interaction.customId.startsWith('select_timezone_')) {
         await characterHandlers.handleTimezoneSelection(interaction);
-      }
-      
-      // Subclass selects
-      else if (interaction.customId.startsWith('select_subclass_class_')) {
-        await subclassHandlers.handleSubclassClassSelection(interaction);
-      }
-      else if (interaction.customId.startsWith('select_subclass_subclass_')) {
-        await subclassHandlers.handleSubclassSubclassSelection(interaction);
-      }
-      else if (interaction.customId.startsWith('select_subclass_ability_score_')) {
-        await subclassHandlers.handleSubclassAbilityScoreSelection(interaction);
-      }
-      else if (interaction.customId.startsWith('select_alt_for_subclass_')) {
-        await subclassHandlers.handleAltSelectionForSubclass(interaction);
       }
       
       // Update selects
