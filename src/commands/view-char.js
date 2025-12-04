@@ -13,7 +13,6 @@ export default {
 
   async execute(interaction) {
     try {
-      // ✅ FIXED: Handle both slash command and button interactions
       const targetUser = interaction.options?.getUser('user') || interaction.user;
       const isOwnProfile = targetUser.id === interaction.user.id;
 
@@ -32,7 +31,6 @@ export default {
             value: isOwnProfile ? 'Use `/edit-member-details` to register your character!' : 'They need to use `/edit-member-details` to get started.', 
             inline: false 
           })
-          .setFooter({ text: '✨ Join the adventure' })
           .setTimestamp();
         
         return interaction.reply({ embeds: [embed], ephemeral: true });
@@ -40,33 +38,37 @@ export default {
 
       // Get alt characters
       const alts = await queries.getAltCharacters(targetUser.id);
+      
+      // Get user's timezone
+      const userTimezone = await queries.getUserTimezone(targetUser.id);
 
-      // Get class and role emojis
-      const classEmoji = this.getClassEmoji(mainChar.class);
-      const roleEmoji = this.getRoleEmoji(mainChar.role);
-
-      // Create main embed
+      // Professional embed with proper hierarchy
       const embed = new EmbedBuilder()
         .setColor('#6640D9')
-        .setAuthor({ 
-          name: `${targetUser.tag}'s Characters`,
-          iconURL: targetUser.displayAvatarURL()
-        })
+        .setTitle('📋 Character Profile')
         .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
-        .setDescription(`**Character Profile** • ${isOwnProfile ? 'Your' : 'Their'} registered character${alts.length > 0 ? 's' : ''}`)
         .setTimestamp();
 
-      // Main character section with better formatting
+      // Header: Discord Name & Timezone
+      const headerValue = [
+        `**Discord:** ${targetUser.tag}`,
+        `**Timezone:** ${userTimezone && userTimezone.timezone ? `🌍 ${userTimezone.timezone}` : '*Not set*'}`
+      ].join('\n');
+
+      embed.addFields({
+        name: '👤 Profile Information',
+        value: headerValue,
+        inline: false
+      });
+
+      // Main Character Section
       const mainCharValue = [
         `**IGN:** ${mainChar.ign}`,
-        `**Class:** ${classEmoji} ${mainChar.class}`,
-        `**Subclass:** ${mainChar.subclass}`,
-        `**Role:** ${roleEmoji} ${mainChar.role}`,
-        `**Ability Score:** ${mainChar.ability_score ? `💪 ${mainChar.ability_score.toLocaleString()}` : '*Not provided*'}`,
-        mainChar.guild ? `**Guild:** 🏰 ${mainChar.guild}` : null,
-        mainChar.timezone ? `**Timezone:** 🌍 ${mainChar.timezone}` : null,
-        `**Registered:** 📅 ${new Date(mainChar.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
-      ].filter(Boolean).join('\n');
+        `**Class:** ${mainChar.class} (${mainChar.subclass})`,
+        `**Role:** ${mainChar.role}`,
+        `**Ability Score:** ${mainChar.ability_score ? mainChar.ability_score.toLocaleString() : '*Not set*'}`,
+        `**Guild:** ${mainChar.guild || '*Not set*'}`
+      ].join('\n');
 
       embed.addFields({
         name: '⭐ Main Character',
@@ -74,47 +76,27 @@ export default {
         inline: false
       });
 
-      // Alt characters section with improved layout
+      // Alt Characters Section
       if (alts.length > 0) {
-        // Group alts in groups of 3 for better layout
-        for (let i = 0; i < alts.length; i += 3) {
-          const altGroup = alts.slice(i, i + 3);
-          
-          altGroup.forEach((alt, idx) => {
-            const altClassEmoji = this.getClassEmoji(alt.class);
-            const altRoleEmoji = this.getRoleEmoji(alt.role);
-            
-            const altValue = [
-              `**IGN:** ${alt.ign}`,
-              `**Class:** ${altClassEmoji} ${alt.class}`,
-              `**Subclass:** ${alt.subclass}`,
-              `**Role:** ${altRoleEmoji} ${alt.role}`
-            ].join('\n');
+        alts.forEach((alt, index) => {
+          const altValue = [
+            `**IGN:** ${alt.ign}`,
+            `**Class:** ${alt.class} (${alt.subclass})`,
+            `**Role:** ${alt.role}`,
+            `**Ability Score:** ${alt.ability_score ? alt.ability_score.toLocaleString() : '*Not set*'}`,
+            `**Guild:** ${alt.guild || '*Not set*'}`
+          ].join('\n');
 
-            embed.addFields({
-              name: `📋 Alt Character ${i + idx + 1}`,
-              value: altValue,
-              inline: true
-            });
+          embed.addFields({
+            name: `📋 Alt Character ${index + 1}`,
+            value: altValue,
+            inline: false
           });
-          
-          // Add spacer if we have more alts coming
-          if (i + 3 < alts.length) {
-            embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
-          }
-        }
-
-        embed.setFooter({ text: `${alts.length} alt character${alts.length !== 1 ? 's' : ''} registered` });
-      } else {
-        embed.addFields({
-          name: '📋 Alt Characters',
-          value: isOwnProfile 
-            ? '*No alt characters registered*\nUse `/edit-member-details` to register alt characters!' 
-            : '*No alt characters registered*',
-          inline: false
         });
-        
-        embed.setFooter({ text: isOwnProfile ? '💡 Tip: Use /edit-member-details to manage characters' : 'Character Profile' });
+
+        embed.setFooter({ text: `Total Characters: ${1 + alts.length}` });
+      } else {
+        embed.setFooter({ text: 'Main character only' });
       }
 
       await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -126,33 +108,9 @@ export default {
         .setColor('#FF0000')
         .setTitle('❌ Error')
         .setDescription('An error occurred while fetching character information.')
-        .setFooter({ text: 'Please try again' })
         .setTimestamp();
       
       await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
     }
-  },
-
-  getClassEmoji(className) {
-    const emojis = {
-      'Beat Performer': '🎵',
-      'Frost Mage': '❄️',
-      'Heavy Guardian': '🛡️',
-      'Marksman': '🏹',
-      'Shield Knight': '⚔️',
-      'Stormblade': '⚡',
-      'Verdant Oracle': '🌿',
-      'Wind Knight': '💨'
-    };
-    return emojis[className] || '⭐';
-  },
-
-  getRoleEmoji(role) {
-    const emojis = {
-      'Tank': '🛡️',
-      'DPS': '⚔️',
-      'Support': '💚'
-    };
-    return emojis[role] || '⭐';
   }
 };
