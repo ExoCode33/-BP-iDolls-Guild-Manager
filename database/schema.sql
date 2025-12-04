@@ -34,3 +34,6 @@ CREATE TABLE IF NOT EXISTS alt_characters (
 CREATE INDEX IF NOT EXISTS idx_characters_discord_id ON characters(discord_id);
 CREATE INDEX IF NOT EXISTS idx_alt_characters_discord_id ON alt_characters(discord_id);
 CREATE INDEX IF NOT EXISTS idx_alt_characters_main_character_id ON alt_characters(main_character_id);
+
+-- Composite index for better main character lookup performance
+CREATE INDEX IF NOT EXISTS idx_characters_discord_main ON characters(discord_id, is_main);
