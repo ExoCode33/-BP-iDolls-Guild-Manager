@@ -234,6 +234,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await registrationHandlers.handleGuildSelection(interaction);
       }
       
+      // ✅ NEW: Timezone selection handlers (ORDER MATTERS!)
+      else if (interaction.customId.startsWith('select_timezone_region_')) {
+        await registrationHandlers.handleTimezoneRegionSelection(interaction);
+      }
+      else if (interaction.customId.startsWith('select_timezone_country_')) {
+        await registrationHandlers.handleTimezoneCountrySelection(interaction);
+      }
+      else if (interaction.customId.startsWith('select_timezone_')) {
+        await registrationHandlers.handleTimezoneSelection(interaction);
+      }
+      
       // Update flow selects
       else if (interaction.customId.startsWith('update_option_')) {
         await updateHandlers.handleUpdateOptionSelection(interaction);
