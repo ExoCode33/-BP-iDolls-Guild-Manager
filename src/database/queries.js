@@ -21,19 +21,28 @@ export const queries = {
       isMain 
     } = characterData;
     
+    // If it's a main character, check if one already exists
+    if (isMain) {
+      const existingMain = await this.getMainCharacter(discordId);
+      if (existingMain) {
+        // Update existing main character
+        const query = `
+          UPDATE characters
+          SET discord_name = $2, ign = $3, role = $4, class = $5, subclass = $6, 
+              ability_score = $7, guild = $8, updated_at = CURRENT_TIMESTAMP
+          WHERE discord_id = $1 AND is_main = true
+          RETURNING *
+        `;
+        const values = [discordId, discordName, ign, role, className, subclass, abilityScore, guild];
+        const result = await pool.query(query, values);
+        return result.rows[0];
+      }
+    }
+    
+    // Insert new character (main or alt)
     const query = `
       INSERT INTO characters (discord_id, discord_name, ign, role, class, subclass, ability_score, guild, is_main)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      ON CONFLICT (discord_id, ign) 
-      DO UPDATE SET 
-        discord_name = EXCLUDED.discord_name,
-        role = EXCLUDED.role,
-        class = EXCLUDED.class,
-        subclass = EXCLUDED.subclass,
-        ability_score = EXCLUDED.ability_score,
-        guild = EXCLUDED.guild,
-        is_main = EXCLUDED.is_main,
-        updated_at = CURRENT_TIMESTAMP
       RETURNING *
     `;
     
