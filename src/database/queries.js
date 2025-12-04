@@ -63,6 +63,12 @@ export const queries = {
     return result.rows[0];
   },
 
+  async deleteMainCharacter(discordId) {
+    const query = 'DELETE FROM characters WHERE discord_id = $1 AND is_main = true RETURNING *';
+    const result = await pool.query(query, [discordId]);
+    return result.rows[0];
+  },
+
   // Alt character queries
   async createAltCharacter(altData) {
     const { discordId, mainCharacterId, ign, role, className, subclass } = altData;
