@@ -103,11 +103,9 @@ export async function handleConfirmRemoveMain(interaction) {
     
     stateManager.clearRemovalState(userId);
     
-    // ✅ NEW: Delete success message and show clean menu
+    // ✅ FIXED: Show menu as followUp
     setTimeout(async () => {
       try {
-        await interaction.deleteReply();
-        
         const editMemberDetails = await import('../commands/edit-member-details.js');
         await editMemberDetails.default.showMainMenu(interaction, false);
       } catch (error) {
@@ -146,7 +144,7 @@ export async function handleCancelRemoveMain(interaction) {
   // ✅ NEW: Delete cancel message and show clean menu
   setTimeout(async () => {
     try {
-      await interaction.deleteReply();
+      
       
       const editMemberDetails = await import('../commands/edit-member-details.js');
       await editMemberDetails.default.showMainMenu(interaction, false);
@@ -311,7 +309,7 @@ export async function handleConfirmRemoveAlt(interaction) {
     // ✅ NEW: Delete success message and show clean menu
     setTimeout(async () => {
       try {
-        await interaction.deleteReply();
+        
         
         const editMemberDetails = await import('../commands/edit-member-details.js');
         await editMemberDetails.default.showMainMenu(interaction, false);
@@ -351,7 +349,7 @@ export async function handleCancelRemoveAlt(interaction) {
   // ✅ NEW: Delete cancel message and show clean menu
   setTimeout(async () => {
     try {
-      await interaction.deleteReply();
+      
       
       const editMemberDetails = await import('../commands/edit-member-details.js');
       await editMemberDetails.default.showMainMenu(interaction, false);
