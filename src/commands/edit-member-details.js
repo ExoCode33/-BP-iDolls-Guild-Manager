@@ -28,34 +28,80 @@ export default {
     const mainChar = await queries.getMainCharacter(interaction.user.id);
     const alts = mainChar ? await queries.getAltCharacters(interaction.user.id) : [];
 
+    // ✅ IMPROVED: Create detailed embed like view-char
     const embed = new EmbedBuilder()
       .setColor('#6640D9')
       .setTitle('📋 Member Details Management')
-      .setDescription('Choose what you\'d like to do:')
+      .setAuthor({ 
+        name: `${interaction.user.tag}'s Profile`,
+        iconURL: interaction.user.displayAvatarURL()
+      })
+      .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
       .setFooter({ text: '💡 Select an action below' })
       .setTimestamp();
 
-    // Add current status
+    // Add current status with full details
     if (mainChar) {
-      embed.addFields(
-        { 
-          name: '⭐ Main Character', 
-          value: `**${mainChar.ign}**\n${mainChar.class} (${mainChar.subclass})\n${mainChar.role}${mainChar.guild ? ` • ${mainChar.guild}` : ''}`, 
-          inline: true 
-        }
-      );
+      const classEmoji = this.getClassEmoji(mainChar.class);
+      const roleEmoji = this.getRoleEmoji(mainChar.role);
+      
+      const mainCharValue = [
+        `**IGN:** ${mainChar.ign}`,
+        `**Class:** ${classEmoji} ${mainChar.class}`,
+        `**Subclass:** ${mainChar.subclass}`,
+        `**Role:** ${roleEmoji} ${mainChar.role}`,
+        `**Ability Score:** ${mainChar.ability_score ? `💪 ${mainChar.ability_score.toLocaleString()}` : '*Not set*'}`,
+        mainChar.guild ? `**Guild:** 🏰 ${mainChar.guild}` : '*No guild*',
+        mainChar.timezone ? `**Timezone:** 🌍 ${mainChar.timezone}` : '*No timezone*',
+        `**Registered:** 📅 ${new Date(mainChar.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+      ].join('\n');
+
+      embed.addFields({
+        name: '⭐ Main Character',
+        value: mainCharValue,
+        inline: false
+      });
       
       if (alts.length > 0) {
+        // Show alts in groups of 3 for better layout
+        for (let i = 0; i < alts.length; i += 3) {
+          const altGroup = alts.slice(i, i + 3);
+          
+          altGroup.forEach((alt, idx) => {
+            const altClassEmoji = this.getClassEmoji(alt.class);
+            const altRoleEmoji = this.getRoleEmoji(alt.role);
+            
+            const altValue = [
+              `**IGN:** ${alt.ign}`,
+              `**Class:** ${altClassEmoji} ${alt.class}`,
+              `**Subclass:** ${alt.subclass}`,
+              `**Role:** ${altRoleEmoji} ${alt.role}`
+            ].join('\n');
+
+            embed.addFields({
+              name: `📋 Alt Character ${i + idx + 1}`,
+              value: altValue,
+              inline: true
+            });
+          });
+          
+          // Add spacer if we have more alts coming
+          if (i + 3 < alts.length) {
+            embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
+          }
+        }
+      } else {
         embed.addFields({
           name: '📋 Alt Characters',
-          value: alts.map(alt => `• ${alt.ign} (${alt.class})`).join('\n'),
-          inline: true
+          value: '*No alt characters registered*',
+          inline: false
         });
       }
     } else {
+      embed.setDescription('**No characters registered yet!**\nGet started by adding your main character below.');
       embed.addFields({
-        name: '📝 Status',
-        value: 'No main character registered',
+        name: '🎮 Ready to Begin?',
+        value: 'Click **Add Main Character** to register your first character!',
         inline: false
       });
     }
@@ -67,7 +113,6 @@ export default {
     const row1 = new ActionRowBuilder();
     
     if (!mainChar) {
-      // Only show "Add Main" if they don't have one
       row1.addComponents(
         new ButtonBuilder()
           .setCustomId(`edit_add_main_${interaction.user.id}`)
@@ -76,7 +121,6 @@ export default {
           .setEmoji('⭐')
       );
     } else {
-      // Show both Edit and Remove if they have a main
       row1.addComponents(
         new ButtonBuilder()
           .setCustomId(`edit_update_main_${interaction.user.id}`)
@@ -118,20 +162,8 @@ export default {
       rows.push(row2);
     }
 
-    // Row 3: View and Close buttons
-    const row3 = new ActionRowBuilder();
-    
-    if (mainChar) {
-      row3.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`edit_view_chars_${interaction.user.id}`)
-          .setLabel('View All Characters')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('👀')
-      );
-    }
-    
-    row3.addComponents(
+    // Row 3: Close button only (removed View All Characters since we show everything now)
+    const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`edit_close_${interaction.user.id}`)
         .setLabel('Close')
@@ -149,7 +181,8 @@ export default {
   },
 
   async handleViewChars(interaction) {
-    // ✅ FIXED: Simply call view-char and let it send a new message
+    // This is now redundant since main menu shows everything
+    // But keeping it for backwards compatibility
     const viewChar = await import('./view-char.js');
     await viewChar.default.execute(interaction);
   },
@@ -166,5 +199,28 @@ export default {
       .setTimestamp();
 
     await interaction.update({ embeds: [embed], components: [] });
+  },
+
+  getClassEmoji(className) {
+    const emojis = {
+      'Beat Performer': '🎵',
+      'Frost Mage': '❄️',
+      'Heavy Guardian': '🛡️',
+      'Marksman': '🏹',
+      'Shield Knight': '⚔️',
+      'Stormblade': '⚡',
+      'Verdant Oracle': '🌿',
+      'Wind Knight': '💨'
+    };
+    return emojis[className] || '⭐';
+  },
+
+  getRoleEmoji(role) {
+    const emojis = {
+      'Tank': '🛡️',
+      'DPS': '⚔️',
+      'Support': '💚'
+    };
+    return emojis[role] || '⭐';
   }
 };
