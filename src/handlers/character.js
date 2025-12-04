@@ -208,7 +208,12 @@ export async function handleSubclassSelection(interaction) {
     const selectedSubclass = interaction.values[0];
     const state = stateManager.getRegistrationState(userId);
     
+    console.log('📊 [DEBUG] handleSubclassSelection - userId:', userId);
+    console.log('📊 [DEBUG] handleSubclassSelection - selectedSubclass:', selectedSubclass);
+    console.log('📊 [DEBUG] handleSubclassSelection - state:', JSON.stringify(state));
+    
     if (!state || !state.class) {
+      console.log('❌ [DEBUG] State validation failed - state:', state);
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
         flags: 64
@@ -224,6 +229,8 @@ export async function handleSubclassSelection(interaction) {
       role: role,
       step: 'ability_score'
     };
+    
+    console.log('📊 [DEBUG] handleSubclassSelection - updatedState:', JSON.stringify(updatedState));
     
     stateManager.setRegistrationState(userId, updatedState);
 
@@ -243,6 +250,15 @@ export async function handleSubclassSelection(interaction) {
 // ==================== ABILITY SCORE SELECTION ====================
 
 async function showAbilityScoreSelection(interaction, userId, state) {
+  // Validate state has required fields
+  if (!state || !state.class || !state.subclass) {
+    console.error('Invalid state in showAbilityScoreSelection:', state);
+    return interaction.reply({
+      content: '❌ Session data is incomplete. Please start over.',
+      flags: 64
+    });
+  }
+
   const abilityScoreRanges = [
     { label: '10k or smaller', value: '10000', description: 'Ability Score: ≤10,000' },
     { label: '10k - 12k', value: '11000', description: 'Ability Score: 10,001 - 12,000' },
@@ -290,8 +306,8 @@ async function showAbilityScoreSelection(interaction, userId, state) {
     .setTitle(`⭐ ${state.type === 'main' ? 'Register Main Character' : 'Add Alt Character'}`)
     .setDescription('**Step 3:** Select your ability score range')
     .addFields(
-      { name: '🎭 Class', value: state.class, inline: true },
-      { name: '🎯 Subclass', value: state.subclass, inline: true }
+      { name: '🎭 Class', value: String(state.class), inline: true },
+      { name: '🎯 Subclass', value: String(state.subclass), inline: true }
     )
     .setFooter({ text: '💪 Choose the range closest to your ability score' })
     .setTimestamp();
