@@ -27,7 +27,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Unified characters table (includes both main and alt characters)
+-- Unified characters table (includes main, alt, and their subclasses)
 CREATE TABLE characters (
     id INTEGER PRIMARY KEY DEFAULT get_next_character_id(),
     discord_id VARCHAR(20) NOT NULL,
@@ -38,10 +38,10 @@ CREATE TABLE characters (
     role VARCHAR(20) NOT NULL,
     ability_score INTEGER,
     guild VARCHAR(50),
-    is_main BOOLEAN DEFAULT false,
+    character_type VARCHAR(20) NOT NULL CHECK (character_type IN ('main', 'alt', 'main_subclass', 'alt_subclass')),
+    parent_character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    -- Removed UNIQUE constraint to allow same IGN for multiple characters
 );
 
 -- User timezones table (separate from characters)
@@ -54,8 +54,9 @@ CREATE TABLE user_timezones (
 
 -- Indexes for faster queries
 CREATE INDEX idx_characters_discord_id ON characters(discord_id);
-CREATE INDEX idx_characters_is_main ON characters(is_main);
-CREATE INDEX idx_characters_discord_main ON characters(discord_id, is_main);
+CREATE INDEX idx_characters_type ON characters(character_type);
+CREATE INDEX idx_characters_discord_type ON characters(discord_id, character_type);
+CREATE INDEX idx_characters_parent ON characters(parent_character_id);
 CREATE INDEX idx_characters_guild ON characters(guild);
 CREATE INDEX idx_characters_class ON characters(class);
 
@@ -77,3 +78,32 @@ CREATE TRIGGER update_user_timezones_updated_at
     BEFORE UPDATE ON user_timezones
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- Comments for clarity
+COMMENT ON COLUMN characters.character_type IS 'Type: main, alt, main_subclass, alt_subclass';
+COMMENT ON COLUMN characters.parent_character_id IS 'NULL for main/alt, references parent for subclasses';
+
+-- Example queries:
+
+-- Get main characters only:
+-- SELECT * FROM characters WHERE discord_id = '123' AND character_type = 'main';
+
+-- Get alts only:
+-- SELECT * FROM characters WHERE discord_id = '123' AND character_type = 'alt';
+
+-- Get subclasses for a main character:
+-- SELECT * FROM characters WHERE parent_character_id = 5 AND character_type = 'main_subclass';
+
+-- Get all characters for a user with hierarchy:
+-- SELECT c.*, p.ign as parent_ign, p.character_type as parent_type
+-- FROM characters c
+-- LEFT JOIN characters p ON c.parent_character_id = p.id
+-- WHERE c.discord_id = '123'
+-- ORDER BY 
+--   CASE character_type 
+--     WHEN 'main' THEN 1 
+--     WHEN 'main_subclass' THEN 2 
+--     WHEN 'alt' THEN 3 
+--     WHEN 'alt_subclass' THEN 4 
+--   END,
+--   c.created_at;
