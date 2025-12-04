@@ -27,33 +27,37 @@ export default {
     // Get user's current registration status
     const mainChar = await queries.getMainCharacter(interaction.user.id);
     const alts = mainChar ? await queries.getAltCharacters(interaction.user.id) : [];
+    
+    // Get user's timezone separately
+    const userTimezone = await queries.getUserTimezone(interaction.user.id);
 
-    // ✅ IMPROVED: Create detailed embed like view-char
+    // Professional embed with proper hierarchy
     const embed = new EmbedBuilder()
       .setColor('#6640D9')
       .setTitle('📋 Member Details Management')
-      .setAuthor({ 
-        name: `${interaction.user.tag}'s Profile`,
-        iconURL: interaction.user.displayAvatarURL()
-      })
       .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
-      .setFooter({ text: '💡 Select an action below' })
       .setTimestamp();
 
-    // Add current status with full details
+    // Header: Discord Name & Timezone
+    const headerValue = [
+      `**Discord:** ${interaction.user.tag}`,
+      `**Timezone:** ${userTimezone && userTimezone.timezone ? `🌍 ${userTimezone.timezone}` : '*Not set*'}`
+    ].join('\n');
+
+    embed.addFields({
+      name: '👤 Profile Information',
+      value: headerValue,
+      inline: false
+    });
+
+    // Main Character Section
     if (mainChar) {
-      const classEmoji = this.getClassEmoji(mainChar.class);
-      const roleEmoji = this.getRoleEmoji(mainChar.role);
-      
       const mainCharValue = [
         `**IGN:** ${mainChar.ign}`,
-        `**Class:** ${classEmoji} ${mainChar.class}`,
-        `**Subclass:** ${mainChar.subclass}`,
-        `**Role:** ${roleEmoji} ${mainChar.role}`,
-        `**Ability Score:** ${mainChar.ability_score ? `💪 ${mainChar.ability_score.toLocaleString()}` : '*Not set*'}`,
-        mainChar.guild ? `**Guild:** 🏰 ${mainChar.guild}` : '*No guild*',
-        mainChar.timezone ? `**Timezone:** 🌍 ${mainChar.timezone}` : '*No timezone*',
-        `**Registered:** 📅 ${new Date(mainChar.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+        `**Class:** ${mainChar.class} (${mainChar.subclass})`,
+        `**Role:** ${mainChar.role}`,
+        `**Ability Score:** ${mainChar.ability_score ? mainChar.ability_score.toLocaleString() : '*Not set*'}`,
+        `**Guild:** ${mainChar.guild || '*Not set*'}`
       ].join('\n');
 
       embed.addFields({
@@ -62,51 +66,32 @@ export default {
         inline: false
       });
       
+      // Alt Characters Section
       if (alts.length > 0) {
-        // Show alts in groups of 3 for better layout
-        for (let i = 0; i < alts.length; i += 3) {
-          const altGroup = alts.slice(i, i + 3);
-          
-          altGroup.forEach((alt, idx) => {
-            const altClassEmoji = this.getClassEmoji(alt.class);
-            const altRoleEmoji = this.getRoleEmoji(alt.role);
-            
-            const altValue = [
-              `**IGN:** ${alt.ign}`,
-              `**Class:** ${altClassEmoji} ${alt.class}`,
-              `**Subclass:** ${alt.subclass}`,
-              `**Role:** ${altRoleEmoji} ${alt.role}`
-            ].join('\n');
+        alts.forEach((alt, index) => {
+          const altValue = [
+            `**IGN:** ${alt.ign}`,
+            `**Class:** ${alt.class} (${alt.subclass})`,
+            `**Role:** ${alt.role}`,
+            `**Ability Score:** ${alt.ability_score ? alt.ability_score.toLocaleString() : '*Not set*'}`,
+            `**Guild:** ${alt.guild || '*Not set*'}`
+          ].join('\n');
 
-            embed.addFields({
-              name: `📋 Alt Character ${i + idx + 1}`,
-              value: altValue,
-              inline: true
-            });
+          embed.addFields({
+            name: `📋 Alt Character ${index + 1}`,
+            value: altValue,
+            inline: false
           });
-          
-          // Add spacer if we have more alts coming
-          if (i + 3 < alts.length) {
-            embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
-          }
-        }
-      } else {
-        embed.addFields({
-          name: '📋 Alt Characters',
-          value: '*No alt characters registered*',
-          inline: false
         });
       }
+      
+      embed.setFooter({ text: `Total Characters: ${1 + alts.length} | Select an action below` });
     } else {
-      embed.setDescription('**No characters registered yet!**\nGet started by adding your main character below.');
-      embed.addFields({
-        name: '🎮 Ready to Begin?',
-        value: 'Click **Add Main Character** to register your first character!',
-        inline: false
-      });
+      embed.setDescription('**No characters registered yet!**\n\nGet started by adding your main character.');
+      embed.setFooter({ text: 'Click "Add Main Character" to begin' });
     }
 
-    // Build button rows based on current state
+    // Build button rows
     const rows = [];
 
     // Row 1: Main character actions
@@ -162,22 +147,9 @@ export default {
       rows.push(row2);
     }
 
-    // Row 3: Close button only (removed View All Characters since we show everything now)
-    const row3 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`edit_close_${interaction.user.id}`)
-        .setLabel('Close')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('❌')
-    );
-    
-    rows.push(row3);
-
-    // ✅ FIXED: Use followUp for new messages to avoid creating multiple ephemeral messages
     if (isUpdate) {
       await interaction.update({ embeds: [embed], components: rows });
     } else {
-      // Check if we can reply or need to followUp
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp({ embeds: [embed], components: rows, ephemeral: true });
       } else {
@@ -186,47 +158,7 @@ export default {
     }
   },
 
-  async handleViewChars(interaction) {
-    // This is now redundant since main menu shows everything
-    // But keeping it for backwards compatibility
-    const viewChar = await import('./view-char.js');
-    await viewChar.default.execute(interaction);
-  },
-
   async handleBackToMenu(interaction) {
     await this.showMainMenu(interaction, true);
-  },
-
-  async handleClose(interaction) {
-    const embed = new EmbedBuilder()
-      .setColor('#6640D9')
-      .setTitle('✅ Menu Closed')
-      .setDescription('You can reopen this menu anytime with `/edit-member-details`')
-      .setTimestamp();
-
-    await interaction.update({ embeds: [embed], components: [] });
-  },
-
-  getClassEmoji(className) {
-    const emojis = {
-      'Beat Performer': '🎵',
-      'Frost Mage': '❄️',
-      'Heavy Guardian': '🛡️',
-      'Marksman': '🏹',
-      'Shield Knight': '⚔️',
-      'Stormblade': '⚡',
-      'Verdant Oracle': '🌿',
-      'Wind Knight': '💨'
-    };
-    return emojis[className] || '⭐';
-  },
-
-  getRoleEmoji(role) {
-    const emojis = {
-      'Tank': '🛡️',
-      'DPS': '⚔️',
-      'Support': '💚'
-    };
-    return emojis[role] || '⭐';
   }
 };
