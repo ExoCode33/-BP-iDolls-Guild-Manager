@@ -88,7 +88,7 @@ async function showClassSelection(interaction, userId, type) {
   const embed = new EmbedBuilder()
     .setColor('#6640D9')
     .setTitle(`⭐ ${type === 'main' ? 'Register Main Character' : 'Add Alt Character'}`)
-    .setDescription('**Step 1 of 3:** Select your class')
+    .setDescription('**Step 1:** Select your class')
     .setFooter({ text: '💡 Choose the class you play' })
     .setTimestamp();
 
@@ -130,7 +130,7 @@ export async function handleClassSelection(interaction) {
     const embed = new EmbedBuilder()
       .setColor('#6640D9')
       .setTitle(`⭐ ${type === 'main' ? 'Register Main Character' : 'Add Alt Character'}`)
-      .setDescription(`**Step 2 of 3:** Select your ${selectedClass} subclass`)
+      .setDescription(`**Step 2:** Select your ${selectedClass} subclass`)
       .addFields({
         name: '🎭 Selected Class',
         value: selectedClass,
@@ -178,7 +178,7 @@ export async function handleSubclassSelection(interaction) {
     // Update state
     stateManager.setRegistrationState(userId, {
       ...state,
-      step: 'ability_score',
+      step: 'next',
       subclass: selectedSubclass,
       role: role
     });
@@ -187,7 +187,7 @@ export async function handleSubclassSelection(interaction) {
       // Show ability score dropdown for main character
       await showAbilityScoreSelection(interaction, userId, state, selectedClass, selectedSubclass);
     } else {
-      // For alt, show simple IGN modal
+      // For alt, show simple IGN modal (no ability score, no guild, no timezone)
       const modal = new ModalBuilder()
         .setCustomId(`ign_modal_${type}_${userId}`)
         .setTitle('Alt Character Name');
@@ -216,7 +216,6 @@ export async function handleSubclassSelection(interaction) {
   }
 }
 
-// ✅ NEW: Show ability score dropdown selection
 async function showAbilityScoreSelection(interaction, userId, state, selectedClass, selectedSubclass) {
   const abilityScoreRanges = [
     { label: '10k or smaller', value: '10000', description: 'Ability Score: ≤10,000' },
@@ -267,7 +266,6 @@ async function showAbilityScoreSelection(interaction, userId, state, selectedCla
   await interaction.update({ embeds: [embed], components: [row] });
 }
 
-// ✅ NEW: Handle ability score selection
 export async function handleAbilityScoreSelection(interaction) {
   try {
     const userId = interaction.user.id;
@@ -296,7 +294,6 @@ export async function handleAbilityScoreSelection(interaction) {
   }
 }
 
-// ✅ NEW: Show guild selection early in the flow
 async function showGuildSelectionEarly(interaction, userId, state) {
   const guilds = GAME_DATA.guilds;
   
@@ -338,7 +335,6 @@ async function showGuildSelectionEarly(interaction, userId, state) {
   await interaction.update({ embeds: [embed], components: [row] });
 }
 
-// ✅ NEW: Handle early guild selection
 export async function handleGuildSelectionEarly(interaction) {
   try {
     const userId = interaction.user.id;
@@ -367,7 +363,6 @@ export async function handleGuildSelectionEarly(interaction) {
   }
 }
 
-// ✅ NEW: Show smart timezone selection based on current time
 async function showSmartTimezoneSelection(interaction, userId, state) {
   const now = new Date();
   const currentHour = now.getHours();
@@ -417,7 +412,6 @@ async function showSmartTimezoneSelection(interaction, userId, state) {
   await interaction.update({ embeds: [embed], components: [row] });
 }
 
-// ✅ NEW: Handle current time selection and suggest timezones
 export async function handleCurrentTimeSelection(interaction) {
   try {
     const userId = interaction.user.id;
@@ -487,7 +481,6 @@ export async function handleCurrentTimeSelection(interaction) {
   }
 }
 
-// ✅ NEW: Get suggested timezones based on offset
 function getSuggestedTimezones(offsetHours) {
   const suggestions = [];
   
@@ -520,7 +513,6 @@ function getSuggestedTimezones(offsetHours) {
   return suggestions;
 }
 
-// ✅ NEW: Handle suggested timezone selection
 export async function handleSuggestedTimezoneSelection(interaction) {
   try {
     const userId = interaction.user.id;
@@ -570,7 +562,6 @@ export async function handleSuggestedTimezoneSelection(interaction) {
   }
 }
 
-// ✅ NEW: Handle IGN modal submission (final step)
 export async function handleIGNModal(interaction) {
   try {
     const userId = interaction.user.id;
@@ -587,10 +578,10 @@ export async function handleIGNModal(interaction) {
     const type = state.type;
 
     if (type === 'main') {
-      // Save main character directly (guild already selected)
+      // Save main character with timezone separately
       await saveMainCharacterFinal(interaction, userId, state, ign);
     } else {
-      // Save alt character
+      // Save alt character (no timezone)
       await saveAltCharacter(interaction, userId, state, ign);
     }
     
@@ -607,6 +598,7 @@ export async function handleIGNModal(interaction) {
 async function saveMainCharacterFinal(interaction, userId, state, ign) {
   await interaction.deferReply({ ephemeral: true });
 
+  // Save main character (without timezone in character record)
   const characterData = {
     discordId: userId,
     discordName: interaction.user.tag,
@@ -615,11 +607,16 @@ async function saveMainCharacterFinal(interaction, userId, state, ign) {
     className: state.class,
     subclass: state.subclass,
     abilityScore: state.abilityScore ? parseInt(state.abilityScore) : null,
-    timezone: state.timezone || null,
-    guild: state.guild || null
+    guild: state.guild || null,
+    isMain: true  // ✅ NEW: Mark as main character
   };
 
   await queries.createCharacter(characterData);
+
+  // Save timezone separately if provided
+  if (state.timezone) {
+    await queries.setUserTimezone(userId, interaction.user.tag, state.timezone);
+  }
 
   const embed = new EmbedBuilder()
     .setColor('#00FF00')
@@ -649,7 +646,7 @@ async function saveMainCharacterFinal(interaction, userId, state, ign) {
   
   stateManager.clearRegistrationState(userId);
   
-  // ✅ Show main menu immediately
+  // Show main menu immediately
   setTimeout(async () => {
     try {
       const editMemberDetails = await import('../commands/edit-member-details.js');
@@ -660,37 +657,79 @@ async function saveMainCharacterFinal(interaction, userId, state, ign) {
   }, 2000);
 }
 
-export async function handleCharacterDetailsModal(interaction) {
+async function saveAltCharacter(interaction, userId, state, ign) {
   try {
-    const userId = interaction.user.id;
-    const state = stateManager.getRegistrationState(userId);
+    await interaction.deferReply({ ephemeral: true });
+
+    const mainChar = await queries.getMainCharacter(userId);
     
-    if (!state || !state.class || !state.subclass) {
-      return interaction.reply({
-        content: '❌ Session expired. Please start over.',
-        ephemeral: true
-      });
+    if (!mainChar) {
+      const embed = new EmbedBuilder()
+        .setColor('#FFA500')
+        .setTitle('⚠️ No Main Character')
+        .setDescription('You need a main character before adding alts!')
+        .setTimestamp();
+      
+      stateManager.clearRegistrationState(userId);
+      return interaction.editReply({ embeds: [embed] });
     }
 
-    const type = state.type;
-    const ign = interaction.fields.getTextInputValue('ign');
+    // Save alt character (no ability score, no guild, no timezone)
+    const altData = {
+      discordId: userId,
+      discordName: interaction.user.tag,
+      ign: ign,
+      role: state.role,
+      className: state.class,
+      subclass: state.subclass,
+      abilityScore: null,  // Alts don't have ability score
+      guild: null,         // Alts don't have guild
+      isMain: false        // ✅ NEW: Mark as alt character
+    };
+
+    await queries.createCharacter(altData);
+
+    const embed = new EmbedBuilder()
+      .setColor('#00FF00')
+      .setTitle('✅ Alt Character Added!')
+      .setDescription('Your alt character has been successfully registered.')
+      .addFields(
+        { name: '🎮 IGN', value: ign, inline: true },
+        { name: '🎭 Class', value: `${state.class} (${state.subclass})`, inline: true },
+        { name: '⚔️ Role', value: state.role, inline: true }
+      )
+      .setFooter({ text: '💡 Returning to menu...' })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
     
-    // This is only for alt characters now (main uses new flow)
-    if (type === 'alt') {
-      await saveAltCharacter(interaction, userId, state, ign);
-    }
+    // Clear state
+    stateManager.clearRegistrationState(userId);
+    
+    // Show menu as followUp
+    setTimeout(async () => {
+      try {
+        const editMemberDetails = await import('../commands/edit-member-details.js');
+        await editMemberDetails.default.showMainMenu(interaction, false);
+      } catch (error) {
+        console.error('Error returning to menu after alt registration:', error);
+      }
+    }, 2000);
     
   } catch (error) {
-    console.error('Error in handleCharacterDetailsModal:', error);
-    stateManager.clearRegistrationState(interaction.user.id);
-    await interaction.reply({
-      content: '❌ An error occurred. Please try again.',
-      ephemeral: true
-    });
+    console.error('Error saving alt character:', error);
+    stateManager.clearRegistrationState(userId);
+    
+    const embed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setTitle('❌ Registration Failed')
+      .setDescription('An error occurred while saving your alt character.')
+      .setTimestamp();
+    
+    await interaction.editReply({ embeds: [embed] });
   }
 }
 
-// ✅ NEW: Show timezone region selection
 async function showTimezoneRegionSelection(interaction, userId, state) {
   const regions = getTimezoneRegions();
   
@@ -724,25 +763,20 @@ async function showTimezoneRegionSelection(interaction, userId, state) {
   const embed = new EmbedBuilder()
     .setColor('#6640D9')
     .setTitle('⭐ Register Main Character')
-    .setDescription('**Step 3 (Optional):** Select your timezone region\n\n💡 You can skip this step or select a region below.')
+    .setDescription('**Step (Optional):** Select your timezone region\n\n💡 You can skip this step or select a region below.')
     .setFooter({ text: '🌍 Timezone helps coordinate with guild members' })
     .setTimestamp();
   
-  // Only add fields if they exist
   if (state.class) {
     embed.addFields({ name: '🎭 Class', value: state.class, inline: true });
   }
   if (state.subclass) {
     embed.addFields({ name: '🎯 Subclass', value: state.subclass, inline: true });
   }
-  if (state.ign) {
-    embed.addFields({ name: '🎮 IGN', value: state.ign, inline: true });
-  }
 
   await interaction.reply({ embeds: [embed], components: [row1, row2], ephemeral: true });
 }
 
-// ✅ NEW: Handle timezone region selection
 export async function handleTimezoneRegionSelection(interaction) {
   try {
     const userId = interaction.user.id;
@@ -807,7 +841,7 @@ export async function handleTimezoneRegionSelection(interaction) {
     const embed = new EmbedBuilder()
       .setColor('#6640D9')
       .setTitle('⭐ Register Main Character')
-      .setDescription('**Step 3b:** Select your country')
+      .setDescription('**Step:** Select your country')
       .addFields(
         { name: '🌍 Region', value: selectedRegion, inline: true }
       )
@@ -827,7 +861,6 @@ export async function handleTimezoneRegionSelection(interaction) {
   }
 }
 
-// ✅ NEW: Handle timezone country selection
 export async function handleTimezoneCountrySelection(interaction) {
   try {
     const userId = interaction.user.id;
@@ -866,7 +899,7 @@ export async function handleTimezoneCountrySelection(interaction) {
     const embed = new EmbedBuilder()
       .setColor('#6640D9')
       .setTitle('⭐ Register Main Character')
-      .setDescription('**Step 3c:** Select your specific timezone')
+      .setDescription('**Step:** Select your specific timezone')
       .addFields(
         { name: '🌍 Country', value: selectedCountry, inline: true }
       )
@@ -886,7 +919,6 @@ export async function handleTimezoneCountrySelection(interaction) {
   }
 }
 
-// ✅ NEW: Handle final timezone selection
 export async function handleTimezoneSelection(interaction) {
   try {
     const userId = interaction.user.id;
@@ -930,77 +962,6 @@ export async function handleTimezoneSelection(interaction) {
   }
 }
 
-
-async function saveAltCharacter(interaction, userId, state, ign) {
-  try {
-    await interaction.deferReply({ ephemeral: true });
-
-    const mainChar = await queries.getMainCharacter(userId);
-    
-    if (!mainChar) {
-      const embed = new EmbedBuilder()
-        .setColor('#FFA500')
-        .setTitle('⚠️ No Main Character')
-        .setDescription('You need a main character before adding alts!')
-        .setTimestamp();
-      
-      stateManager.clearRegistrationState(userId);
-      return interaction.editReply({ embeds: [embed] });
-    }
-
-    const altData = {
-      discordId: userId,
-      mainCharacterId: mainChar.id,
-      ign: ign,
-      role: state.role,
-      className: state.class,
-      subclass: state.subclass
-    };
-
-    await queries.createAltCharacter(altData);
-
-    const embed = new EmbedBuilder()
-      .setColor('#00FF00')
-      .setTitle('✅ Alt Character Added!')
-      .setDescription('Your alt character has been successfully registered.')
-      .addFields(
-        { name: '🎮 IGN', value: ign, inline: true },
-        { name: '🎭 Class', value: `${state.class} (${state.subclass})`, inline: true },
-        { name: '⚔️ Role', value: state.role, inline: true }
-      )
-      .setFooter({ text: '💡 Returning to menu...' })
-      .setTimestamp();
-
-    await interaction.editReply({ embeds: [embed] });
-    
-    // Clear state
-    stateManager.clearRegistrationState(userId);
-    
-    // ✅ FIXED: Show menu as followUp (keeps success message visible briefly)
-    setTimeout(async () => {
-      try {
-        const editMemberDetails = await import('../commands/edit-member-details.js');
-        await editMemberDetails.default.showMainMenu(interaction, false);
-      } catch (error) {
-        console.error('Error returning to menu after alt registration:', error);
-      }
-    }, 2000);
-    
-  } catch (error) {
-    console.error('Error saving alt character:', error);
-    stateManager.clearRegistrationState(userId);
-    
-    const embed = new EmbedBuilder()
-      .setColor('#FF0000')
-      .setTitle('❌ Registration Failed')
-      .setDescription('An error occurred while saving your alt character.')
-      .setTimestamp();
-    
-    await interaction.editReply({ embeds: [embed] });
-  }
-}
-
-// ✅ NEW: Back button handlers
 export async function handleBackFromTimezone(interaction) {
   try {
     const userId = interaction.user.id;
@@ -1013,55 +974,7 @@ export async function handleBackFromTimezone(interaction) {
       });
     }
 
-    // Re-show region selection
-    const regions = getTimezoneRegions();
-  
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(`select_timezone_region_${userId}`)
-      .setPlaceholder('🌍 Select your region (or skip)')
-      .addOptions(
-        [
-          {
-            label: '⏭️ Skip Timezone',
-            value: 'SKIP_TIMEZONE',
-            description: 'Continue without setting a timezone'
-          },
-          ...regions.map(region => ({
-            label: region,
-            value: region,
-            emoji: getRegionEmoji(region)
-          }))
-        ]
-      );
-
-    const backButton = new ButtonBuilder()
-      .setCustomId(`back_from_timezone_${userId}`)
-      .setLabel('Back')
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji('◀️')
-      .setDisabled(true); // Can't go further back
-
-    const row1 = new ActionRowBuilder().addComponents(selectMenu);
-    const row2 = new ActionRowBuilder().addComponents(backButton);
-
-    const embed = new EmbedBuilder()
-      .setColor('#6640D9')
-      .setTitle('⭐ Register Main Character')
-      .setDescription('**Step 3 (Optional):** Select your timezone region\n\n💡 You can skip this step or select a region below.')
-      .setFooter({ text: '🌍 Timezone helps coordinate with guild members' })
-      .setTimestamp();
-    
-    if (state.class) {
-      embed.addFields({ name: '🎭 Class', value: state.class, inline: true });
-    }
-    if (state.subclass) {
-      embed.addFields({ name: '🎯 Subclass', value: state.subclass, inline: true });
-    }
-    if (state.ign) {
-      embed.addFields({ name: '🎮 IGN', value: state.ign, inline: true });
-    }
-
-    await interaction.update({ embeds: [embed], components: [row1, row2] });
+    await showTimezoneRegionSelection(interaction, userId, state);
     
   } catch (error) {
     console.error('Error in handleBackFromTimezone:', error);
@@ -1080,55 +993,7 @@ export async function handleBackToRegion(interaction) {
       });
     }
 
-    // Show region selection again
-    const regions = getTimezoneRegions();
-  
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(`select_timezone_region_${userId}`)
-      .setPlaceholder('🌍 Select your region (or skip)')
-      .addOptions(
-        [
-          {
-            label: '⏭️ Skip Timezone',
-            value: 'SKIP_TIMEZONE',
-            description: 'Continue without setting a timezone'
-          },
-          ...regions.map(region => ({
-            label: region,
-            value: region,
-            emoji: getRegionEmoji(region)
-          }))
-        ]
-      );
-
-    const backButton = new ButtonBuilder()
-      .setCustomId(`back_from_timezone_${userId}`)
-      .setLabel('Back')
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji('◀️')
-      .setDisabled(true);
-
-    const row1 = new ActionRowBuilder().addComponents(selectMenu);
-    const row2 = new ActionRowBuilder().addComponents(backButton);
-
-    const embed = new EmbedBuilder()
-      .setColor('#6640D9')
-      .setTitle('⭐ Register Main Character')
-      .setDescription('**Step 3 (Optional):** Select your timezone region\n\n💡 You can skip this step or select a region below.')
-      .setFooter({ text: '🌍 Timezone helps coordinate with guild members' })
-      .setTimestamp();
-    
-    if (state.class) {
-      embed.addFields({ name: '🎭 Class', value: state.class, inline: true });
-    }
-    if (state.subclass) {
-      embed.addFields({ name: '🎯 Subclass', value: state.subclass, inline: true });
-    }
-    if (state.ign) {
-      embed.addFields({ name: '🎮 IGN', value: state.ign, inline: true });
-    }
-
-    await interaction.update({ embeds: [embed], components: [row1, row2] });
+    await showTimezoneRegionSelection(interaction, userId, state);
     
   } catch (error) {
     console.error('Error in handleBackToRegion:', error);
@@ -1147,7 +1012,6 @@ export async function handleBackToCountry(interaction) {
       });
     }
 
-    // Show country selection again
     const countries = getCountriesInRegion(state.selectedRegion);
     
     const selectMenu = new StringSelectMenuBuilder()
@@ -1172,7 +1036,7 @@ export async function handleBackToCountry(interaction) {
     const embed = new EmbedBuilder()
       .setColor('#6640D9')
       .setTitle('⭐ Register Main Character')
-      .setDescription('**Step 3b:** Select your country')
+      .setDescription('**Step:** Select your country')
       .addFields(
         { name: '🌍 Region', value: state.selectedRegion, inline: true }
       )
