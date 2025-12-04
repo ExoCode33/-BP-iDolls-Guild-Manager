@@ -83,11 +83,10 @@ client.once(Events.ClientReady, async (c) => {
     const sheetsInitialized = await googleSheets.initialize();
     
     if (sheetsInitialized) {
-      // Perform initial sync
-      console.log('📊 Performing initial sync...');
-      await performAutoSync();
+      // REMOVED: Initial sync on startup
+      console.log('✅ Google Sheets initialized (auto-sync will run periodically)');
       
-      // Start auto-sync
+      // Start periodic auto-sync
       console.log(`⏰ Starting auto-sync (every ${AUTO_SYNC_INTERVAL / 60000} minutes)...`);
       autoSyncInterval = setInterval(performAutoSync, AUTO_SYNC_INTERVAL);
       console.log('✅ Auto-sync enabled!\n');
