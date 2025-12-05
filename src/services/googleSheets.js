@@ -11,7 +11,7 @@ class GoogleSheetsService {
     
     // 🎨 CLASS LOGO URLs - GitHub Raw URLs
     // Base URL for your GitHub repository's raw content
-    const githubBaseUrl = 'https://raw.githubusercontent.com/ExoCode33/Test/491c35d79b525188602a4fb8bbfd2fbc23273bba';
+    const githubBaseUrl = 'https://raw.githubusercontent.com/ExoCode33/-BP-Heal-Guild-Helper/f0f9f7305c33cb299a202f115124248156acbf00/class-icons';
     
     this.classLogos = {
       'Beat Performer': `${githubBaseUrl}/BeatPerformer.png`,
