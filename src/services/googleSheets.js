@@ -9,27 +9,26 @@ class GoogleSheetsService {
     this.sheets = null;
     this.spreadsheetId = process.env.GOOGLE_SHEETS_ID;
     
-    // 🎨 CLASS LOGO URLs - Set these in Railway Variables
+    // 🎨 CLASS LOGO URLs - GitHub Raw URLs
+    // Base URL for your GitHub repository's raw content
+    const githubBaseUrl = 'https://raw.githubusercontent.com/ExoCode33/Test/491c35d79b525188602a4fb8bbfd2fbc23273bba';
+    
     this.classLogos = {
-      'Beat Performer': process.env.ICON_BEAT_PERFORMER || '',
-      'Frost Mage': process.env.ICON_FROST_MAGE || '',
-      'Heavy Guardian': process.env.ICON_HEAVY_GUARDIAN || '',
-      'Marksman': process.env.ICON_MARKSMAN || '',
-      'Shield Knight': process.env.ICON_SHIELD_KNIGHT || '',
-      'Stormblade': process.env.ICON_STORMBLADE || '',
-      'Verdant Oracle': process.env.ICON_VERDANT_ORACLE || '',
-      'Wind Knight': process.env.ICON_WIND_KNIGHT || ''
+      'Beat Performer': `${githubBaseUrl}/BeatPerformer.png`,
+      'Frost Mage': `${githubBaseUrl}/FrostMage.png`,
+      'Heavy Guardian': `${githubBaseUrl}/HeavyGuardian.png`,
+      'Marksman': `${githubBaseUrl}/Marksman.png`,
+      'Shield Knight': `${githubBaseUrl}/ShieldKnight.png`,
+      'Stormblade': `${githubBaseUrl}/StormBlade.png`,
+      'Verdant Oracle': `${githubBaseUrl}/VerdantOracle.png`,
+      'Wind Knight': `${githubBaseUrl}/WindKnight.png`
     };
     
-    console.log(`🖼️ [INIT] Loading class icons from environment variables`);
+    console.log(`🖼️ [INIT] Loading class icons from GitHub`);
     
     // Log which icons are configured
     Object.entries(this.classLogos).forEach(([className, url]) => {
-      if (url) {
-        console.log(`✅ [INIT] ${className}: ${url.substring(0, 50)}...`);
-      } else {
-        console.log(`⚠️  [INIT] ${className}: Not configured`);
-      }
+      console.log(`✅ [INIT] ${className}: ${url}`);
     });
   }
 
@@ -52,9 +51,7 @@ class GoogleSheetsService {
 
       this.sheets = google.sheets({ version: 'v4', auth: this.auth });
       console.log('✅ Google Sheets API initialized');
-      
-      // Log the actual URLs that will be used
-      console.log('📸 Example class icon URL:', this.classLogos['Beat Performer']);
+      console.log('📸 Using GitHub-hosted class icons with IMAGE formula');
       
       return true;
     } catch (error) {
@@ -242,7 +239,7 @@ class GoogleSheetsService {
             discordName,
             mainChar.ign,
             'Main',
-            '', // Icon column (empty, will add image formula)
+            '', // Icon column (empty, will add IMAGE formula)
             mainChar.class,
             mainChar.subclass,
             mainChar.role,
@@ -377,7 +374,7 @@ class GoogleSheetsService {
       console.log(`📊 [SHEETS] Applying clean design...`);
       await this.applyCleanDesign('Member List', rowMetadata);
 
-      console.log(`📊 [SHEETS] Adding class logos...`);
+      console.log(`📊 [SHEETS] Adding class logos with IMAGE formula...`);
       await this.addClassLogos('Member List', rowMetadata);
 
       console.log(`✅ [SHEETS] Member List synced successfully! (${rows.length} total rows)`);
@@ -398,7 +395,7 @@ class GoogleSheetsService {
     if (!this.sheets || rowMetadata.length === 0) return;
 
     try {
-      console.log(`🖼️ [SHEETS] Adding class icons to Icon column...`);
+      console.log(`🖼️ [SHEETS] Adding class icons with IMAGE formula to Icon column...`);
       
       const spreadsheet = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
@@ -410,7 +407,7 @@ class GoogleSheetsService {
       const sheetId = sheet.properties.sheetId;
       const requests = [];
 
-      // Add image URL to Icon column (Column D, index 3)
+      // Add IMAGE formula to Icon column (Column D, index 3)
       for (let i = 0; i < rowMetadata.length; i++) {
         const rowIndex = i + 1;
         const meta = rowMetadata[i];
@@ -419,9 +416,9 @@ class GoogleSheetsService {
         const imageUrl = this.classLogos[member.class];
         
         if (imageUrl) {
-          console.log(`🖼️ [SHEETS] Row ${rowIndex}: ${member.class} -> ${imageUrl.substring(0, 50)}...`);
+          console.log(`🖼️ [SHEETS] Row ${rowIndex + 1}: ${member.class} -> IMAGE formula`);
           
-          // Add hyperlink to image in Icon column
+          // Add IMAGE formula to display the icon
           requests.push({
             updateCells: {
               range: {
@@ -434,14 +431,11 @@ class GoogleSheetsService {
               rows: [{
                 values: [{
                   userEnteredValue: {
-                    formulaValue: `=HYPERLINK("${imageUrl}"; "🖼️")`
+                    formulaValue: `=IMAGE("${imageUrl}")`
                   },
                   userEnteredFormat: {
                     horizontalAlignment: 'CENTER',
-                    verticalAlignment: 'MIDDLE',
-                    textFormat: {
-                      fontSize: 16
-                    }
+                    verticalAlignment: 'MIDDLE'
                   }
                 }]
               }],
@@ -452,7 +446,7 @@ class GoogleSheetsService {
       }
 
       if (requests.length > 0) {
-        console.log(`🖼️ [SHEETS] Sending ${requests.length} icon links...`);
+        console.log(`🖼️ [SHEETS] Sending ${requests.length} IMAGE formulas...`);
         const batchSize = 50;
         for (let i = 0; i < requests.length; i += batchSize) {
           const batch = requests.slice(i, i + batchSize);
@@ -466,8 +460,8 @@ class GoogleSheetsService {
             console.error(`❌ [SHEETS] Batch ${Math.floor(i / batchSize) + 1} failed:`, batchError.message);
           }
         }
-        console.log(`✅ [SHEETS] Completed ${requests.length} icon links`);
-        console.log(`ℹ️  [SHEETS] Click the 🖼️ emoji to view the image (IMAGE formula not working)`);
+        console.log(`✅ [SHEETS] Completed ${requests.length} IMAGE formulas`);
+        console.log(`📸 [SHEETS] Class icons should now be visible in the Icon column!`);
       }
     } catch (error) {
       console.error('❌ [SHEETS] Error adding class icons:', error.message);
@@ -626,7 +620,7 @@ class GoogleSheetsService {
           this.addCleanTextCell(requests, sheetId, rowIndex, 2, 'Subclass', rowBg);
         }
         
-        // Icon (D) - Will have image link added separately
+        // Icon (D) - Will have IMAGE formula added separately
         this.addCleanTextCell(requests, sheetId, rowIndex, 3, '', rowBg);
         
         // Class (E)
