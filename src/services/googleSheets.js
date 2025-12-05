@@ -287,7 +287,7 @@ class GoogleSheetsService {
         if (mainChar) {
           discordName = mainChar.discord_name;
           
-          // Add main character
+          // Add main character - Format date as TEXT with apostrophe prefix
           rows.push([
             discordName,
             mainChar.ign,
@@ -297,8 +297,8 @@ class GoogleSheetsService {
             mainChar.role,
             mainChar.ability_score || '',
             mainChar.guild || '',
-            userTimezone || '', // Use fetched timezone
-            this.formatDate(mainChar.created_at)
+            userTimezone || '',
+            `'${this.formatDate(mainChar.created_at)}` // Add apostrophe to force text format
           ]);
 
           rowMetadata.push({
@@ -321,8 +321,8 @@ class GoogleSheetsService {
               subclass.role,
               subclass.ability_score || '',
               mainChar.guild || '',
-              userTimezone || '', // Use fetched timezone
-              this.formatDate(mainChar.created_at)
+              userTimezone || '',
+              `'${this.formatDate(mainChar.created_at)}` // Add apostrophe to force text format
             ]);
 
             rowMetadata.push({
@@ -349,8 +349,8 @@ class GoogleSheetsService {
             alt.role,
             alt.ability_score || '',
             alt.guild || '',
-            userTimezone || '', // Use fetched timezone
-            this.formatDate(alt.created_at)
+            userTimezone || '',
+            `'${this.formatDate(alt.created_at)}` // Add apostrophe to force text format
           ]);
 
           rowMetadata.push({
@@ -378,8 +378,8 @@ class GoogleSheetsService {
               subclass.role,
               subclass.ability_score || '',
               alt.guild || '',
-              userTimezone || '', // Use fetched timezone
-              this.formatDate(alt.created_at)
+              userTimezone || '',
+              `'${this.formatDate(alt.created_at)}` // Add apostrophe to force text format
             ]);
 
             rowMetadata.push({
@@ -406,7 +406,7 @@ class GoogleSheetsService {
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
         range: 'Member List!A1',
-        valueInputOption: 'USER_ENTERED',
+        valueInputOption: 'RAW', // Changed from USER_ENTERED to RAW to preserve text formatting
         resource: {
           values: [headers, ...rows],
         },
@@ -425,7 +425,7 @@ class GoogleSheetsService {
   }
 
   formatDate(dateString) {
-    // Convert date to proper format
+    // Convert date to proper format MM/DD/YYYY
     const date = new Date(dateString);
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -653,7 +653,7 @@ class GoogleSheetsService {
           });
         }
         
-        // Timezone (I) - Shows actual timezone or empty
+        // Timezone (I)
         const timezoneColor = meta.timezone && meta.timezone !== ''
           ? { red: 0.42, green: 0.45, blue: 0.48 }
           : { red: 0.85, green: 0.85, blue: 0.85 };
@@ -683,7 +683,7 @@ class GoogleSheetsService {
           }
         });
         
-        // Registered (J) - Proper date format
+        // Registered (J) - Force as plain text
         requests.push({
           repeatCell: {
             range: {
@@ -702,7 +702,10 @@ class GoogleSheetsService {
                   foregroundColor: { red: 0.42, green: 0.45, blue: 0.48 }
                 },
                 horizontalAlignment: 'CENTER',
-                verticalAlignment: 'MIDDLE'
+                verticalAlignment: 'MIDDLE',
+                numberFormat: {
+                  type: 'TEXT'
+                }
               }
             },
             fields: 'userEnteredFormat'
