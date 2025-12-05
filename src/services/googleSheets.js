@@ -401,7 +401,7 @@ class GoogleSheetsService {
       const sheetId = sheet.properties.sheetId;
       const requests = [];
 
-      // Add logo formula to each Class cell (Column D)
+      // Add logo + class name to each Class cell (Column D)
       for (let i = 0; i < rowMetadata.length; i++) {
         const rowIndex = i + 1;
         const meta = rowMetadata[i];
@@ -410,6 +410,7 @@ class GoogleSheetsService {
         const imageUrl = this.classLogos[member.class];
         
         if (imageUrl) {
+          // Use IMAGE + CONCATENATE to show icon with text
           requests.push({
             updateCells: {
               range: {
@@ -422,10 +423,11 @@ class GoogleSheetsService {
               rows: [{
                 values: [{
                   userEnteredValue: {
-                    formulaValue: `=IMAGE("${imageUrl}", 4, 24, 24)`
+                    formulaValue: `=CONCATENATE(IMAGE("${imageUrl}", 4, 24, 24), " ", "${member.class}")`
                   },
                   userEnteredFormat: {
-                    horizontalAlignment: 'LEFT'
+                    horizontalAlignment: 'LEFT',
+                    verticalAlignment: 'MIDDLE'
                   }
                 }]
               }],
@@ -444,7 +446,7 @@ class GoogleSheetsService {
             requestBody: { requests: batch }
           });
         }
-        console.log(`✅ [SHEETS] Added ${requests.length} class logos`);
+        console.log(`✅ [SHEETS] Added ${requests.length} class logos with names`);
       }
     } catch (error) {
       console.error('❌ [SHEETS] Error adding class logos:', error.message);
