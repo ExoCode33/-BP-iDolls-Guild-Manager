@@ -36,7 +36,7 @@ class GoogleSheetsService {
     }
   }
 
-  // Professional color palette - minimal strategic use
+  // Professional color palette with distinct Main/Alt colors
   getClassColors(className) {
     const colors = {
       'Beat Performer': { 
@@ -347,7 +347,7 @@ class GoogleSheetsService {
             alt.ability_score || '',
             alt.guild || '',
             userTimezone || '',
-            `'${this.formatDate(alt.created_at)}`
+            `'${this.formatDate(alt.created_at)}` // Alt's own registration date
           ]);
 
           rowMetadata.push({
@@ -376,7 +376,7 @@ class GoogleSheetsService {
               subclass.ability_score || '',
               alt.guild || '',
               userTimezone || '',
-              `'${this.formatDate(alt.created_at)}`
+              `'${this.formatDate(alt.created_at)}` // Alt's registration date
             ]);
 
             rowMetadata.push({
@@ -577,24 +577,24 @@ class GoogleSheetsService {
           }
         });
 
-        // Type (C) - Only Main/Alt get colors, Subclass is neutral
+        // Type (C) - Different colors for Main and Alt
         let typeColor;
         if (meta.isMain) {
-          typeColor = { red: 0.30, green: 0.69, blue: 0.31 };
+          typeColor = { red: 0.26, green: 0.59, blue: 0.98 }; // Blue for Main
         } else if (meta.isAlt) {
-          typeColor = { red: 0.96, green: 0.64, blue: 0.26 };
+          typeColor = { red: 0.96, green: 0.49, blue: 0.13 }; // Orange for Alt
         } else {
-          typeColor = { red: 0.75, green: 0.75, blue: 0.75 };
+          typeColor = { red: 0.75, green: 0.75, blue: 0.75 }; // Gray for Subclass
         }
         
         this.addPillBadge(requests, sheetId, rowIndex, 2, typeColor);
         
-        // Class (D) - NO COLOR, just text
+        // Class (D) - NOW COLORED
         const classColors = this.getClassColors(member.class);
-        this.addCleanTextCell(requests, sheetId, rowIndex, 3, member.class, rowBg);
+        this.addPillBadge(requests, sheetId, rowIndex, 3, classColors.main);
         
-        // Subclass (E) - NO COLOR, just text
-        this.addCleanTextCell(requests, sheetId, rowIndex, 4, member.subclass, rowBg);
+        // Subclass (E) - NOW COLORED
+        this.addPillBadge(requests, sheetId, rowIndex, 4, classColors.sub);
         
         // Role (F) - Strategic color
         const roleColor = this.getRoleColor(member.role);
@@ -608,7 +608,7 @@ class GoogleSheetsService {
           this.addCleanTextCell(requests, sheetId, rowIndex, 6, '', rowBg);
         }
         
-        // Guild (H) - NO COLOR, just text
+        // Guild (H) - Clean text
         this.addCleanTextCell(requests, sheetId, rowIndex, 7, member.guild || '', rowBg);
         
         // Timezone (I)
