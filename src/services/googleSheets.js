@@ -10,9 +10,10 @@ class GoogleSheetsService {
     this.spreadsheetId = process.env.GOOGLE_SHEETS_ID;
     
     // 🎨 CLASS LOGO URLs - Uses Railway public URL
-    // The images will be served from /public/class-icons/ folder
-    // Railway URL format: https://YOUR-APP.up.railway.app/class-icons/ClassName.png
-    const baseUrl = process.env.RAILWAY_PUBLIC_URL || process.env.PUBLIC_URL || 'http://localhost:3000';
+    // Railway automatically provides RAILWAY_PUBLIC_DOMAIN
+    const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
+    const baseUrl = process.env.RAILWAY_PUBLIC_URL || 
+                    (railwayDomain ? `https://${railwayDomain}` : 'http://localhost:3000');
     
     this.classLogos = {
       'Beat Performer': `${baseUrl}/class-icons/BeatPerformer.png`,
@@ -24,6 +25,8 @@ class GoogleSheetsService {
       'Verdant Oracle': `${baseUrl}/class-icons/VerdantOracle.png`,
       'Wind Knight': `${baseUrl}/class-icons/WindKnight.png`
     };
+    
+    console.log(`🖼️ [INIT] Class icons base URL: ${baseUrl}`);
   }
 
   async initialize() {
@@ -45,7 +48,10 @@ class GoogleSheetsService {
 
       this.sheets = google.sheets({ version: 'v4', auth: this.auth });
       console.log('✅ Google Sheets API initialized');
-      console.log(`📸 Class logos will be served from: ${process.env.RAILWAY_PUBLIC_URL || process.env.PUBLIC_URL || 'http://localhost:3000'}/class-icons/`);
+      
+      // Log the actual URLs that will be used
+      console.log('📸 Example class icon URL:', this.classLogos['Beat Performer']);
+      
       return true;
     } catch (error) {
       console.error('⚠️  Google Sheets initialization failed:', error.message);
