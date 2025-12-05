@@ -36,40 +36,40 @@ class GoogleSheetsService {
     }
   }
 
-  // 🎨 Premium color palette
+  // 🎨 Elite color palette - Maximum visual impact
   getClassColors(className) {
     const colors = {
       'Beat Performer': { 
-        main: { red: 0.95, green: 0.26, blue: 0.61 },
-        sub: { red: 0.76, green: 0.21, blue: 0.49 }
+        main: { red: 0.98, green: 0.12, blue: 0.58 },
+        sub: { red: 0.78, green: 0.09, blue: 0.46 }
       },
       'Frost Mage': { 
-        main: { red: 0.31, green: 0.71, blue: 0.98 },
-        sub: { red: 0.25, green: 0.57, blue: 0.78 }
+        main: { red: 0.20, green: 0.69, blue: 1.00 },
+        sub: { red: 0.16, green: 0.55, blue: 0.80 }
       },
       'Heavy Guardian': { 
-        main: { red: 0.68, green: 0.43, blue: 0.24 },
-        sub: { red: 0.54, green: 0.34, blue: 0.19 }
+        main: { red: 0.78, green: 0.50, blue: 0.20 },
+        sub: { red: 0.62, green: 0.40, blue: 0.16 }
       },
       'Marksman': { 
-        main: { red: 0.60, green: 0.80, blue: 0.36 },
-        sub: { red: 0.48, green: 0.64, blue: 0.29 }
+        main: { red: 0.55, green: 0.82, blue: 0.27 },
+        sub: { red: 0.44, green: 0.66, blue: 0.22 }
       },
       'Shield Knight': { 
-        main: { red: 0.98, green: 0.82, blue: 0.27 },
-        sub: { red: 0.78, green: 0.66, blue: 0.22 }
+        main: { red: 1.00, green: 0.84, blue: 0.00 },
+        sub: { red: 0.80, green: 0.67, blue: 0.00 }
       },
       'Stormblade': { 
-        main: { red: 0.67, green: 0.40, blue: 0.76 },
-        sub: { red: 0.54, green: 0.32, blue: 0.61 }
+        main: { red: 0.69, green: 0.31, blue: 0.85 },
+        sub: { red: 0.55, green: 0.25, blue: 0.68 }
       },
       'Verdant Oracle': { 
-        main: { red: 0.36, green: 0.74, blue: 0.38 },
-        sub: { red: 0.29, green: 0.59, blue: 0.30 }
+        main: { red: 0.30, green: 0.76, blue: 0.33 },
+        sub: { red: 0.24, green: 0.61, blue: 0.26 }
       },
       'Wind Knight': { 
-        main: { red: 0.31, green: 0.85, blue: 0.95 },
-        sub: { red: 0.25, green: 0.68, blue: 0.76 }
+        main: { red: 0.20, green: 0.88, blue: 1.00 },
+        sub: { red: 0.16, green: 0.70, blue: 0.80 }
       }
     };
     return colors[className] || { 
@@ -83,44 +83,45 @@ class GoogleSheetsService {
     
     const numScore = parseInt(score);
     
-    if (numScore >= 50000) return { red: 0.42, green: 0.15, blue: 0.68 };
-    if (numScore >= 45000) return { red: 0.58, green: 0.22, blue: 0.72 };
-    if (numScore >= 40000) return { red: 0.85, green: 0.24, blue: 0.58 };
-    if (numScore >= 35000) return { red: 0.95, green: 0.26, blue: 0.42 };
-    if (numScore >= 30000) return { red: 0.98, green: 0.38, blue: 0.35 };
-    if (numScore >= 25000) return { red: 0.98, green: 0.58, blue: 0.29 };
-    if (numScore >= 20000) return { red: 0.98, green: 0.75, blue: 0.24 };
-    if (numScore >= 15000) return { red: 0.85, green: 0.85, blue: 0.31 };
-    if (numScore >= 10000) return { red: 0.52, green: 0.78, blue: 0.33 };
-    return { red: 0.67, green: 0.69, blue: 0.71 };
+    // Elite gradient
+    if (numScore >= 50000) return { red: 0.38, green: 0.10, blue: 0.75 };
+    if (numScore >= 45000) return { red: 0.55, green: 0.15, blue: 0.80 };
+    if (numScore >= 40000) return { red: 0.88, green: 0.15, blue: 0.62 };
+    if (numScore >= 35000) return { red: 0.98, green: 0.20, blue: 0.45 };
+    if (numScore >= 30000) return { red: 1.00, green: 0.30, blue: 0.30 };
+    if (numScore >= 25000) return { red: 1.00, green: 0.55, blue: 0.20 };
+    if (numScore >= 20000) return { red: 1.00, green: 0.76, blue: 0.03 };
+    if (numScore >= 15000) return { red: 0.90, green: 0.90, blue: 0.20 };
+    if (numScore >= 10000) return { red: 0.45, green: 0.80, blue: 0.25 };
+    return { red: 0.70, green: 0.72, blue: 0.74 };
   }
 
   getRoleColor(role) {
     const roleColors = {
-      'Tank': { red: 0.31, green: 0.60, blue: 0.98 },
-      'DPS': { red: 0.98, green: 0.38, blue: 0.35 },
-      'Support': { red: 0.36, green: 0.74, blue: 0.38 }
+      'Tank': { red: 0.25, green: 0.58, blue: 1.00 },
+      'DPS': { red: 1.00, green: 0.30, blue: 0.30 },
+      'Support': { red: 0.30, green: 0.76, blue: 0.33 }
     };
-    return roleColors[role] || { red: 0.67, green: 0.69, blue: 0.71 };
+    return roleColors[role] || { red: 0.70, green: 0.72, blue: 0.74 };
   }
 
   getGuildColor(guildName) {
     const guildColors = {
-      'heal': { red: 0.31, green: 0.85, blue: 0.95 },
-      'Visitor': { red: 0.67, green: 0.69, blue: 0.71 }
+      'heal': { red: 0.20, green: 0.88, blue: 1.00 },
+      'Visitor': { red: 0.70, green: 0.72, blue: 0.74 }
     };
     
     if (guildColors[guildName]) {
       return guildColors[guildName];
     }
     
-    const premiumColors = [
-      { red: 0.80, green: 0.67, blue: 0.93 },
-      { red: 0.93, green: 0.78, blue: 0.67 },
-      { red: 0.67, green: 0.93, blue: 0.80 },
-      { red: 0.93, green: 0.67, blue: 0.78 },
-      { red: 0.78, green: 0.93, blue: 0.67 },
-      { red: 0.67, green: 0.78, blue: 0.93 },
+    const eliteColors = [
+      { red: 0.85, green: 0.70, blue: 0.98 },
+      { red: 0.98, green: 0.82, blue: 0.70 },
+      { red: 0.70, green: 0.98, blue: 0.85 },
+      { red: 0.98, green: 0.70, blue: 0.82 },
+      { red: 0.82, green: 0.98, blue: 0.70 },
+      { red: 0.70, green: 0.82, blue: 0.98 },
     ];
     
     let hash = 0;
@@ -128,14 +129,14 @@ class GoogleSheetsService {
       hash = guildName.charCodeAt(i) + ((hash << 5) - hash);
     }
     
-    return premiumColors[Math.abs(hash) % premiumColors.length];
+    return eliteColors[Math.abs(hash) % eliteColors.length];
   }
 
-  async formatPremiumSheet(sheetName, headerCount, dataRowCount) {
+  async formatEliteSheet(sheetName, headerCount, dataRowCount) {
     if (!this.sheets) return;
 
     try {
-      console.log(`📊 [SHEETS] Applying premium formatting to ${sheetName}...`);
+      console.log(`📊 [SHEETS] Applying elite formatting to ${sheetName}...`);
       
       const spreadsheet = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
@@ -147,6 +148,7 @@ class GoogleSheetsService {
       const sheetId = sheet.properties.sheetId;
 
       const requests = [
+        // Sheet properties
         {
           updateSheetProperties: {
             properties: {
@@ -156,14 +158,15 @@ class GoogleSheetsService {
                 hideGridlines: true
               },
               tabColor: {
-                red: 0.42,
+                red: 0.45,
                 green: 0.27,
-                blue: 0.76
+                blue: 0.85
               }
             },
             fields: 'gridProperties.frozenRowCount,gridProperties.hideGridlines,tabColor'
           }
         },
+        // Elite header with gradient effect
         {
           repeatCell: {
             range: {
@@ -176,9 +179,9 @@ class GoogleSheetsService {
             cell: {
               userEnteredFormat: {
                 backgroundColor: {
-                  red: 0.32,
-                  green: 0.20,
-                  blue: 0.58
+                  red: 0.35,
+                  green: 0.22,
+                  blue: 0.65
                 },
                 textFormat: {
                   foregroundColor: {
@@ -186,23 +189,24 @@ class GoogleSheetsService {
                     green: 1,
                     blue: 1
                   },
-                  fontSize: 11,
+                  fontSize: 12,
                   bold: true,
                   fontFamily: 'Google Sans'
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
                 padding: {
-                  top: 16,
-                  bottom: 16,
-                  left: 14,
-                  right: 14
+                  top: 18,
+                  bottom: 18,
+                  left: 16,
+                  right: 16
                 }
               }
             },
             fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding)'
           }
         },
+        // Elite shadow effect
         {
           updateBorders: {
             range: {
@@ -214,8 +218,8 @@ class GoogleSheetsService {
             },
             bottom: {
               style: 'SOLID_THICK',
-              width: 4,
-              color: { red: 0.22, green: 0.14, blue: 0.42 }
+              width: 5,
+              color: { red: 0.25, green: 0.15, blue: 0.50 }
             }
           }
         }
@@ -226,7 +230,7 @@ class GoogleSheetsService {
         requestBody: { requests }
       });
 
-      console.log(`✅ [SHEETS] Premium formatting applied to ${sheetName}`);
+      console.log(`✅ [SHEETS] Elite formatting applied to ${sheetName}`);
     } catch (error) {
       console.error(`Error formatting ${sheetName}:`, error.message);
     }
@@ -236,9 +240,8 @@ class GoogleSheetsService {
     if (!this.sheets) return;
 
     try {
-      console.log(`📊 [SHEETS] Starting premium sync...`);
+      console.log(`📊 [SHEETS] Starting elite sync...`);
       
-      // Import queries to get timezone data
       const { queries } = await import('../database/queries.js');
       
       const headers = [
@@ -266,20 +269,18 @@ class GoogleSheetsService {
         userGroups[char.discord_id].push(char);
       });
 
-      // Process each user's characters hierarchically
+      // Process each user's characters
       for (const [discordId, userChars] of Object.entries(userGroups)) {
         const mainChar = userChars.find(c => c.character_type === 'main');
         const mainSubclasses = userChars.filter(c => c.character_type === 'main_subclass');
         const alts = userChars.filter(c => c.character_type === 'alt');
         
-        // Fetch timezone from user_timezones table
         let userTimezone = '';
         try {
           const timezoneData = await queries.getUserTimezone(discordId);
           userTimezone = timezoneData?.timezone || '';
-          console.log(`📊 [SHEETS] Timezone for ${discordId}: ${userTimezone || 'Not set'}`);
         } catch (error) {
-          console.log(`⚠️ [SHEETS] Could not fetch timezone for ${discordId}:`, error.message);
+          console.log(`⚠️ [SHEETS] Could not fetch timezone for ${discordId}`);
         }
         
         let discordName = '';
@@ -287,7 +288,6 @@ class GoogleSheetsService {
         if (mainChar) {
           discordName = mainChar.discord_name;
           
-          // Add main character - Format date as TEXT with apostrophe prefix
           rows.push([
             discordName,
             mainChar.ign,
@@ -298,7 +298,7 @@ class GoogleSheetsService {
             mainChar.ability_score || '',
             mainChar.guild || '',
             userTimezone || '',
-            `'${this.formatDate(mainChar.created_at)}` // Add apostrophe to force text format
+            `'${this.formatDate(mainChar.created_at)}`
           ]);
 
           rowMetadata.push({
@@ -310,7 +310,6 @@ class GoogleSheetsService {
             isAlt: false
           });
 
-          // Add main's subclasses
           mainSubclasses.forEach(subclass => {
             rows.push([
               discordName,
@@ -322,7 +321,7 @@ class GoogleSheetsService {
               subclass.ability_score || '',
               mainChar.guild || '',
               userTimezone || '',
-              `'${this.formatDate(mainChar.created_at)}` // Add apostrophe to force text format
+              `'${this.formatDate(mainChar.created_at)}`
             ]);
 
             rowMetadata.push({
@@ -338,7 +337,6 @@ class GoogleSheetsService {
           });
         }
 
-        // Add each alt and its subclasses
         alts.forEach(alt => {
           rows.push([
             discordName,
@@ -350,7 +348,7 @@ class GoogleSheetsService {
             alt.ability_score || '',
             alt.guild || '',
             userTimezone || '',
-            `'${this.formatDate(alt.created_at)}` // Add apostrophe to force text format
+            `'${this.formatDate(alt.created_at)}`
           ]);
 
           rowMetadata.push({
@@ -362,7 +360,6 @@ class GoogleSheetsService {
             isAlt: true
           });
 
-          // Add this alt's subclasses
           const altSubclasses = userChars.filter(c => 
             c.character_type === 'alt_subclass' && 
             c.parent_character_id === alt.id
@@ -379,7 +376,7 @@ class GoogleSheetsService {
               subclass.ability_score || '',
               alt.guild || '',
               userTimezone || '',
-              `'${this.formatDate(alt.created_at)}` // Add apostrophe to force text format
+              `'${this.formatDate(alt.created_at)}`
             ]);
 
             rowMetadata.push({
@@ -406,17 +403,17 @@ class GoogleSheetsService {
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
         range: 'Member List!A1',
-        valueInputOption: 'RAW', // Changed from USER_ENTERED to RAW to preserve text formatting
+        valueInputOption: 'RAW',
         resource: {
           values: [headers, ...rows],
         },
       });
 
-      console.log(`📊 [SHEETS] Applying premium formatting...`);
-      await this.formatPremiumSheet('Member List', headers.length, rows.length);
+      console.log(`📊 [SHEETS] Applying elite formatting...`);
+      await this.formatEliteSheet('Member List', headers.length, rows.length);
 
-      console.log(`📊 [SHEETS] Applying premium design...`);
-      await this.applyPremiumDesign('Member List', rowMetadata);
+      console.log(`📊 [SHEETS] Applying elite design...`);
+      await this.applyEliteDesign('Member List', rowMetadata);
 
       console.log(`✅ [SHEETS] Member List synced successfully! (${rows.length} total rows)`);
     } catch (error) {
@@ -425,7 +422,6 @@ class GoogleSheetsService {
   }
 
   formatDate(dateString) {
-    // Convert date to proper format MM/DD/YYYY
     const date = new Date(dateString);
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -433,11 +429,11 @@ class GoogleSheetsService {
     return `${month}/${day}/${year}`;
   }
 
-  async applyPremiumDesign(sheetName, rowMetadata) {
+  async applyEliteDesign(sheetName, rowMetadata) {
     if (!this.sheets || rowMetadata.length === 0) return;
 
     try {
-      console.log(`🎨 [SHEETS] Applying premium design to ${rowMetadata.length} rows...`);
+      console.log(`🎨 [SHEETS] Applying elite design to ${rowMetadata.length} rows...`);
       
       const spreadsheet = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
@@ -449,8 +445,8 @@ class GoogleSheetsService {
       const sheetId = sheet.properties.sheetId;
       const requests = [];
 
-      // Premium column widths
-      const columnWidths = [160, 150, 95, 145, 145, 85, 125, 105, 170, 105];
+      // Elite column widths - Optimized
+      const columnWidths = [155, 145, 90, 140, 140, 80, 120, 100, 165, 100];
       columnWidths.forEach((width, index) => {
         requests.push({
           updateDimensionProperties: {
@@ -468,10 +464,10 @@ class GoogleSheetsService {
         });
       });
 
-      // Premium row heights
+      // Elite row heights - Perfectly balanced
       for (let i = 0; i < rowMetadata.length; i++) {
         const meta = rowMetadata[i];
-        const rowHeight = meta.isSubclass ? 34 : 38;
+        const rowHeight = meta.isSubclass ? 36 : 40;
         
         requests.push({
           updateDimensionProperties: {
@@ -489,21 +485,23 @@ class GoogleSheetsService {
         });
       }
 
-      // Apply premium styling to each row
+      // Apply elite styling to each row
       for (let i = 0; i < rowMetadata.length; i++) {
         const rowIndex = i + 1;
         const meta = rowMetadata[i];
         const member = meta.character;
         
-        const isEvenRow = Math.floor(i / 3) % 2 === 0;
-        const rowBg = isEvenRow 
+        // Elite alternating background - Grouped by user
+        const userGroupIndex = Math.floor(i / 3);
+        const isEvenGroup = userGroupIndex % 2 === 0;
+        const rowBg = isEvenGroup 
           ? { red: 1, green: 1, blue: 1 }
-          : { red: 0.99, green: 0.99, blue: 0.995 };
+          : { red: 0.98, green: 0.985, blue: 0.99 };
         
-        // Discord Name (A)
+        // Discord Name (A) - Elite styling
         const discordColor = meta.isSubclass 
-          ? { red: 0.55, green: 0.57, blue: 0.60 }
-          : { red: 0.13, green: 0.14, blue: 0.16 };
+          ? { red: 0.50, green: 0.52, blue: 0.55 }
+          : { red: 0.10, green: 0.11, blue: 0.13 };
         
         requests.push({
           repeatCell: {
@@ -526,8 +524,8 @@ class GoogleSheetsService {
                 horizontalAlignment: 'LEFT',
                 verticalAlignment: 'MIDDLE',
                 padding: {
-                  left: 12,
-                  right: 8
+                  left: 14,
+                  right: 10
                 }
               }
             },
@@ -535,10 +533,10 @@ class GoogleSheetsService {
           }
         });
 
-        // IGN (B)
+        // IGN (B) - Elite styling
         const ignColor = meta.isSubclass 
-          ? { red: 0.55, green: 0.57, blue: 0.60 }
-          : { red: 0.13, green: 0.14, blue: 0.16 };
+          ? { red: 0.50, green: 0.52, blue: 0.55 }
+          : { red: 0.10, green: 0.11, blue: 0.13 };
         
         requests.push({
           repeatCell: {
@@ -562,8 +560,8 @@ class GoogleSheetsService {
                 horizontalAlignment: 'LEFT',
                 verticalAlignment: 'MIDDLE',
                 padding: {
-                  left: 12,
-                  right: 8
+                  left: 14,
+                  right: 10
                 }
               }
             },
@@ -571,30 +569,30 @@ class GoogleSheetsService {
           }
         });
 
-        // Type (C)
+        // Type (C) - Elite pill
         const typeColor = meta.isSubclass
-          ? { red: 0.70, green: 0.72, blue: 0.75 }
+          ? { red: 0.68, green: 0.70, blue: 0.73 }
           : (meta.isMain 
-              ? { red: 0.36, green: 0.74, blue: 0.38 } 
-              : { red: 0.98, green: 0.65, blue: 0.31 });
+              ? { red: 0.30, green: 0.76, blue: 0.33 } 
+              : { red: 1.00, green: 0.65, blue: 0.25 });
         
-        this.addPremiumPill(requests, sheetId, rowIndex, 2, typeColor);
+        this.addElitePill(requests, sheetId, rowIndex, 2, typeColor);
         
-        // Class (D)
+        // Class (D) - Elite pill
         const classColors = this.getClassColors(member.class);
-        this.addPremiumPill(requests, sheetId, rowIndex, 3, classColors.main);
+        this.addElitePill(requests, sheetId, rowIndex, 3, classColors.main);
         
-        // Subclass (E)
-        this.addPremiumPill(requests, sheetId, rowIndex, 4, classColors.sub);
+        // Subclass (E) - Elite pill
+        this.addElitePill(requests, sheetId, rowIndex, 4, classColors.sub);
         
-        // Role (F)
+        // Role (F) - Elite pill
         const roleColor = this.getRoleColor(member.role);
-        this.addPremiumPill(requests, sheetId, rowIndex, 5, roleColor);
+        this.addElitePill(requests, sheetId, rowIndex, 5, roleColor);
         
-        // Ability Score (G)
+        // Ability Score (G) - Elite gradient pill
         if (member.ability_score && member.ability_score !== '') {
           const abilityColor = this.getAbilityScoreColor(member.ability_score);
-          this.addPremiumPill(requests, sheetId, rowIndex, 6, abilityColor, true);
+          this.addElitePill(requests, sheetId, rowIndex, 6, abilityColor, true);
         } else {
           requests.push({
             repeatCell: {
@@ -622,10 +620,10 @@ class GoogleSheetsService {
           });
         }
         
-        // Guild (H)
+        // Guild (H) - Elite pill
         if (member.guild && member.guild !== '') {
           const guildColor = this.getGuildColor(member.guild);
-          this.addPremiumPill(requests, sheetId, rowIndex, 7, guildColor);
+          this.addElitePill(requests, sheetId, rowIndex, 7, guildColor);
         } else {
           requests.push({
             repeatCell: {
@@ -653,10 +651,10 @@ class GoogleSheetsService {
           });
         }
         
-        // Timezone (I)
+        // Timezone (I) - Elite text with icon
         const timezoneColor = meta.timezone && meta.timezone !== ''
-          ? { red: 0.42, green: 0.45, blue: 0.48 }
-          : { red: 0.85, green: 0.85, blue: 0.85 };
+          ? { red: 0.38, green: 0.42, blue: 0.45 }
+          : { red: 0.82, green: 0.82, blue: 0.82 };
         
         requests.push({
           repeatCell: {
@@ -675,15 +673,18 @@ class GoogleSheetsService {
                   fontFamily: 'Google Sans',
                   foregroundColor: timezoneColor
                 },
-                horizontalAlignment: 'CENTER',
-                verticalAlignment: 'MIDDLE'
+                horizontalAlignment: 'LEFT',
+                verticalAlignment: 'MIDDLE',
+                padding: {
+                  left: 12
+                }
               }
             },
             fields: 'userEnteredFormat'
           }
         });
         
-        // Registered (J) - Force as plain text
+        // Registered (J) - Elite date
         requests.push({
           repeatCell: {
             range: {
@@ -699,7 +700,7 @@ class GoogleSheetsService {
                 textFormat: {
                   fontSize: 9,
                   fontFamily: 'Google Sans',
-                  foregroundColor: { red: 0.42, green: 0.45, blue: 0.48 }
+                  foregroundColor: { red: 0.38, green: 0.42, blue: 0.45 }
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
@@ -712,7 +713,7 @@ class GoogleSheetsService {
           }
         });
 
-        // Row separator
+        // Elite row separator - Subtle elegance
         requests.push({
           updateBorders: {
             range: {
@@ -725,7 +726,7 @@ class GoogleSheetsService {
             bottom: {
               style: 'SOLID',
               width: 1,
-              color: { red: 0.94, green: 0.94, blue: 0.95 }
+              color: { red: 0.93, green: 0.93, blue: 0.94 }
             }
           }
         });
@@ -741,14 +742,14 @@ class GoogleSheetsService {
             requestBody: { requests: batch }
           });
         }
-        console.log(`✅ [SHEETS] Applied ${requests.length} premium styling requests`);
+        console.log(`✅ [SHEETS] Applied ${requests.length} elite styling requests`);
       }
     } catch (error) {
-      console.error('❌ [SHEETS] Error applying premium design:', error.message);
+      console.error('❌ [SHEETS] Error applying elite design:', error.message);
     }
   }
 
-  addPremiumPill(requests, sheetId, rowIndex, colIndex, bgColor, isNumber = false) {
+  addElitePill(requests, sheetId, rowIndex, colIndex, bgColor, isNumber = false) {
     const cellFormat = {
       repeatCell: {
         range: {
@@ -770,10 +771,10 @@ class GoogleSheetsService {
             horizontalAlignment: 'CENTER',
             verticalAlignment: 'MIDDLE',
             padding: {
-              top: 6,
-              bottom: 6,
-              left: 10,
-              right: 10
+              top: 7,
+              bottom: 7,
+              left: 12,
+              right: 12
             }
           }
         },
