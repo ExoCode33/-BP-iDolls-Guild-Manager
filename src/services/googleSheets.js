@@ -36,67 +36,66 @@ class GoogleSheetsService {
     }
   }
 
-  // 🎨 Enhanced pill-style color palette with better saturation
+  // 🎨 Enhanced color palette with better contrast and saturation
   getClassColor(className) {
     const colors = {
-      'Beat Performer': { red: 0.95, green: 0.3, blue: 0.65 },
-      'Frost Mage': { red: 0.2, green: 0.6, blue: 1 },
-      'Heavy Guardian': { red: 0.75, green: 0.5, blue: 0.3 },
-      'Marksman': { red: 0.7, green: 0.85, blue: 0.2 },
-      'Shield Knight': { red: 1, green: 0.75, blue: 0.2 },
-      'Stormblade': { red: 0.6, green: 0.3, blue: 0.95 },
-      'Verdant Oracle': { red: 0.3, green: 0.85, blue: 0.5 },
-      'Wind Knight': { red: 0.2, green: 0.8, blue: 0.95 }
+      'Beat Performer': { red: 1, green: 0.08, blue: 0.58 },      // Hot Pink
+      'Frost Mage': { red: 0.2, green: 0.6, blue: 1 },            // Bright Blue
+      'Heavy Guardian': { red: 0.55, green: 0.27, blue: 0.07 },   // Brown
+      'Marksman': { red: 0.4, green: 0.8, blue: 0.2 },            // Lime Green
+      'Shield Knight': { red: 1, green: 0.84, blue: 0 },          // Gold
+      'Stormblade': { red: 0.58, green: 0.24, blue: 0.93 },       // Purple
+      'Verdant Oracle': { red: 0.13, green: 0.7, blue: 0.29 },    // Green
+      'Wind Knight': { red: 0.2, green: 0.8, blue: 0.95 }         // Cyan
     };
-    return colors[className] || { red: 0.85, green: 0.85, blue: 0.85 };
+    return colors[className] || { red: 0.75, green: 0.75, blue: 0.75 };
   }
 
-  // 🌟 Enhanced ability score gradient with better contrast
+  // 🌟 Enhanced ability score gradient
   getAbilityScoreColor(score) {
-    if (!score || score === '') return { red: 0.92, green: 0.92, blue: 0.92 };
+    if (!score || score === '') return { red: 0.9, green: 0.9, blue: 0.9 };
     
     const numScore = parseInt(score);
     
-    if (numScore >= 30000) return { red: 0.5, green: 0.2, blue: 0.85 };
-    if (numScore >= 27000) return { red: 0.9, green: 0.3, blue: 0.8 };
-    if (numScore >= 24000) return { red: 0.95, green: 0.4, blue: 0.65 };
-    if (numScore >= 21000) return { red: 1, green: 0.55, blue: 0.25 };
-    if (numScore >= 18000) return { red: 1, green: 0.8, blue: 0.2 };
-    if (numScore >= 15000) return { red: 0.3, green: 0.7, blue: 1 };
-    if (numScore >= 10000) return { red: 0.4, green: 0.85, blue: 0.65 };
-    return { red: 0.8, green: 0.8, blue: 0.8 };
+    if (numScore >= 40000) return { red: 0.6, green: 0, blue: 0.8 };      // Deep Purple
+    if (numScore >= 35000) return { red: 0.8, green: 0, blue: 0.6 };      // Magenta
+    if (numScore >= 30000) return { red: 1, green: 0.27, blue: 0 };       // Red-Orange
+    if (numScore >= 25000) return { red: 1, green: 0.65, blue: 0 };       // Orange
+    if (numScore >= 20000) return { red: 1, green: 0.84, blue: 0 };       // Gold
+    if (numScore >= 15000) return { red: 0.2, green: 0.6, blue: 1 };      // Blue
+    if (numScore >= 10000) return { red: 0.3, green: 0.8, blue: 0.5 };    // Green
+    return { red: 0.7, green: 0.7, blue: 0.7 };                           // Gray
   }
 
-  // 🎭 Enhanced role colors with better saturation
+  // 🎭 Role colors
   getRoleColor(role) {
     const roleColors = {
-      'Tank': { red: 0.3, green: 0.55, blue: 0.9 },
-      'DPS': { red: 0.95, green: 0.3, blue: 0.3 },
-      'Support': { red: 0.3, green: 0.8, blue: 0.45 }
+      'Tank': { red: 0.2, green: 0.4, blue: 0.8 },      // Blue
+      'DPS': { red: 0.9, green: 0.2, blue: 0.2 },       // Red
+      'Support': { red: 0.2, green: 0.8, blue: 0.3 }    // Green
     };
-    return roleColors[role] || { red: 0.7, green: 0.7, blue: 0.7 };
+    return roleColors[role] || { red: 0.6, green: 0.6, blue: 0.6 };
   }
 
-  // 🏰 Enhanced guild colors
+  // 🏰 Guild colors
   getGuildColor(guildName) {
     const guildColors = {
-      'NA': { red: 0.4, green: 0.65, blue: 1 },
-      'EU': { red: 0.4, green: 0.85, blue: 0.45 },
-      'SEA': { red: 1, green: 0.65, blue: 0.3 },
-      'SA': { red: 1, green: 0.45, blue: 0.45 }
+      'heal': { red: 0.4, green: 0.8, blue: 0.9 },      // Light Blue
+      'Visitor': { red: 0.7, green: 0.7, blue: 0.7 }    // Gray
     };
     
     if (guildColors[guildName]) {
       return guildColors[guildName];
     }
     
+    // Generate color from guild name
     let hash = 0;
     for (let i = 0; i < guildName.length; i++) {
       hash = guildName.charCodeAt(i) + ((hash << 5) - hash);
     }
     
     const hue = Math.abs(hash % 360);
-    return this.hslToRgb(hue / 360, 0.75, 0.65);
+    return this.hslToRgb(hue / 360, 0.7, 0.6);
   }
 
   hslToRgb(h, s, l) {
@@ -140,23 +139,25 @@ class GoogleSheetsService {
       const sheetId = sheet.properties.sheetId;
 
       const requests = [
+        // Freeze header row and hide gridlines
         {
           updateSheetProperties: {
             properties: {
               sheetId: sheetId,
               gridProperties: {
                 frozenRowCount: 1,
-                hideGridlines: true
+                hideGridlines: false // Keep gridlines for better readability
               },
               tabColor: {
-                red: 0.3,
-                green: 0.15,
-                blue: 0.7
+                red: 0.26,
+                green: 0.12,
+                blue: 0.56
               }
             },
             fields: 'gridProperties.frozenRowCount,gridProperties.hideGridlines,tabColor'
           }
         },
+        // Header row styling
         {
           repeatCell: {
             range: {
@@ -169,9 +170,9 @@ class GoogleSheetsService {
             cell: {
               userEnteredFormat: {
                 backgroundColor: {
-                  red: 0.18,
-                  green: 0.08,
-                  blue: 0.45
+                  red: 0.26,
+                  green: 0.12,
+                  blue: 0.56
                 },
                 textFormat: {
                   foregroundColor: {
@@ -181,21 +182,22 @@ class GoogleSheetsService {
                   },
                   fontSize: 11,
                   bold: true,
-                  fontFamily: 'Google Sans'
+                  fontFamily: 'Arial'
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
                 padding: {
-                  top: 14,
-                  bottom: 14,
-                  left: 12,
-                  right: 12
+                  top: 12,
+                  bottom: 12,
+                  left: 10,
+                  right: 10
                 }
               }
             },
             fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding)'
           }
         },
+        // Data rows base styling
         {
           repeatCell: {
             range: {
@@ -209,21 +211,22 @@ class GoogleSheetsService {
               userEnteredFormat: {
                 textFormat: {
                   fontSize: 10,
-                  fontFamily: 'Google Sans'
+                  fontFamily: 'Arial'
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
                 padding: {
-                  top: 8,
-                  bottom: 8,
-                  left: 10,
-                  right: 10
+                  top: 6,
+                  bottom: 6,
+                  left: 8,
+                  right: 8
                 }
               }
             },
             fields: 'userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment,padding)'
           }
         },
+        // Header bottom border
         {
           updateBorders: {
             range: {
@@ -236,12 +239,13 @@ class GoogleSheetsService {
             bottom: {
               style: 'SOLID_MEDIUM',
               width: 3,
-              color: { red: 0.18, green: 0.08, blue: 0.45 }
+              color: { red: 0.26, green: 0.12, blue: 0.56 }
             }
           }
         }
       ];
 
+      // Add subtle borders between rows
       for (let i = 1; i <= dataRowCount; i++) {
         requests.push({
           updateBorders: {
@@ -255,28 +259,11 @@ class GoogleSheetsService {
             bottom: {
               style: 'SOLID',
               width: 1,
-              color: { red: 0.88, green: 0.88, blue: 0.9 }
+              color: { red: 0.85, green: 0.85, blue: 0.85 }
             }
           }
         });
       }
-
-      requests.push({
-        updateBorders: {
-          range: {
-            sheetId: sheetId,
-            startRowIndex: dataRowCount,
-            endRowIndex: dataRowCount + 1,
-            startColumnIndex: 0,
-            endColumnIndex: headerCount
-          },
-          bottom: {
-            style: 'SOLID_MEDIUM',
-            width: 3,
-            color: { red: 0.18, green: 0.08, blue: 0.45 }
-          }
-        }
-      });
 
       await this.sheets.spreadsheets.batchUpdate({
         spreadsheetId: this.spreadsheetId,
@@ -309,7 +296,7 @@ class GoogleSheetsService {
       ];
 
       const rows = [];
-      const rowMetadata = []; // Track what each row represents for styling
+      const rowMetadata = [];
 
       // Group characters by discord_id
       const userGroups = {};
@@ -322,13 +309,14 @@ class GoogleSheetsService {
 
       // Process each user's characters hierarchically
       Object.values(userGroups).forEach(userChars => {
-        // Separate main, alts, and subclasses
         const mainChar = userChars.find(c => c.character_type === 'main');
         const mainSubclasses = userChars.filter(c => c.character_type === 'main_subclass');
         const alts = userChars.filter(c => c.character_type === 'alt');
         
         // Add main character
         if (mainChar) {
+          const userTimezone = mainChar.timezone || '';
+          
           rows.push([
             mainChar.discord_name,
             mainChar.ign,
@@ -338,7 +326,7 @@ class GoogleSheetsService {
             mainChar.role,
             mainChar.ability_score || '',
             mainChar.guild || '',
-            mainChar.timezone || '',
+            userTimezone,
             new Date(mainChar.created_at).toLocaleDateString('en-US', { 
               month: '2-digit', 
               day: '2-digit',
@@ -349,15 +337,17 @@ class GoogleSheetsService {
           rowMetadata.push({
             character: mainChar,
             isSubclass: false,
-            parentId: null
+            parentId: null,
+            isMain: true,
+            isAlt: false
           });
 
           // Add main's subclasses immediately after
           mainSubclasses.forEach(subclass => {
             rows.push([
               '', // Empty discord name
-              `    ↳ ${subclass.ign || '(no name)'}`, // Indented IGN
-              '  ↳ Subclass',
+              `↳ ${subclass.class}`, // Show class name for subclass
+              'Subclass',
               subclass.class,
               subclass.subclass,
               subclass.role,
@@ -370,7 +360,9 @@ class GoogleSheetsService {
             rowMetadata.push({
               character: subclass,
               isSubclass: true,
-              parentId: mainChar.id
+              parentId: mainChar.id,
+              isMain: false,
+              isAlt: false
             });
           });
         }
@@ -378,7 +370,7 @@ class GoogleSheetsService {
         // Add each alt and its subclasses
         alts.forEach(alt => {
           rows.push([
-            mainChar ? '' : alt.discord_name, // Only show discord name if no main
+            '', // Empty discord name (grouped under main)
             alt.ign,
             'Alt',
             alt.class,
@@ -397,7 +389,9 @@ class GoogleSheetsService {
           rowMetadata.push({
             character: alt,
             isSubclass: false,
-            parentId: null
+            parentId: null,
+            isMain: false,
+            isAlt: true
           });
 
           // Add this alt's subclasses immediately after
@@ -409,8 +403,8 @@ class GoogleSheetsService {
           altSubclasses.forEach(subclass => {
             rows.push([
               '', // Empty discord name
-              `    ↳ ${subclass.ign || '(no name)'}`, // Indented IGN
-              '  ↳ Subclass',
+              `↳ ${subclass.class}`, // Show class name for subclass
+              'Subclass',
               subclass.class,
               subclass.subclass,
               subclass.role,
@@ -423,7 +417,9 @@ class GoogleSheetsService {
             rowMetadata.push({
               character: subclass,
               isSubclass: true,
-              parentId: alt.id
+              parentId: alt.id,
+              isMain: false,
+              isAlt: false
             });
           });
         });
@@ -448,7 +444,7 @@ class GoogleSheetsService {
       console.log(`📊 [SHEETS] Applying professional formatting...`);
       await this.formatProfessionalSheet('Member List', headers.length, rows.length);
 
-      console.log(`📊 [SHEETS] Applying hierarchical pill-style colors...`);
+      console.log(`📊 [SHEETS] Applying hierarchical colors...`);
       await this.applyHierarchicalColors('Member List', rowMetadata);
 
       console.log(`✅ [SHEETS] Member List synced successfully! (${rows.length} total rows with hierarchy)`);
@@ -474,21 +470,29 @@ class GoogleSheetsService {
       const requests = [];
 
       // Set column widths
-      requests.push(
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 160 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 120 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 6, endIndex: 7 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 7, endIndex: 8 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 8, endIndex: 9 }, properties: { pixelSize: 180 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 9, endIndex: 10 }, properties: { pixelSize: 120 }, fields: 'pixelSize' } }
-      );
+      const columnWidths = [140, 180, 100, 150, 150, 90, 130, 100, 180, 120];
+      columnWidths.forEach((width, index) => {
+        requests.push({
+          updateDimensionProperties: {
+            range: {
+              sheetId: sheetId,
+              dimension: 'COLUMNS',
+              startIndex: index,
+              endIndex: index + 1
+            },
+            properties: {
+              pixelSize: width
+            },
+            fields: 'pixelSize'
+          }
+        });
+      });
 
-      // Increase row height for better pill effect
+      // Set row heights
       for (let i = 0; i < rowMetadata.length; i++) {
+        const meta = rowMetadata[i];
+        const rowHeight = meta.isSubclass ? 28 : 32;
+        
         requests.push({
           updateDimensionProperties: {
             range: {
@@ -498,54 +502,78 @@ class GoogleSheetsService {
               endIndex: i + 2
             },
             properties: {
-              pixelSize: 34
+              pixelSize: rowHeight
             },
             fields: 'pixelSize'
           }
         });
       }
 
-      // Apply base formatting to ALL data cells
+      // Apply formatting to each row
       for (let i = 0; i < rowMetadata.length; i++) {
         const rowIndex = i + 1;
         const meta = rowMetadata[i];
+        const member = meta.character;
         
-        // Different background for subclasses - slightly darker/indented look
-        const bgColor = meta.isSubclass 
-          ? { red: 0.95, green: 0.95, blue: 0.96 } // Slightly gray for subclasses
-          : { red: 1, green: 1, blue: 1 }; // Pure white for main/alt
+        // Row background - alternating for better readability
+        const isEvenRow = i % 2 === 0;
+        const rowBg = meta.isSubclass 
+          ? { red: 0.97, green: 0.97, blue: 0.98 }  // Light gray for subclasses
+          : (isEvenRow ? { red: 1, green: 1, blue: 1 } : { red: 0.98, green: 0.98, blue: 0.99 });
         
-        // Discord Name column - different style for subclass rows
-        requests.push({
-          repeatCell: {
-            range: {
-              sheetId: sheetId,
-              startRowIndex: rowIndex,
-              endRowIndex: rowIndex + 1,
-              startColumnIndex: 0,
-              endColumnIndex: 1
-            },
-            cell: {
-              userEnteredFormat: {
-                backgroundColor: bgColor,
-                textFormat: {
-                  fontSize: 10,
-                  fontFamily: 'Arial',
-                  foregroundColor: { red: 0.15, green: 0.15, blue: 0.2 },
-                  bold: !meta.isSubclass // Bold for main/alt, normal for subclass
-                },
-                horizontalAlignment: 'LEFT',
-                verticalAlignment: 'MIDDLE',
-                padding: meta.isSubclass ? {
-                  left: 20 // Extra left padding for subclass rows
-                } : undefined
-              }
-            },
-            fields: 'userEnteredFormat'
-          }
-        });
+        // Discord Name column (A)
+        if (meta.isMain) {
+          requests.push({
+            repeatCell: {
+              range: {
+                sheetId: sheetId,
+                startRowIndex: rowIndex,
+                endRowIndex: rowIndex + 1,
+                startColumnIndex: 0,
+                endColumnIndex: 1
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: rowBg,
+                  textFormat: {
+                    fontSize: 10,
+                    fontFamily: 'Arial',
+                    foregroundColor: { red: 0.1, green: 0.1, blue: 0.1 },
+                    bold: true
+                  },
+                  horizontalAlignment: 'LEFT',
+                  verticalAlignment: 'MIDDLE'
+                }
+              },
+              fields: 'userEnteredFormat'
+            }
+          });
+        } else {
+          // Empty cells for subclasses and alts
+          requests.push({
+            repeatCell: {
+              range: {
+                sheetId: sheetId,
+                startRowIndex: rowIndex,
+                endRowIndex: rowIndex + 1,
+                startColumnIndex: 0,
+                endColumnIndex: 1
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: rowBg
+                }
+              },
+              fields: 'userEnteredFormat(backgroundColor)'
+            }
+          });
+        }
 
-        // IGN column - with indentation for subclasses
+        // IGN column (B)
+        const ignTextColor = meta.isSubclass 
+          ? { red: 0.4, green: 0.4, blue: 0.5 }
+          : { red: 0.1, green: 0.1, blue: 0.1 };
+        
         requests.push({
           repeatCell: {
             range: {
@@ -557,17 +585,15 @@ class GoogleSheetsService {
             },
             cell: {
               userEnteredFormat: {
-                backgroundColor: bgColor,
+                backgroundColor: rowBg,
                 textFormat: {
                   fontSize: 10,
-                  fontFamily: meta.isSubclass ? 'Courier New' : 'Arial', // Monospace for arrow alignment
-                  foregroundColor: meta.isSubclass 
-                    ? { red: 0.4, green: 0.4, blue: 0.5 } // Lighter gray for subclass
-                    : { red: 0.15, green: 0.15, blue: 0.2 },
+                  fontFamily: 'Arial',
+                  foregroundColor: ignTextColor,
                   bold: !meta.isSubclass,
-                  italic: meta.isSubclass // Italic for subclass
+                  italic: meta.isSubclass
                 },
-                horizontalAlignment: 'LEFT',
+                horizontalAlignment: meta.isSubclass ? 'CENTER' : 'LEFT',
                 verticalAlignment: 'MIDDLE'
               }
             },
@@ -575,7 +601,78 @@ class GoogleSheetsService {
           }
         });
 
-        // Timezone and Registered columns
+        // Type column (C) - colored pill
+        const typeColor = meta.isSubclass
+          ? { red: 0.65, green: 0.65, blue: 0.7 }
+          : (meta.isMain ? { red: 0.3, green: 0.85, blue: 0.45 } : { red: 1, green: 0.6, blue: 0.2 });
+        
+        this.addPillCell(requests, sheetId, rowIndex, 2, typeColor, true, 9);
+        
+        // Class column (D) - colored pill
+        const classColor = this.getClassColor(member.class);
+        this.addPillCell(requests, sheetId, rowIndex, 3, classColor, true, 9);
+        
+        // Subclass column (E) - darker variant
+        const subclassColor = {
+          red: Math.max(classColor.red * 0.7, 0.2),
+          green: Math.max(classColor.green * 0.7, 0.2),
+          blue: Math.max(classColor.blue * 0.7, 0.2)
+        };
+        this.addPillCell(requests, sheetId, rowIndex, 4, subclassColor, true, 9);
+        
+        // Role column (F) - colored pill
+        const roleColor = this.getRoleColor(member.role);
+        this.addPillCell(requests, sheetId, rowIndex, 5, roleColor, true, 9);
+        
+        // Ability Score column (G) - colored pill with number
+        if (member.ability_score && member.ability_score !== '') {
+          const abilityColor = this.getAbilityScoreColor(member.ability_score);
+          this.addPillCell(requests, sheetId, rowIndex, 6, abilityColor, true, 9, true);
+        } else {
+          requests.push({
+            repeatCell: {
+              range: {
+                sheetId: sheetId,
+                startRowIndex: rowIndex,
+                endRowIndex: rowIndex + 1,
+                startColumnIndex: 6,
+                endColumnIndex: 7
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: rowBg
+                }
+              },
+              fields: 'userEnteredFormat(backgroundColor)'
+            }
+          });
+        }
+        
+        // Guild column (H) - colored pill
+        if (member.guild && member.guild !== '') {
+          const guildColor = this.getGuildColor(member.guild);
+          this.addPillCell(requests, sheetId, rowIndex, 7, guildColor, true, 9);
+        } else {
+          requests.push({
+            repeatCell: {
+              range: {
+                sheetId: sheetId,
+                startRowIndex: rowIndex,
+                endRowIndex: rowIndex + 1,
+                startColumnIndex: 7,
+                endColumnIndex: 8
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: rowBg
+                }
+              },
+              fields: 'userEnteredFormat(backgroundColor)'
+            }
+          });
+        }
+        
+        // Timezone and Registered columns (I, J) - plain text
         requests.push({
           repeatCell: {
             range: {
@@ -587,11 +684,11 @@ class GoogleSheetsService {
             },
             cell: {
               userEnteredFormat: {
-                backgroundColor: bgColor,
+                backgroundColor: rowBg,
                 textFormat: {
-                  fontSize: 10,
+                  fontSize: 9,
                   fontFamily: 'Arial',
-                  foregroundColor: { red: 0.35, green: 0.35, blue: 0.4 }
+                  foregroundColor: { red: 0.4, green: 0.4, blue: 0.4 }
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE'
@@ -602,82 +699,7 @@ class GoogleSheetsService {
         });
       }
 
-      // Apply colored pills for each row
-      for (let i = 0; i < rowMetadata.length; i++) {
-        const member = rowMetadata[i].character;
-        const rowIndex = i + 1;
-        const isSubclass = rowMetadata[i].isSubclass;
-        
-        const classColor = this.getClassColor(member.class);
-        const roleColor = this.getRoleColor(member.role);
-        const abilityColor = member.ability_score ? this.getAbilityScoreColor(member.ability_score) : null;
-        
-        // Type column
-        const typeColor = isSubclass
-          ? { red: 0.7, green: 0.7, blue: 0.75 } // Gray for subclass
-          : (member.character_type === 'main' ? { red: 0.3, green: 0.85, blue: 0.45 } : { red: 1, green: 0.65, blue: 0.25 });
-        
-        this.addPillCell(requests, sheetId, rowIndex, 2, typeColor, true, 10);
-        
-        // Class column
-        this.addPillCell(requests, sheetId, rowIndex, 3, classColor, true, 10);
-        
-        // Subclass column - darker variant
-        const subclassColor = {
-          red: Math.max(classColor.red * 0.65, 0.15),
-          green: Math.max(classColor.green * 0.65, 0.15),
-          blue: Math.max(classColor.blue * 0.65, 0.15)
-        };
-        this.addPillCell(requests, sheetId, rowIndex, 4, subclassColor, true, 10);
-        
-        // Role column
-        this.addPillCell(requests, sheetId, rowIndex, 5, roleColor, true, 10);
-        
-        // Ability Score
-        if (member.ability_score && member.ability_score !== '' && abilityColor) {
-          this.addPillCell(requests, sheetId, rowIndex, 6, abilityColor, true, 10, true);
-        }
-        
-        // Guild
-        if (member.guild && member.guild !== '') {
-          const guildColor = this.getGuildColor(member.guild);
-          this.addPillCell(requests, sheetId, rowIndex, 7, guildColor, true, 10);
-        }
-        
-        // Add borders
-        requests.push({
-          updateBorders: {
-            range: {
-              sheetId: sheetId,
-              startRowIndex: rowIndex,
-              endRowIndex: rowIndex + 1,
-              startColumnIndex: 0,
-              endColumnIndex: 10
-            },
-            left: {
-              style: 'SOLID',
-              width: 2,
-              color: { red: 0.92, green: 0.92, blue: 0.94 }
-            },
-            right: {
-              style: 'SOLID',
-              width: 2,
-              color: { red: 0.92, green: 0.92, blue: 0.94 }
-            },
-            top: {
-              style: 'SOLID',
-              width: 2,
-              color: { red: 0.92, green: 0.92, blue: 0.94 }
-            },
-            bottom: {
-              style: 'SOLID',
-              width: 2,
-              color: { red: 0.92, green: 0.92, blue: 0.94 }
-            }
-          }
-        });
-      }
-
+      // Apply in batches
       if (requests.length > 0) {
         const batchSize = 100;
         for (let i = 0; i < requests.length; i += batchSize) {
@@ -687,7 +709,7 @@ class GoogleSheetsService {
             requestBody: { requests: batch }
           });
         }
-        console.log(`✅ [SHEETS] Applied ${requests.length} hierarchical formats`);
+        console.log(`✅ [SHEETS] Applied ${requests.length} formatting requests`);
       }
     } catch (error) {
       console.error('❌ [SHEETS] Error applying hierarchical colors:', error.message);
