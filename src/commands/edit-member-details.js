@@ -121,36 +121,24 @@ export default {
 
       // === ALT CHARACTERS (if any) ===
       if (altsWithSubclasses.length > 0) {
-        altsWithSubclasses.forEach((alt, altIndex) => {
+        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+        
+        const allAltsText = altsWithSubclasses.map((alt, altIndex) => {
+          const numberEmoji = numberEmojis[altIndex] || `${altIndex + 1}.`;
           
-          let altValue = 
+          return (
             '```ansi\n' +
-            `📄 \u001b[1;36mIGN:\u001b[0m ${alt.ign}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
+            `${numberEmoji} \u001b[1;36mIGN:\u001b[0m ${alt.ign}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
             `   ${alt.class} › ${alt.subclass} › ${alt.role}\n` +
             `   \u001b[1;31mAbility Score:\u001b[0m ${alt.ability_score?.toLocaleString() || 'N/A'}\n` +
-            '```';
+            '```'
+          );
+        }).join('\n');
 
-          // Alt's Subclasses (if any)
-          if (alt.subclasses.length > 0) {
-            const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-            
-            const altSubText = alt.subclasses.map((sc, i) => {
-              const subNumberEmoji = numberEmojis[i] || `${i + 1}.`;
-              return (
-                '```ansi\n' +
-                `${subNumberEmoji} ${sc.class} › ${sc.subclass} › ${sc.role}\n` +
-                `   \u001b[1;31mAbility Score:\u001b[0m ${sc.ability_score?.toLocaleString() || 'N/A'}\n` +
-                '```'
-              );
-            }).join('');
-            altValue += altSubText;
-          }
-
-          embed.addFields({
-            name: `📋 Alt ${altIndex + 1}`,
-            value: altValue,
-            inline: false
-          });
+        embed.addFields({
+          name: '📋 Alt',
+          value: allAltsText,
+          inline: false
         });
       }
     }
