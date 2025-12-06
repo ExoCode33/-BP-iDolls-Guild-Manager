@@ -119,9 +119,9 @@ export default {
           
           let altValue = 
             '```ansi\n' +
-            `\u001b[1;33mIGN:\u001b[0m       ${alt.ign}\n` +
+            `\u001b[1;36mIGN:\u001b[0m       ${alt.ign}\n` +
             `\n` +
-            `\u001b[1;36mClass:\u001b[0m     ${alt.class}\n` +
+            `\u001b[1;33mClass:\u001b[0m     ${alt.class}\n` +
             `\u001b[1;35mSubclass:\u001b[0m  ${alt.subclass}\n` +
             `\u001b[1;32mRole:\u001b[0m      ${alt.role} ${altRoleEmoji}\n` +
             `\u001b[1;34mGuild:\u001b[0m     ${alt.guild || 'None'}\n` +
