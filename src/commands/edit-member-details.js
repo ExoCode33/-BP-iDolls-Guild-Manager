@@ -55,18 +55,26 @@ export default {
       // === NO MAIN CHARACTER - Welcome Screen ===
       embed.setDescription(
         '```ansi\n' +
-        '\u001b[1;36m╔════════════════════════════════╗\n' +
-        '\u001b[1;36m║   \u001b[1;33mWelcome to Registration!   \u001b[1;36m║\n' +
-        '\u001b[1;36m╚════════════════════════════════╝\u001b[0m\n' +
+        '\u001b[1;36m╭──────────────────────────────────╮\n' +
+        '\u001b[1;36m│  \u001b[1;33mWelcome to Registration!\u001b[1;36m     │\n' +
+        '\u001b[1;36m╰──────────────────────────────────╯\u001b[0m\n' +
         '```\n' +
-        '> **Get started by registering your main character!**\n' +
-        '> \n' +
-        '> Click the button below to begin your journey.\n'
+        '**Get started by registering your main character!**\n' +
+        '\n' +
+        'Click the button below to begin your journey.'
       );
       
       embed.addFields({
-        name: '✨ What you can do:',
-        value: '> • Register your **Main Character**\n> • Add **Alt Characters**\n> • Track **Subclasses**\n> • Manage your **Guild** membership',
+        name: '✨ **What you can do:**',
+        value: 
+          '**Main Character**\n' +
+          '└ Register your primary character\n\n' +
+          '**Subclasses**\n' +
+          '└ Track additional specializations\n\n' +
+          '**Alt Characters**\n' +
+          '└ Add alternate characters\n\n' +
+          '**Guild**\n' +
+          '└ Manage your guild membership',
         inline: false
       });
     } else {
