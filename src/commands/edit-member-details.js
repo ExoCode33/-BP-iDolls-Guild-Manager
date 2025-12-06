@@ -41,109 +41,134 @@ export default {
       )
     }));
 
-    // Build professional embed
+    // Build professional embed with better layout
     const embed = new EmbedBuilder()
       .setColor('#6640D9')
-      .setTitle('📋 Character Management')
+      .setTitle('📋 Character Profile')
       .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
       .setTimestamp();
 
-    // Header: Discord Name & Timezone
-    const headerValue = [
-      `**Discord:** ${interaction.user.tag}`,
-      `**Timezone:** ${userTimezone?.timezone ? `🌍 ${userTimezone.timezone}` : '*Not set*'}`
+    // === PROFILE INFO SECTION (Compact) ===
+    const profileInfo = [
+      `**👤 Discord:** ${interaction.user.tag}`,
+      `**🌍 Timezone:** ${userTimezone?.timezone ? `${userTimezone.timezone}` : '*Not set*'}`
     ].join('\n');
 
     embed.addFields({
-      name: '👤 Profile Information',
-      value: headerValue,
+      name: '\u200B', // Invisible character for spacing
+      value: profileInfo,
       inline: false
     });
 
-    // Main Character Section
+    // === MAIN CHARACTER SECTION ===
     if (mainChar) {
-      const mainValue = [
-        `**IGN:** ${mainChar.ign}`,
-        `**Class:** ${mainChar.class} (${mainChar.subclass})`,
-        `**Role:** ${mainChar.role}`,
-        `**Ability Score:** ${mainChar.ability_score?.toLocaleString() || '*Not set*'}`,
-        `**Guild:** ${mainChar.guild || '*Not set*'}`
-      ].join('\n');
-
+      // Main character header with separator
       embed.addFields({
-        name: '⭐ Main Character',
-        value: mainValue,
+        name: '⭐ ━━━━━━━ MAIN CHARACTER ━━━━━━━',
+        value: '\u200B',
         inline: false
       });
 
-      // Main Character Subclasses
-      if (mainSubclasses.length > 0) {
-        mainSubclasses.forEach((subclass, index) => {
-          const subclassValue = [
-            `**Class:** ${subclass.class} (${subclass.subclass})`,
-            `**Ability Score:** ${subclass.ability_score?.toLocaleString() || '*Not set*'}`
-          ].join('\n');
+      // Main stats in 2 columns
+      embed.addFields(
+        { 
+          name: '🎮 IGN', 
+          value: `**${mainChar.ign}**`, 
+          inline: true 
+        },
+        { 
+          name: '🎭 Class', 
+          value: `**${mainChar.class}**\n${mainChar.subclass}`, 
+          inline: true 
+        },
+        { 
+          name: '⚔️ Role', 
+          value: `**${mainChar.role}**`, 
+          inline: true 
+        }
+      );
 
-          embed.addFields({
-            name: `  📌 Subclass ${index + 1}`,
-            value: subclassValue,
-            inline: true
-          });
+      // Second row of stats
+      embed.addFields(
+        { 
+          name: '💪 Ability Score', 
+          value: mainChar.ability_score ? `**${mainChar.ability_score.toLocaleString()}**` : '*Not set*', 
+          inline: true 
+        },
+        { 
+          name: '🏰 Guild', 
+          value: mainChar.guild ? `**${mainChar.guild}**` : '*Not set*', 
+          inline: true 
+        },
+        {
+          name: '\u200B', // Empty space for alignment
+          value: '\u200B',
+          inline: true
+        }
+      );
+
+      // Main Character Subclasses (condensed)
+      if (mainSubclasses.length > 0) {
+        const subclassList = mainSubclasses.map((sc, i) => 
+          `**${i + 1}.** ${sc.class} (${sc.subclass}) • ${sc.ability_score?.toLocaleString() || 'N/A'}`
+        ).join('\n');
+
+        embed.addFields({
+          name: '📌 Main Subclasses',
+          value: subclassList,
+          inline: false
         });
-      }
-      
-      // Spacer after main section if there are alts
-      if (altsWithSubclasses.length > 0) {
-        embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
       }
     } else {
-      embed.setDescription('**No main character registered yet!**\n\nGet started by adding your main character.');
+      embed.setDescription('**No main character registered yet!**\n\n*Get started by adding your main character below.*');
     }
 
-    // Alt Characters Section
-    altsWithSubclasses.forEach((alt, altIndex) => {
-      const altValue = [
-        `**IGN:** ${alt.ign}`,
-        `**Class:** ${alt.class} (${alt.subclass})`,
-        `**Role:** ${alt.role}`,
-        `**Ability Score:** ${alt.ability_score?.toLocaleString() || '*Not set*'}`,
-        `**Guild:** ${alt.guild || '*Not set*'}`
-      ].join('\n');
-
+    // === ALT CHARACTERS SECTION ===
+    if (altsWithSubclasses.length > 0) {
       embed.addFields({
-        name: `📋 Alt Character ${altIndex + 1}`,
-        value: altValue,
+        name: '📋 ━━━━━━━ ALT CHARACTERS ━━━━━━━',
+        value: '\u200B',
         inline: false
       });
 
-      // Alt's Subclasses
-      if (alt.subclasses.length > 0) {
-        alt.subclasses.forEach((subclass, subIndex) => {
-          const subclassValue = [
-            `**Class:** ${subclass.class} (${subclass.subclass})`,
-            `**Ability Score:** ${subclass.ability_score?.toLocaleString() || '*Not set*'}`
-          ].join('\n');
+      altsWithSubclasses.forEach((alt, altIndex) => {
+        const altInfo = [
+          `**${alt.ign}** • ${alt.class} (${alt.subclass})`,
+          `⚔️ ${alt.role} • 💪 ${alt.ability_score?.toLocaleString() || 'N/A'}`,
+          alt.guild ? `🏰 ${alt.guild}` : ''
+        ].filter(Boolean).join(' • ');
+
+        embed.addFields({
+          name: `${altIndex + 1}. Alt Character`,
+          value: altInfo,
+          inline: false
+        });
+
+        // Alt's Subclasses (condensed)
+        if (alt.subclasses.length > 0) {
+          const subclassList = alt.subclasses.map((sc, i) => 
+            `  └ ${sc.class} (${sc.subclass}) • ${sc.ability_score?.toLocaleString() || 'N/A'}`
+          ).join('\n');
 
           embed.addFields({
-            name: `  📌 Subclass ${subIndex + 1}`,
-            value: subclassValue,
-            inline: true
+            name: '\u200B',
+            value: subclassList,
+            inline: false
           });
-        });
-      }
+        }
+      });
+    }
 
-      // Spacer between alts
-      if (altIndex < altsWithSubclasses.length - 1) {
-        embed.addFields({ name: '\u200B', value: '\u200B', inline: false });
-      }
-    });
-
-    // Footer
+    // Footer with total count
     const totalChars = allCharacters.length;
-    embed.setFooter({ text: totalChars > 0 ? `Total: ${totalChars} character${totalChars !== 1 ? 's' : ''} | Select an action below` : 'Click "Add Main Character" to begin' });
+    if (totalChars > 0) {
+      embed.setFooter({ text: `Total: ${totalChars} character${totalChars !== 1 ? 's' : ''} • Select an action below` });
+    } else {
+      embed.setFooter({ text: 'Click "Add Main Character" to begin' });
+    }
 
-    // Build button rows
-    const rows = this.buildButtonRows(mainChar, mainSubclasses, altsWithSubclasses, interaction.user.id);
+    // === BUILD BUTTON ROWS (Improved Layout) ===
+    const rows = this.buildImprovedButtonRows(mainChar, mainSubclasses, altsWithSubclasses, interaction.user.id);
 
     if (isUpdate) {
       await interaction.update({ embeds: [embed], components: rows });
@@ -156,11 +181,11 @@ export default {
     }
   },
 
-  buildButtonRows(mainChar, mainSubclasses, alts, userId) {
+  buildImprovedButtonRows(mainChar, mainSubclasses, alts, userId) {
     const rows = [];
 
     if (!mainChar) {
-      // No main character - only show "Add Main" button
+      // === NO MAIN CHARACTER - Single prominent button ===
       const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`char_add_main_${userId}`)
@@ -170,18 +195,13 @@ export default {
       );
       rows.push(row1);
     } else {
-      // Has main character - show main actions
+      // === ROW 1: Primary Actions (Main Management) ===
       const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`char_edit_main_${userId}`)
           .setLabel('Edit Main')
           .setStyle(ButtonStyle.Primary)
           .setEmoji('✏️'),
-        new ButtonBuilder()
-          .setCustomId(`char_remove_main_${userId}`)
-          .setLabel('Remove Main')
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('🗑️'),
         new ButtonBuilder()
           .setCustomId(`subclass_add_to_main_${userId}`)
           .setLabel('Add Subclass to Main')
@@ -190,8 +210,10 @@ export default {
       );
       rows.push(row1);
 
-      // Alt actions
-      const row2 = new ActionRowBuilder().addComponents(
+      // === ROW 2: Alt Character Actions ===
+      const row2 = new ActionRowBuilder();
+      
+      row2.addComponents(
         new ButtonBuilder()
           .setCustomId(`char_add_alt_${userId}`)
           .setLabel('Add Alt Character')
@@ -202,11 +224,6 @@ export default {
       if (alts.length > 0) {
         row2.addComponents(
           new ButtonBuilder()
-            .setCustomId(`char_remove_alt_${userId}`)
-            .setLabel('Remove Alt')
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('➖'),
-          new ButtonBuilder()
             .setCustomId(`subclass_add_to_alt_${userId}`)
             .setLabel('Add Subclass to Alt')
             .setStyle(ButtonStyle.Success)
@@ -216,18 +233,41 @@ export default {
 
       rows.push(row2);
 
-      // Subclass removal (if any exist)
+      // === ROW 3: Removal Actions (Danger) ===
+      const row3 = new ActionRowBuilder();
+      
+      // Check if there are any subclasses to remove
       const totalSubclasses = mainSubclasses.length + alts.reduce((sum, alt) => sum + alt.subclasses.length, 0);
+      
       if (totalSubclasses > 0) {
-        const row3 = new ActionRowBuilder().addComponents(
+        row3.addComponents(
           new ButtonBuilder()
             .setCustomId(`subclass_remove_${userId}`)
             .setLabel('Remove Subclass')
             .setStyle(ButtonStyle.Danger)
             .setEmoji('🗑️')
         );
-        rows.push(row3);
       }
+
+      if (alts.length > 0) {
+        row3.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`char_remove_alt_${userId}`)
+            .setLabel('Remove Alt')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('➖')
+        );
+      }
+
+      row3.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`char_remove_main_${userId}`)
+          .setLabel('Remove Main')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🗑️')
+      );
+
+      rows.push(row3);
     }
 
     return rows;
