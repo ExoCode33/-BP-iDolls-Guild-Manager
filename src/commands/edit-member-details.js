@@ -81,37 +81,31 @@ export default {
       );
 
       // === MAIN CHARACTER CARD ===
-      const mainScoreBar = this.createSimpleScoreBar(mainChar.ability_score);
       const mainRoleEmoji = this.getRoleEmoji(mainChar.role);
       
       embed.addFields({
         name: '⭐ MAIN CHARACTER',
         value: 
           '```ansi\n' +
-          `\u001b[1;37m╭─────────────────────────────────╮\n` +
-          `\u001b[1;37m│ \u001b[1;36m${this.padText(mainChar.ign, 31)}\u001b[1;37m │\n` +
-          `\u001b[1;37m├─────────────────────────────────┤\n` +
-          `\u001b[1;37m│ \u001b[1;33mClass:\u001b[0m    ${this.padText(mainChar.class, 21)} \u001b[1;37m│\n` +
-          `\u001b[1;37m│ \u001b[1;35mSubclass:\u001b[0m ${this.padText(mainChar.subclass, 21)} \u001b[1;37m│\n` +
-          `\u001b[1;37m│ ${mainRoleEmoji} \u001b[1;32mRole:\u001b[0m     ${this.padText(mainChar.role, 21)} \u001b[1;37m│\n` +
-          `\u001b[1;37m│ \u001b[1;34mGuild:\u001b[0m    ${this.padText(mainChar.guild || 'None', 21)} \u001b[1;37m│\n` +
-          `\u001b[1;37m├─────────────────────────────────┤\n` +
-          `\u001b[1;37m│ \u001b[1;31m⚡ Score:\u001b[0m  ${this.padText(mainChar.ability_score?.toLocaleString() || 'N/A', 21)} \u001b[1;37m│\n` +
-          `\u001b[1;37m╰─────────────────────────────────╯\u001b[0m\n` +
-          '```' +
-          `${mainScoreBar}`,
+          `\u001b[1;37m╭──────────────────────────────────╮\n` +
+          `\u001b[1;37m│  \u001b[1;36m${mainChar.ign.padEnd(30)}\u001b[1;37m  │\n` +
+          `\u001b[1;37m├──────────────────────────────────┤\n` +
+          `\u001b[1;37m│  \u001b[1;33mClass:\u001b[0m    ${mainChar.class.padEnd(20)} \u001b[1;37m│\n` +
+          `\u001b[1;37m│  \u001b[1;35mSubclass:\u001b[0m ${mainChar.subclass.padEnd(20)} \u001b[1;37m│\n` +
+          `\u001b[1;37m│  ${mainRoleEmoji} \u001b[1;32mRole:\u001b[0m     ${mainChar.role.padEnd(20)} \u001b[1;37m│\n` +
+          `\u001b[1;37m│  \u001b[1;34mGuild:\u001b[0m    ${(mainChar.guild || 'None').padEnd(20)} \u001b[1;37m│\n` +
+          `\u001b[1;37m├──────────────────────────────────┤\n` +
+          `\u001b[1;37m│  \u001b[1;31m⚡ Score:\u001b[0m  ${(mainChar.ability_score?.toLocaleString() || 'N/A').padEnd(20)} \u001b[1;37m│\n` +
+          `\u001b[1;37m╰──────────────────────────────────╯\u001b[0m\n` +
+          '```',
         inline: false
       });
 
       // === MAIN SUBCLASSES (if any) ===
       if (mainSubclasses.length > 0) {
-        const subclassText = mainSubclasses.map((sc, i) => {
-          const scoreBar = this.createMiniScoreBar(sc.ability_score);
-          return (
-            `**${i + 1}.** \`${sc.class}\` › ${sc.subclass}\n` +
-            `${scoreBar} **${sc.ability_score?.toLocaleString() || 'N/A'}**`
-          );
-        }).join('\n\n');
+        const subclassText = mainSubclasses.map((sc, i) => 
+          `**${i + 1}.** \`${sc.class}\` › ${sc.subclass} • **${sc.ability_score?.toLocaleString() || 'N/A'}**`
+        ).join('\n');
 
         embed.addFields({
           name: '📌 Main Subclasses',
@@ -129,19 +123,18 @@ export default {
         });
 
         altsWithSubclasses.forEach((alt, altIndex) => {
-          const altScoreBar = this.createMiniScoreBar(alt.ability_score);
           const altRoleEmoji = this.getRoleEmoji(alt.role);
           
           let altValue = 
             '```ansi\n' +
-            `\u001b[1;37m╭─────────────────────────────────╮\n` +
-            `\u001b[1;37m│ \u001b[1;33m${this.padText(alt.ign, 31)}\u001b[1;37m │\n` +
-            `\u001b[1;37m├─────────────────────────────────┤\n` +
-            `\u001b[1;37m│ \u001b[1;36mClass:\u001b[0m ${this.padText(`${alt.class} (${alt.subclass})`, 24)} \u001b[1;37m│\n` +
-            `\u001b[1;37m│ ${altRoleEmoji} ${this.padText(`${alt.role} • ${alt.guild || 'No Guild'}`, 29)} \u001b[1;37m│\n` +
-            `\u001b[1;37m╰─────────────────────────────────╯\u001b[0m\n` +
-            '```' +
-            `${altScoreBar} **${alt.ability_score?.toLocaleString() || 'N/A'}**`;
+            `\u001b[1;37m╭──────────────────────────────────╮\n` +
+            `\u001b[1;37m│  \u001b[1;33m${alt.ign.padEnd(30)}\u001b[1;37m  │\n` +
+            `\u001b[1;37m├──────────────────────────────────┤\n` +
+            `\u001b[1;37m│  \u001b[1;36mClass:\u001b[0m ${`${alt.class} (${alt.subclass})`.padEnd(24)} \u001b[1;37m│\n` +
+            `\u001b[1;37m│  ${altRoleEmoji} ${`${alt.role} • ${alt.guild || 'No Guild'}`.padEnd(28)} \u001b[1;37m│\n` +
+            `\u001b[1;37m│  \u001b[1;31m⚡ Score:\u001b[0m  ${(alt.ability_score?.toLocaleString() || 'N/A').padEnd(18)} \u001b[1;37m│\n` +
+            `\u001b[1;37m╰──────────────────────────────────╯\u001b[0m\n` +
+            '```';
 
           // Alt's Subclasses
           if (alt.subclasses.length > 0) {
@@ -277,55 +270,7 @@ export default {
     return rows;
   },
 
-  // Helper: Create simple score indicator
-  createSimpleScoreBar(score) {
-    if (!score) return '`No score set`';
-    
-    let color = '🟢'; // Green
-    let tier = 'Beginner';
-    
-    if (score >= 40000) {
-      color = '🟣';
-      tier = 'Master';
-    } else if (score >= 30000) {
-      color = '🔴';
-      tier = 'Expert';
-    } else if (score >= 20000) {
-      color = '🟡';
-      tier = 'Advanced';
-    } else if (score >= 10000) {
-      color = '🟢';
-      tier = 'Intermediate';
-    }
-    
-    return `${color} **${tier}** Tier`;
-  },
-
-  // Helper: Create mini progress indicator
-  createMiniScoreBar(score) {
-    if (!score) return '⚪⚪⚪⚪⚪';
-    
-    const maxScore = 60000;
-    const percentage = Math.min((score / maxScore) * 100, 100);
-    const filledBlocks = Math.floor(percentage / 20); // 5 blocks total
-    const emptyBlocks = 5 - filledBlocks;
-    
-    let color = '🟢';
-    if (score >= 40000) color = '🟣';
-    else if (score >= 30000) color = '🔴';
-    else if (score >= 20000) color = '🟡';
-    
-    return color.repeat(filledBlocks) + '⚪'.repeat(emptyBlocks);
-  },
-
-  // Helper: Pad text to specific length
-  padText(text, length) {
-    const str = String(text);
-    if (str.length >= length) return str.substring(0, length);
-    return str + ' '.repeat(length - str.length);
-  },
-
-  // Helper: Get role emoji with ANSI color
+  // Helper: Get role emoji
   getRoleEmoji(role) {
     const roleEmojis = {
       'Tank': '🛡️',
