@@ -88,10 +88,10 @@ export default {
           '```ansi\n' +
           `✨ \u001b[1;36mIGN:\u001b[0m       ${mainChar.ign}\n` +
           `\n` +
+          `🏰 \u001b[1;34mGuild:\u001b[0m     ${mainChar.guild || 'None'}\n` +
           `🎭 \u001b[1;33mClass:\u001b[0m     ${mainChar.class}\n` +
           `🎯 \u001b[1;35mSubclass:\u001b[0m  ${mainChar.subclass}\n` +
           `${mainRoleEmoji} \u001b[1;32mRole:\u001b[0m      ${mainChar.role}\n` +
-          `🏰 \u001b[1;34mGuild:\u001b[0m     ${mainChar.guild || 'None'}\n` +
           `\n` +
           `💪 \u001b[1;31mAbility Score:\u001b[0m ${mainChar.ability_score?.toLocaleString() || 'N/A'}\n` +
           '```',
@@ -121,20 +121,19 @@ export default {
 
       // === ALT CHARACTERS (if any) ===
       if (altsWithSubclasses.length > 0) {
-        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-        
         altsWithSubclasses.forEach((alt, altIndex) => {
-          const numberEmoji = numberEmojis[altIndex] || `${altIndex + 1}.`;
           
           let altValue = 
             '```ansi\n' +
-            `${numberEmoji} \u001b[1;33m${alt.class}\u001b[0m › \u001b[1;35m${alt.subclass}\u001b[0m › \u001b[1;32m${alt.role}\u001b[0m\n` +
-            `   \u001b[1;36mIGN:\u001b[0m ${alt.ign}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
+            `📄 \u001b[1;36mIGN:\u001b[0m ${alt.ign}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
+            `   \u001b[1;33m${alt.class}\u001b[0m › \u001b[1;35m${alt.subclass}\u001b[0m › \u001b[1;32m${alt.role}\u001b[0m\n` +
             `   \u001b[1;31mAbility Score:\u001b[0m ${alt.ability_score?.toLocaleString() || 'N/A'}\n` +
             '```';
 
           // Alt's Subclasses (if any)
           if (alt.subclasses.length > 0) {
+            const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+            
             const altSubText = alt.subclasses.map((sc, i) => {
               const subNumberEmoji = numberEmojis[i] || `${i + 1}.`;
               return (
