@@ -86,14 +86,14 @@ export default {
         name: '⭐ MAIN CHARACTER',
         value: 
           '```ansi\n' +
-          `\u001b[1;36mIGN:\u001b[0m       ${mainChar.ign}\n` +
+          `✨ \u001b[1;36mIGN:\u001b[0m       ${mainChar.ign}\n` +
           `\n` +
-          `\u001b[1;33mClass:\u001b[0m     ${mainChar.class}\n` +
-          `\u001b[1;35mSubclass:\u001b[0m  ${mainChar.subclass}\n` +
-          `\u001b[1;32mRole:\u001b[0m      ${mainChar.role} ${mainRoleEmoji}\n` +
-          `\u001b[1;34mGuild:\u001b[0m     ${mainChar.guild || 'None'}\n` +
+          `🎭 \u001b[1;33mClass:\u001b[0m     ${mainChar.class}\n` +
+          `🎯 \u001b[1;35mSubclass:\u001b[0m  ${mainChar.subclass}\n` +
+          `${mainRoleEmoji} \u001b[1;32mRole:\u001b[0m      ${mainChar.role}\n` +
+          `🏰 \u001b[1;34mGuild:\u001b[0m     ${mainChar.guild || 'None'}\n` +
           `\n` +
-          `\u001b[1;31mAbility Score:\u001b[0m ${mainChar.ability_score?.toLocaleString() || 'N/A'}\n` +
+          `💪 \u001b[1;31mAbility Score:\u001b[0m ${mainChar.ability_score?.toLocaleString() || 'N/A'}\n` +
           '```',
         inline: false
       });
@@ -102,8 +102,13 @@ export default {
       if (mainSubclasses.length > 0) {
         const subclassText = mainSubclasses.map((sc, i) => {
           const roleColor = this.getRoleColor(sc.role);
-          return `${roleColor} \`${sc.class}\` **${sc.subclass}** • ${sc.ability_score?.toLocaleString() || 'N/A'}`;
-        }).join('\n');
+          return (
+            '```ansi\n' +
+            `${roleColor} \u001b[1;36m${sc.class}\u001b[0m › \u001b[1;35m${sc.subclass}\u001b[0m\n` +
+            `   \u001b[1;33mScore:\u001b[0m ${sc.ability_score?.toLocaleString() || 'N/A'}\n` +
+            '```'
+          );
+        }).join('');
 
         embed.addFields({
           name: '📊 Subclasses',
@@ -117,18 +122,26 @@ export default {
         altsWithSubclasses.forEach((alt, altIndex) => {
           const altRoleEmoji = this.getRoleEmoji(alt.role);
           
-          // Compact alt display
           let altValue = 
-            `**${alt.ign}** • \`${alt.class}\` **${alt.subclass}** • ${altRoleEmoji} ${alt.role}\n` +
-            `Guild: **${alt.guild || 'None'}** • Score: **${alt.ability_score?.toLocaleString() || 'N/A'}**`;
+            '```ansi\n' +
+            `\u001b[1;36m${alt.ign}\u001b[0m\n` +
+            `\u001b[1;33mClass:\u001b[0m ${alt.class} › \u001b[1;35m${alt.subclass}\u001b[0m\n` +
+            `\u001b[1;32mRole:\u001b[0m  ${alt.role} ${altRoleEmoji}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
+            `\u001b[1;31mScore:\u001b[0m ${alt.ability_score?.toLocaleString() || 'N/A'}\n` +
+            '```';
 
           // Alt's Subclasses (if any)
           if (alt.subclasses.length > 0) {
             const altSubText = alt.subclasses.map((sc) => {
               const roleColor = this.getRoleColor(sc.role);
-              return `${roleColor} \`${sc.class}\` **${sc.subclass}** • ${sc.ability_score?.toLocaleString() || 'N/A'}`;
-            }).join('\n');
-            altValue += '\n' + altSubText;
+              return (
+                '```ansi\n' +
+                `${roleColor} \u001b[1;36m${sc.class}\u001b[0m › \u001b[1;35m${sc.subclass}\u001b[0m\n` +
+                `   \u001b[1;33mScore:\u001b[0m ${sc.ability_score?.toLocaleString() || 'N/A'}\n` +
+                '```'
+              );
+            }).join('');
+            altValue += altSubText;
           }
 
           embed.addFields({
