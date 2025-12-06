@@ -133,7 +133,7 @@ export default {
             `   \u001b[1;31mAbility Score:\u001b[0m ${alt.ability_score?.toLocaleString() || 'N/A'}\n` +
             '```'
           );
-        }).join('\n');
+        }).join('');
 
         embed.addFields({
           name: '📋 Alt',
