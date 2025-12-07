@@ -62,9 +62,31 @@ export default {
       );
     } else {
       // === PROFILE HEADER ===
-      const timezoneDisplay = userTimezone?.timezone 
-        ? `🌍 ${userTimezone.timezone}` 
-        : '🌍 *No timezone set*';
+      let timezoneDisplay = '🌍 *No timezone set*';
+      
+      if (userTimezone?.timezone) {
+        // Get timezone offset
+        const timezoneOffsets = {
+          'PST': -8, 'PDT': -7,
+          'MST': -7, 'MDT': -6,
+          'CST': -6, 'CDT': -5,
+          'EST': -5, 'EDT': -4,
+          'UTC': 0, 'GMT': 0,
+          'CET': 1, 'CEST': 2,
+          'JST': 9, 'KST': 9,
+          'AEST': 10, 'AEDT': 11
+        };
+        
+        const offset = timezoneOffsets[userTimezone.timezone] || 0;
+        const now = new Date();
+        const localTime = new Date(now.getTime() + (offset * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
+        const hours = localTime.getHours();
+        const minutes = localTime.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+        
+        timezoneDisplay = `🌍 ${userTimezone.timezone} • ${displayHours}:${minutes} ${ampm}`;
+      }
       
       embed.setDescription(
         `${timezoneDisplay}\n`
@@ -166,12 +188,13 @@ export default {
       const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`char_add_main_${userId}`)
-          .setLabel('⭐ Register Main Character')
+          .setLabel('Register Main Character')
           .setStyle(ButtonStyle.Success)
+          .setEmoji('⭐')
       );
       rows.push(row1);
     } else {
-      // === ROW 1: Main Character Actions (2 buttons, equal width) ===
+      // === ROW 1: Main Character Actions ===
       const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`char_edit_main_${userId}`)
@@ -186,10 +209,8 @@ export default {
       );
       rows.push(row1);
 
-      // === ROW 2: Alt Character Actions (2 buttons, equal width) ===
-      const row2 = new ActionRowBuilder();
-      
-      row2.addComponents(
+      // === ROW 2: Alt Character Actions ===
+      const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`char_add_alt_${userId}`)
           .setLabel('Add Alt')
@@ -197,19 +218,30 @@ export default {
           .setEmoji('➕')
       );
 
+      // Always add a second button to balance row 2
       if (alts.length > 0) {
         row2.addComponents(
           new ButtonBuilder()
-            .setCustomId(`subclass_add_to_alt_${userId}`)
-            .setLabel('Add Alt Subclass')
-            .setStyle(ButtonStyle.Success)
-            .setEmoji('📌')
+            .setCustomId(`char_remove_alt_${userId}`)
+            .setLabel('Remove Alt')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('➖')
+        );
+      } else {
+        // Add a disabled placeholder to keep 2 buttons
+        row2.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`placeholder_${userId}`)
+            .setLabel('Remove Alt')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('➖')
+            .setDisabled(true)
         );
       }
 
       rows.push(row2);
 
-      // === ROW 3: Removal Actions (Equal width, all danger red) ===
+      // === ROW 3: Removal Actions ===
       const row3 = new ActionRowBuilder();
       
       const totalSubclasses = mainSubclasses.length + alts.reduce((sum, alt) => sum + alt.subclasses.length, 0);
@@ -222,15 +254,15 @@ export default {
             .setStyle(ButtonStyle.Danger)
             .setEmoji('🗑️')
         );
-      }
-
-      if (alts.length > 0) {
+      } else {
+        // Add disabled placeholder
         row3.addComponents(
           new ButtonBuilder()
-            .setCustomId(`char_remove_alt_${userId}`)
-            .setLabel('Remove Alt')
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('➖')
+            .setCustomId(`placeholder_subclass_${userId}`)
+            .setLabel('Remove Subclass')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🗑️')
+            .setDisabled(true)
         );
       }
 
@@ -242,10 +274,7 @@ export default {
           .setEmoji('🗑️')
       );
 
-      // Only add row 3 if it has buttons
-      if (row3.components.length > 0) {
-        rows.push(row3);
-      }
+      rows.push(row3);
     }
 
     return rows;
