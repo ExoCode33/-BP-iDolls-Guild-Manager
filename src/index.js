@@ -288,15 +288,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await removeHandlers.handleCancelRemoveAlt(interaction);
       }
       
-      // Admin buttons
-      else if (interaction.customId.startsWith('admin_refresh_')) {
-        const userId = interaction.customId.split('_')[2];
-        await admin.handleRefresh(interaction, userId);
-      }
-      else if (interaction.customId.startsWith('admin_close_')) {
-        await admin.handleClose(interaction);
-      }
-      
       console.log(`✅ Button handled: ${interaction.customId}`);
     } catch (error) {
       console.error(`❌ Error handling button ${interaction.customId}:`, error);
