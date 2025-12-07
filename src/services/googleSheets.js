@@ -23,13 +23,6 @@ class GoogleSheetsService {
       'Verdant Oracle': `${githubBaseUrl}/VerdantOracle.png`,
       'Wind Knight': `${githubBaseUrl}/WindKnight.png`
     };
-    
-    console.log(`🖼️ [INIT] Loading class icons from GitHub`);
-    
-    // Log which icons are configured
-    Object.entries(this.classLogos).forEach(([className, url]) => {
-      console.log(`✅ [INIT] ${className}: ${url}`);
-    });
   }
 
   async initialize() {
@@ -51,7 +44,6 @@ class GoogleSheetsService {
 
       this.sheets = google.sheets({ version: 'v4', auth: this.auth });
       console.log('✅ Google Sheets API initialized');
-      console.log('📸 Using GitHub-hosted class icons with IMAGE formula');
       
       return true;
     } catch (error) {
@@ -123,8 +115,6 @@ class GoogleSheetsService {
     if (!this.sheets) return;
 
     try {
-      console.log(`📊 [SHEETS] Applying clean formatting to ${sheetName}...`);
-      
       const spreadsheet = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
@@ -213,10 +203,8 @@ class GoogleSheetsService {
         spreadsheetId: this.spreadsheetId,
         requestBody: { requests }
       });
-
-      console.log(`✅ [SHEETS] Clean formatting applied to ${sheetName}`);
     } catch (error) {
-      console.error(`Error formatting ${sheetName}:`, error.message);
+      console.error(`❌ [SHEETS] Error formatting ${sheetName}:`, error.message);
     }
   }
 
@@ -224,8 +212,6 @@ class GoogleSheetsService {
     if (!this.sheets) return;
 
     try {
-      console.log(`📊 [SHEETS] Starting clean sync...`);
-      
       const { queries } = await import('../database/queries.js');
       
       const headers = [
@@ -265,7 +251,7 @@ class GoogleSheetsService {
           const timezoneData = await queries.getUserTimezone(discordId);
           userTimezone = timezoneData?.timezone || '';
         } catch (error) {
-          console.log(`⚠️ [SHEETS] Could not fetch timezone for ${discordId}`);
+          // Silently continue
         }
         
         let discordName = '';
@@ -390,13 +376,12 @@ class GoogleSheetsService {
         });
       }
 
-      console.log(`📊 [SHEETS] Clearing Member List sheet...`);
+      // Clear and write data
       await this.sheets.spreadsheets.values.clear({
         spreadsheetId: this.spreadsheetId,
         range: 'Member List!A:K',
       });
 
-      console.log(`📊 [SHEETS] Writing ${rows.length} rows to Member List...`);
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
         range: 'Member List!A1',
@@ -406,27 +391,19 @@ class GoogleSheetsService {
         },
       });
 
-      console.log(`📊 [SHEETS] Applying clean formatting...`);
+      // Apply formatting
       await this.formatCleanSheet('Member List', headers.length, rows.length);
-
-      console.log(`📊 [SHEETS] Applying clean design...`);
       await this.applyCleanDesign('Member List', rowMetadata);
-
-      console.log(`📊 [SHEETS] Adding class logos with IMAGE formula...`);
       await this.addClassLogos('Member List', rowMetadata);
-
-      console.log(`🕐 [SHEETS] Enabling automatic recalculation every minute...`);
       await this.enableAutoRecalculation();
 
-      console.log(`✅ [SHEETS] Member List synced successfully! (${rows.length} total rows)`);
     } catch (error) {
-      console.error('❌ [SHEETS] Error syncing member list:', error.message);
+      console.error('❌ [SHEETS] Sync error:', error.message);
     }
   }
 
   async enableAutoRecalculation() {
     try {
-      // Set spreadsheet to recalculate on change and every minute
       await this.sheets.spreadsheets.batchUpdate({
         spreadsheetId: this.spreadsheetId,
         requestBody: {
@@ -437,16 +414,15 @@ class GoogleSheetsService {
                   maxIterations: 50,
                   convergenceThreshold: 0.05
                 },
-                autoRecalc: 'MINUTE' // Recalculate every minute
+                autoRecalc: 'MINUTE'
               },
               fields: 'iterativeCalculationSettings,autoRecalc'
             }
           }]
         }
       });
-      console.log(`✅ [SHEETS] Automatic recalculation enabled (every minute)`);
     } catch (error) {
-      console.error('⚠️ [SHEETS] Could not enable auto recalculation:', error.message);
+      // Silently fail
     }
   }
 
@@ -462,8 +438,6 @@ class GoogleSheetsService {
     if (!this.sheets || rowMetadata.length === 0) return;
 
     try {
-      console.log(`🖼️ [SHEETS] Adding class icons to Icon column...`);
-      
       const spreadsheet = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
@@ -478,29 +452,21 @@ class GoogleSheetsService {
       const valueUpdates = [];
       
       for (let i = 0; i < rowMetadata.length; i++) {
-        const rowIndex = i + 2; // +2 because row 1 is headers, data starts at row 2
+        const rowIndex = i + 2;
         const meta = rowMetadata[i];
         const member = meta.character;
         
         const imageUrl = this.classLogos[member.class];
         
         if (imageUrl) {
-          console.log(`🖼️ [SHEETS] Row ${rowIndex}: ${member.class} -> Adding icon to Icon column`);
-          
-          // Update Icon column (D) with IMAGE formula
           valueUpdates.push({
             range: `D${rowIndex}`,
             values: [[`=IMAGE("${imageUrl}",4,28,28)`]]
           });
         }
 
-        // Add timezone live time formula if timezone exists
         if (meta.timezone && meta.timezone !== '') {
-          console.log(`🕐 [SHEETS] Row ${rowIndex}: Adding live time for ${meta.timezone}`);
-          
           const offset = this.getTimezoneOffset(meta.timezone);
-          // Format: "EST 3:45 PM" that updates every minute
-          // Using NOW() + offset hours, then formatting
           const formula = `="${meta.timezone} " & TEXT(NOW() + (${offset}/24), "h:mm AM/PM")`;
           
           valueUpdates.push({
@@ -512,8 +478,6 @@ class GoogleSheetsService {
 
       // Batch update all the IMAGE formulas and timezone formulas
       if (valueUpdates.length > 0) {
-        console.log(`🖼️ [SHEETS] Updating ${valueUpdates.length} cells with icons and live times...`);
-        
         for (const update of valueUpdates) {
           await this.sheets.spreadsheets.values.update({
             spreadsheetId: this.spreadsheetId,
@@ -524,12 +488,9 @@ class GoogleSheetsService {
             }
           });
         }
-        
-        console.log(`✅ [SHEETS] Completed adding icons and live times!`);
       }
 
       if (requests.length > 0) {
-        console.log(`🖼️ [SHEETS] Sending ${requests.length} IMAGE formulas...`);
         const batchSize = 50;
         for (let i = 0; i < requests.length; i += batchSize) {
           const batch = requests.slice(i, i + batchSize);
@@ -538,16 +499,13 @@ class GoogleSheetsService {
               spreadsheetId: this.spreadsheetId,
               requestBody: { requests: batch }
             });
-            console.log(`✅ [SHEETS] Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(requests.length / batchSize)}`);
           } catch (batchError) {
-            console.error(`❌ [SHEETS] Batch ${Math.floor(i / batchSize) + 1} failed:`, batchError.message);
+            // Silently continue
           }
         }
-        console.log(`✅ [SHEETS] Completed ${requests.length} IMAGE formulas`);
-        console.log(`📸 [SHEETS] Class icons should now be visible in the Icon column!`);
       }
     } catch (error) {
-      console.error('❌ [SHEETS] Error adding class icons:', error.message);
+      console.error('❌ [SHEETS] Error adding icons:', error.message);
     }
   }
 
@@ -555,8 +513,6 @@ class GoogleSheetsService {
     if (!this.sheets || rowMetadata.length === 0) return;
 
     try {
-      console.log(`🎨 [SHEETS] Applying clean design to ${rowMetadata.length} rows...`);
-      
       const spreadsheet = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
@@ -574,14 +530,13 @@ class GoogleSheetsService {
             sheetId: sheetId,
             startRowIndex: 0,
             endRowIndex: 1,
-            startColumnIndex: 3, // Column D (Icon)
-            endColumnIndex: 5    // Column E (Class) - endColumnIndex is exclusive
+            startColumnIndex: 3,
+            endColumnIndex: 5
           },
           mergeType: 'MERGE_ALL'
         }
       });
       
-      // Update the merged header cell to say "Class" with purple background
       requests.push({
         updateCells: {
           range: {
@@ -625,7 +580,7 @@ class GoogleSheetsService {
         }
       });
       
-      // Column widths (Icon column is small, Class is normal)
+      // Column widths
       const columnWidths = [160, 150, 95, 50, 180, 145, 85, 125, 105, 170, 105];
       columnWidths.forEach((width, index) => {
         requests.push({
@@ -678,12 +633,11 @@ class GoogleSheetsService {
         }
         
         const rowBg = meta.isAlt
-          ? { red: 0.96, green: 0.96, blue: 0.96 }  // Light grey for alts
+          ? { red: 0.96, green: 0.96, blue: 0.96 }
           : meta.isSubclass 
-          ? { red: 0.98, green: 0.98, blue: 0.99 }  // Very light grey for subclasses
-          : { red: 1, green: 1, blue: 1 };           // White for mains
+          ? { red: 0.98, green: 0.98, blue: 0.99 }
+          : { red: 1, green: 1, blue: 1 };
         
-        // Discord Name (A) - Always bold
         const discordColor = meta.isSubclass 
           ? { red: 0.50, green: 0.52, blue: 0.55 }
           : { red: 0.10, green: 0.11, blue: 0.13 };
@@ -704,7 +658,7 @@ class GoogleSheetsService {
                   fontSize: 10,
                   fontFamily: 'Google Sans',
                   foregroundColor: discordColor,
-                  bold: true  // Always bold
+                  bold: true
                 },
                 horizontalAlignment: 'LEFT',
                 verticalAlignment: 'MIDDLE',
@@ -718,7 +672,6 @@ class GoogleSheetsService {
           }
         });
 
-        // IGN (B) - Always bold
         const ignColor = meta.isSubclass 
           ? { red: 0.50, green: 0.52, blue: 0.55 }
           : { red: 0.10, green: 0.11, blue: 0.13 };
@@ -739,7 +692,7 @@ class GoogleSheetsService {
                   fontSize: 10,
                   fontFamily: 'Google Sans',
                   foregroundColor: ignColor,
-                  bold: true,  // Always bold
+                  bold: true,
                   italic: meta.isSubclass
                 },
                 horizontalAlignment: 'LEFT',
@@ -754,7 +707,6 @@ class GoogleSheetsService {
           }
         });
 
-        // Type (C)
         if (meta.isMain) {
           this.addPillBadge(requests, sheetId, rowIndex, 2, { red: 0.26, green: 0.59, blue: 0.98 });
         } else if (meta.isAlt) {
@@ -763,21 +715,15 @@ class GoogleSheetsService {
           this.addCleanTextCell(requests, sheetId, rowIndex, 2, 'Subclass', rowBg);
         }
         
-        // Icon (D) - Will have IMAGE formula
         this.addCleanTextCell(requests, sheetId, rowIndex, 3, '', rowBg);
         
-        // Class (E) - White background with colored bold text
         const classColor = this.getClassColor(member.class);
         this.addColoredTextCell(requests, sheetId, rowIndex, 4, classColor, rowBg);
-        
-        // Subclass (F) - White background with colored bold text
         this.addColoredTextCell(requests, sheetId, rowIndex, 5, classColor, rowBg);
         
-        // Role (G)
         const roleColor = this.getRoleColor(member.role);
         this.addPillBadge(requests, sheetId, rowIndex, 6, roleColor);
         
-        // Ability Score (H) - Colored text on white/grey background
         if (member.ability_score && member.ability_score !== '') {
           const abilityColor = this.getAbilityScoreColor(member.ability_score);
           this.addColoredTextCell(requests, sheetId, rowIndex, 7, abilityColor, rowBg, true);
@@ -785,20 +731,13 @@ class GoogleSheetsService {
           this.addCleanTextCell(requests, sheetId, rowIndex, 7, '', rowBg);
         }
         
-        // Guild (I) - Bold
         this.addBoldTextCell(requests, sheetId, rowIndex, 8, rowBg);
-        
-        // Timezone (J) - Bold with live time formula
         this.addTimezoneCell(requests, sheetId, rowIndex, 9, meta.timezone, rowBg);
-        
-        // Registered (K) - Bold
         this.addBoldTextCell(requests, sheetId, rowIndex, 10, rowBg);
 
-        // Borders - Add outline to all cells and purple line at bottom of groups
         const isLastOfGroup = (i === rowMetadata.length - 1) || 
                               (i + 1 < rowMetadata.length && rowMetadata[i + 1].isFirstOfUser);
         
-        // Add light gray outline around each cell
         requests.push({
           updateBorders: {
             range: {
@@ -841,7 +780,6 @@ class GoogleSheetsService {
           }
         });
         
-        // Add thick purple line at bottom of each user group
         if (isLastOfGroup) {
           requests.push({
             updateBorders: {
@@ -871,10 +809,9 @@ class GoogleSheetsService {
             requestBody: { requests: batch }
           });
         }
-        console.log(`✅ [SHEETS] Applied ${requests.length} clean styling requests`);
       }
     } catch (error) {
-      console.error('❌ [SHEETS] Error applying clean design:', error.message);
+      console.error('❌ [SHEETS] Design error:', error.message);
     }
   }
 
@@ -1046,52 +983,18 @@ class GoogleSheetsService {
     });
   }
 
-  addSubtleTextCell(requests, sheetId, rowIndex, colIndex, rowBg) {
-    requests.push({
-      repeatCell: {
-        range: {
-          sheetId: sheetId,
-          startRowIndex: rowIndex,
-          endRowIndex: rowIndex + 1,
-          startColumnIndex: colIndex,
-          endColumnIndex: colIndex + 1
-        },
-        cell: {
-          userEnteredFormat: {
-            backgroundColor: rowBg,
-            textFormat: {
-              fontSize: 9,
-              fontFamily: 'Google Sans',
-              foregroundColor: { red: 0.38, green: 0.42, blue: 0.45 }
-            },
-            horizontalAlignment: 'LEFT',
-            verticalAlignment: 'MIDDLE',
-            padding: {
-              left: 12
-            },
-            numberFormat: {
-              type: 'TEXT'
-            }
-          }
-        },
-        fields: 'userEnteredFormat'
-      }
-    });
-  }
-
   async fullSync(allCharactersWithSubclasses) {
     const timestamp = new Date().toLocaleString('en-US', { 
       month: 'short', 
       day: 'numeric', 
       hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit' 
+      minute: '2-digit'
     });
-    console.log(`\n🔄 [SHEETS] ========== FULL SYNC STARTED (${timestamp}) ==========`);
+    console.log(`🔄 [SHEETS] Sync started (${allCharactersWithSubclasses.length} chars) - ${timestamp}`);
     
     await this.syncMemberList(allCharactersWithSubclasses);
     
-    console.log(`✅ [SHEETS] ========== FULL SYNC COMPLETE (${timestamp}) ==========\n`);
+    console.log(`✅ [SHEETS] Sync complete - ${timestamp}`);
   }
 }
 
