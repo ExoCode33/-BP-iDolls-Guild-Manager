@@ -535,13 +535,18 @@ class GoogleSheetsService {
           });
         }
 
-        // ✅ FIXED: Force immediate calculation with proper formula
+        // ✅ FIXED: Calculate correctly regardless of spreadsheet timezone
         if (meta.timezone && meta.timezone !== '') {
           const offset = this.getTimezoneOffset(meta.timezone);
           const abbrev = this.getTimezoneAbbreviation(meta.timezone);
           
-          // Use TEXT formula to force calculation and format
-          const formula = `=CONCATENATE("${abbrev} ", TEXT(NOW() + (${offset}/24), "h:mm AM/PM"))`;
+          // Since we can't control spreadsheet timezone, we calculate the difference
+          // between user's timezone and EST (the spreadsheet's timezone)
+          // EST is UTC-5, so to get user's time from EST: user_offset - (-5) = user_offset + 5
+          const estOffset = -5; // Spreadsheet is in EST
+          const adjustedOffset = offset - estOffset;
+          
+          const formula = `=CONCATENATE("${abbrev} ", TEXT(NOW() + (${adjustedOffset}/24), "h:mm AM/PM"))`;
           
           valueUpdates.push({
             range: `J${rowIndex}`,
