@@ -807,13 +807,13 @@ async function saveMainCharacter(interaction, userId, targetUser, state, ign) {
     
     stateManager.clearRegistrationState(userId);
     
+    // ✅ Return to menu using followUp
     setTimeout(async () => {
       try {
         if (state.isAdminEdit) {
-          await showAdminEditMenu(interaction, userId, targetUser);
+          await returnToAdminMenu(interaction, userId, targetUser);
         } else {
-          const editMemberDetails = await import('../commands/edit-member-details.js');
-          await editMemberDetails.default.showMainMenu(interaction, false);
+          await returnToUserMenu(interaction, userId);
         }
       } catch (error) {
         console.error('Error returning to menu after main registration:', error);
@@ -876,13 +876,13 @@ async function saveAltCharacter(interaction, userId, targetUser, state, ign) {
     
     stateManager.clearRegistrationState(userId);
     
+    // ✅ Return to menu using followUp
     setTimeout(async () => {
       try {
         if (state.isAdminEdit) {
-          await showAdminEditMenu(interaction, userId, targetUser);
+          await returnToAdminMenu(interaction, userId, targetUser);
         } else {
-          const editMemberDetails = await import('../commands/edit-member-details.js');
-          await editMemberDetails.default.showMainMenu(interaction, false);
+          await returnToUserMenu(interaction, userId);
         }
       } catch (error) {
         console.error('Error returning to menu after alt registration:', error);
@@ -903,177 +903,178 @@ async function saveAltCharacter(interaction, userId, targetUser, state, ign) {
   }
 }
 
-// ==================== ADMIN EDIT MENU ====================
+// ==================== MENU RETURN HELPERS ====================
 
-async function showAdminEditMenu(interaction, targetUserId, targetUser) {
+async function returnToUserMenu(interaction, userId) {
   try {
-    const admin = await import('../commands/admin.js');
+    const mainChar = await queries.getMainCharacter(userId);
+    const allCharacters = mainChar ? await queries.getAllCharactersWithSubclasses(userId) : [];
+    const alts = allCharacters.filter(char => char.character_type === 'alt');
+    const mainSubclasses = allCharacters.filter(char => char.character_type === 'main_subclass');
+    const userTimezone = await queries.getUserTimezone(userId);
+
+    const embed = buildCharacterProfileEmbed(interaction.user, mainChar, allCharacters, alts, mainSubclasses, userTimezone);
     
+    const editMemberDetails = await import('../commands/edit-member-details.js');
+    const components = editMemberDetails.default.buildButtonRows(mainChar, alts, userId);
+
+    await interaction.followUp({ 
+      embeds: [embed], 
+      components,
+      ...getEphemeralOptions(userId, interaction.user.id)
+    });
+  } catch (error) {
+    console.error('Error in returnToUserMenu:', error);
+  }
+}
+
+async function returnToAdminMenu(interaction, targetUserId, targetUser) {
+  try {
     const allCharacters = await queries.getAllCharactersWithSubclasses(targetUserId);
     const userTimezone = await queries.getUserTimezone(targetUserId);
 
     const mainChar = allCharacters.find(c => c.character_type === 'main');
     const mainSubclasses = allCharacters.filter(c => c.character_type === 'main_subclass');
     const alts = allCharacters.filter(c => c.character_type === 'alt');
+
+    const embed = buildCharacterProfileEmbed(targetUser, mainChar, allCharacters, alts, mainSubclasses, userTimezone);
     
-    const altsWithSubclasses = alts.map(alt => ({
-      ...alt,
-      subclasses: allCharacters.filter(c => 
-        c.character_type === 'alt_subclass' && c.parent_character_id === alt.id
-      )
-    }));
-
-    const embed = new EmbedBuilder()
-      .setColor(mainChar ? '#6640D9' : '#5865F2')
-      .setAuthor({ 
-        name: `🛡️ Admin Edit: ${targetUser.tag}'s Character Profile`,
-        iconURL: targetUser.displayAvatarURL({ dynamic: true })
-      })
-      .setThumbnail(targetUser.displayAvatarURL({ size: 512 }))
-      .setFooter({ text: `Admin: ${interaction.user.tag}` })
-      .setTimestamp();
-
-    if (!mainChar) {
-      embed.setDescription('**No main character registered yet.**\n\nThis user needs to register a main character first.');
-    } else {
-      let timezoneDisplay = '🌍 *No timezone set*';
-      
-      if (userTimezone?.timezone) {
-        const timezoneOffsets = {
-          'PST': -8, 'PDT': -7, 'MST': -7, 'MDT': -6, 'CST': -6, 'CDT': -5,
-          'PST': -8, 'PDT': -7, 'MST': -7, 'MDT': -6, 'CST': -6, 'CDT': -5,
-          'EST': -5, 'EDT': -4, 'AST': -4, 'ADT': -3, 'NST': -3.5, 'NDT': -2.5,
-          'AKST': -9, 'AKDT': -8, 'HST': -10,
-          'UTC': 0, 'GMT': 0, 'WET': 0, 'WEST': 1, 'CET': 1, 'CEST': 2,
-          'EET': 2, 'EEST': 3, 'TRT': 3, 'MSK': 3, 'GST': 4, 'IST': 5.5,
-          'ICT': 7, 'WIB': 7, 'SGT': 8, 'HKT': 8, 'PHT': 8, 'MYT': 8,
-          'JST': 9, 'KST': 9, 'AEST': 10, 'AEDT': 11, 'AWST': 8,
-          'NZDT': 13, 'NZST': 12
-        };
-        
-        // Map full timezone names to abbreviations
-        const timezoneAbbreviations = {
-          'America/New_York': 'EST', 'America/Chicago': 'CST', 'America/Denver': 'MST',
-          'America/Los_Angeles': 'PST', 'America/Phoenix': 'MST', 'America/Anchorage': 'AKST',
-          'Pacific/Honolulu': 'HST', 'America/Toronto': 'EST', 'America/Vancouver': 'PST',
-          'America/Halifax': 'AST', 'America/St_Johns': 'NST', 'America/Edmonton': 'MST',
-          'America/Winnipeg': 'CST', 'Europe/London': 'GMT', 'Europe/Paris': 'CET',
-          'Europe/Berlin': 'CET', 'Europe/Rome': 'CET', 'Europe/Madrid': 'CET',
-          'Europe/Amsterdam': 'CET', 'Europe/Brussels': 'CET', 'Europe/Vienna': 'CET',
-          'Europe/Stockholm': 'CET', 'Europe/Oslo': 'CET', 'Europe/Copenhagen': 'CET',
-          'Europe/Helsinki': 'EET', 'Europe/Athens': 'EET', 'Europe/Istanbul': 'TRT',
-          'Europe/Moscow': 'MSK', 'Europe/Zurich': 'CET', 'Europe/Dublin': 'GMT',
-          'Europe/Lisbon': 'WET', 'Europe/Warsaw': 'CET', 'Asia/Tokyo': 'JST',
-          'Asia/Seoul': 'KST', 'Asia/Shanghai': 'CST', 'Asia/Hong_Kong': 'HKT',
-          'Asia/Singapore': 'SGT', 'Asia/Dubai': 'GST', 'Asia/Kolkata': 'IST',
-          'Asia/Bangkok': 'ICT', 'Asia/Jakarta': 'WIB', 'Asia/Manila': 'PHT',
-          'Asia/Kuala_Lumpur': 'MYT', 'Australia/Sydney': 'AEDT', 'Australia/Melbourne': 'AEDT',
-          'Australia/Brisbane': 'AEST', 'Australia/Perth': 'AWST', 'Pacific/Auckland': 'NZDT'
-        };
-        
-        const abbrev = timezoneAbbreviations[userTimezone.timezone] || userTimezone.timezone;
-        const offset = timezoneOffsets[abbrev] || 0;
-        
-        // Calculate user's local time from UTC
-        const now = new Date();
-        const utcHours = now.getUTCHours();
-        const utcMinutes = now.getUTCMinutes();
-        
-        // Add offset to UTC to get user's local time
-        let localHours = utcHours + offset;
-        let localMinutes = utcMinutes;
-        
-        // Handle day overflow
-        if (localHours >= 24) localHours -= 24;
-        if (localHours < 0) localHours += 24;
-        
-        const ampm = localHours >= 12 ? 'PM' : 'AM';
-        const displayHours = localHours % 12 || 12;
-        const minutes = localMinutes.toString().padStart(2, '0');
-        
-        timezoneDisplay = `🌍 ${userTimezone.timezone} • ${displayHours}:${minutes} ${ampm}`;
-      }
-      
-      embed.setDescription(`${timezoneDisplay}\n`);
-
-      const mainRoleEmoji = admin.default.getRoleEmoji(mainChar.role);
-      
-      embed.addFields({
-        name: '⭐ **MAIN CHARACTER**',
-        value: 
-          '```ansi\n' +
-          `✨ \u001b[1;36mIGN:\u001b[0m       ${mainChar.ign}\n` +
-          `\n` +
-          `🏰 \u001b[1;34mGuild:\u001b[0m     ${mainChar.guild || 'None'}\n` +
-          `🎭 \u001b[1;33mClass:\u001b[0m     ${mainChar.class}\n` +
-          `🎯 \u001b[1;35mSubclass:\u001b[0m  ${mainChar.subclass}\n` +
-          `${mainRoleEmoji} \u001b[1;32mRole:\u001b[0m      ${mainChar.role}\n` +
-          `\n` +
-          `💪 \u001b[1;31mAbility Score:\u001b[0m ${mainChar.ability_score?.toLocaleString() || 'N/A'}\n` +
-          '```',
-        inline: false
-      });
-
-      if (mainSubclasses.length > 0) {
-        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-        
-        const subclassText = mainSubclasses.map((sc, i) => {
-          const numberEmoji = numberEmojis[i] || `${i + 1}.`;
-          return (
-            '```ansi\n' +
-            `${numberEmoji} ${sc.class} › ${sc.subclass} › ${sc.role}\n` +
-            `   \u001b[1;31mAS:\u001b[0m ${sc.ability_score?.toLocaleString() || 'N/A'}\n` +
-            '```'
-          );
-        }).join('');
-
-        embed.addFields({
-          name: '📊 **SUBCLASSES**',
-          value: subclassText,
-          inline: false
-        });
-      }
-
-      if (altsWithSubclasses.length > 0) {
-        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-        
-        const allAltsText = altsWithSubclasses.map((alt, altIndex) => {
-          const numberEmoji = numberEmojis[altIndex] || `${altIndex + 1}.`;
-          
-          return (
-            '```ansi\n' +
-            `${numberEmoji} \u001b[1;36mIGN:\u001b[0m ${alt.ign}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
-            `   ${alt.class} › ${alt.subclass} › ${alt.role}\n` +
-            `   \u001b[1;31mAS:\u001b[0m ${alt.ability_score?.toLocaleString() || 'N/A'}\n` +
-            '```'
-          );
-        }).join('');
-
-        embed.addFields({
-          name: '📋 **ALT CHARACTERS**',
-          value: allAltsText,
-          inline: false
-        });
-      }
-    }
-
-    const totalChars = allCharacters.length;
-    if (totalChars > 0) {
-      embed.setFooter({ 
-        text: `${totalChars} character${totalChars !== 1 ? 's' : ''} registered • Admin: ${interaction.user.tag}`,
-      });
-    } else {
-      embed.setFooter({ text: `Admin: ${interaction.user.tag}` });
-    }
-
     const editMemberDetails = await import('../commands/edit-member-details.js');
-    const rows = editMemberDetails.default.buildPremiumButtonRows(mainChar, mainSubclasses, altsWithSubclasses, targetUserId);
+    const components = editMemberDetails.default.buildButtonRows(mainChar, alts, targetUserId);
 
-    await interaction.followUp({ embeds: [embed], components: rows, ...getEphemeralOptions(targetUserId, interaction.user.id) });
-    
+    await interaction.followUp({ 
+      embeds: [embed], 
+      components,
+      ...getEphemeralOptions(targetUserId, interaction.user.id)
+    });
   } catch (error) {
-    console.error('Error showing admin edit menu:', error);
+    console.error('Error in returnToAdminMenu:', error);
   }
+}
+
+function buildCharacterProfileEmbed(user, mainChar, allCharacters, alts, mainSubclasses, userTimezone) {
+  const embed = new EmbedBuilder()
+    .setColor(mainChar ? '#6640D9' : '#5865F2')
+    .setAuthor({ 
+      name: `${user.tag}'s Character Profile`,
+      iconURL: user.displayAvatarURL({ dynamic: true })
+    })
+    .setThumbnail(user.displayAvatarURL({ size: 512 }))
+    .setFooter({ text: '💡 Click buttons below to manage your characters' })
+    .setTimestamp();
+
+  if (!mainChar) {
+    embed.setDescription('**No main character registered yet.**');
+    return embed;
+  }
+
+  let timezoneDisplay = '🌍 *No timezone set*';
+  if (userTimezone?.timezone) {
+    const timezoneOffsets = {
+      'PST': -8, 'PDT': -7, 'MST': -7, 'MDT': -6, 'CST': -6, 'CDT': -5,
+      'EST': -5, 'EDT': -4, 'AST': -4, 'ADT': -3, 'NST': -3.5, 'NDT': -2.5,
+      'AKST': -9, 'AKDT': -8, 'HST': -10, 'UTC': 0, 'GMT': 0,
+      'WET': 0, 'WEST': 1, 'CET': 1, 'CEST': 2, 'EET': 2, 'EEST': 3,
+      'TRT': 3, 'MSK': 3, 'GST': 4, 'IST': 5.5, 'ICT': 7, 'WIB': 7,
+      'SGT': 8, 'HKT': 8, 'PHT': 8, 'MYT': 8, 'JST': 9, 'KST': 9,
+      'AEST': 10, 'AEDT': 11, 'AWST': 8, 'NZDT': 13, 'NZST': 12
+    };
+    
+    const timezoneAbbreviations = {
+      'America/New_York': 'EST', 'America/Chicago': 'CST', 'America/Denver': 'MST',
+      'America/Los_Angeles': 'PST', 'America/Toronto': 'EST', 'Europe/London': 'GMT',
+      'Europe/Paris': 'CET', 'Asia/Tokyo': 'JST', 'Asia/Seoul': 'KST',
+      'Australia/Sydney': 'AEDT', 'Pacific/Auckland': 'NZDT'
+    };
+    
+    const abbrev = timezoneAbbreviations[userTimezone.timezone] || userTimezone.timezone;
+    const offset = timezoneOffsets[abbrev] || 0;
+    
+    const now = new Date();
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    
+    let localHours = utcHours + offset;
+    if (localHours >= 24) localHours -= 24;
+    if (localHours < 0) localHours += 24;
+    
+    const ampm = localHours >= 12 ? 'PM' : 'AM';
+    const displayHours = localHours % 12 || 12;
+    const minutes = utcMinutes.toString().padStart(2, '0');
+    
+    timezoneDisplay = `🌍 ${userTimezone.timezone} • ${displayHours}:${minutes} ${ampm}`;
+  }
+  
+  embed.setDescription(`${timezoneDisplay}\n`);
+
+  const mainRoleEmoji = getRoleEmoji(mainChar.role);
+  const formattedAbilityScore = formatAbilityScore(mainChar.ability_score);
+  
+  embed.addFields({
+    name: '⭐ **MAIN CHARACTER**',
+    value: 
+      '```ansi\n' +
+      `✨ \u001b[1;36mIGN:\u001b[0m       ${mainChar.ign}\n` +
+      `\n` +
+      `🏰 \u001b[1;34mGuild:\u001b[0m     ${mainChar.guild || 'None'}\n` +
+      `🎭 \u001b[1;33mClass:\u001b[0m     ${mainChar.class}\n` +
+      `🎯 \u001b[1;35mSubclass:\u001b[0m  ${mainChar.subclass}\n` +
+      `${mainRoleEmoji} \u001b[1;32mRole:\u001b[0m      ${mainChar.role}\n` +
+      `\n` +
+      `💪 \u001b[1;31mAbility Score:\u001b[0m ${formattedAbilityScore}\n` +
+      '```',
+    inline: false
+  });
+
+  if (mainSubclasses.length > 0) {
+    const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+    const subclassText = mainSubclasses.map((sc, i) => {
+      const numberEmoji = numberEmojis[i] || `${i + 1}.`;
+      const scAbilityScore = formatAbilityScore(sc.ability_score);
+      return '```ansi\n' + `${numberEmoji} ${sc.class} › ${sc.subclass} › ${sc.role}\n` +
+             `   \u001b[1;31mAbility Score:\u001b[0m ${scAbilityScore}\n` + '```';
+    }).join('');
+    embed.addFields({ name: '📊 **Subclasses**', value: subclassText, inline: false });
+  }
+
+  if (alts && alts.length > 0) {
+    const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+    const altsText = alts.map((alt, i) => {
+      const numberEmoji = numberEmojis[i] || `${i + 1}.`;
+      const altAbilityScore = formatAbilityScore(alt.ability_score);
+      return '```ansi\n' +
+             `${numberEmoji} \u001b[1;36mIGN:\u001b[0m ${alt.ign}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
+             `   ${alt.class} › ${alt.subclass} › ${alt.role}\n` +
+             `   \u001b[1;31mAbility Score:\u001b[0m ${altAbilityScore}\n` + '```';
+    }).join('');
+    embed.addFields({ name: `📋 **Alt**`, value: altsText, inline: false });
+  }
+
+  embed.addFields({
+    name: '\u200B',
+    value: `**${allCharacters.length} character${allCharacters.length !== 1 ? 's' : ''} registered • Last updated** •`,
+    inline: false
+  });
+
+  return embed;
+}
+
+function formatAbilityScore(score) {
+  if (!score || score === '' || score === 0) return 'Not set';
+  const numScore = parseInt(score);
+  const scoreRanges = {
+    10000: '≤10k', 11000: '10-12k', 13000: '12-14k', 15000: '14-16k', 17000: '16-18k',
+    19000: '18-20k', 21000: '20-22k', 23000: '22-24k', 25000: '24-26k', 27000: '26-28k',
+    29000: '28-30k', 31000: '30-32k', 33000: '32-34k', 35000: '34-36k', 37000: '36-38k',
+    39000: '38-40k', 41000: '40-42k', 43000: '42-44k', 45000: '44-46k', 47000: '46-48k',
+    49000: '48-50k', 51000: '50-52k', 53000: '52-54k', 55000: '54-56k', 57000: '56k+'
+  };
+  return scoreRanges[numScore] || `~${numScore.toLocaleString()}`;
+}
+
+function getRoleEmoji(role) {
+  const emojis = { 'Tank': '🛡️', 'DPS': '⚔️', 'Support': '💚' };
+  return emojis[role] || '⭐';
 }
 
 // ==================== BACK BUTTON HANDLERS ====================
@@ -1204,4 +1205,11 @@ export async function handleBackToTimezoneCountry(interaction) {
     .setTimestamp();
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
+}
+
+async function showAdminEditMenu(interaction, userId, targetUser) {
+  // This function would mirror the admin command's showMainMenu
+  // For now, just return to edit-member-details
+  const editMemberDetails = await import('../commands/edit-member-details.js');
+  await editMemberDetails.default.showMainMenu(interaction, true);
 }
