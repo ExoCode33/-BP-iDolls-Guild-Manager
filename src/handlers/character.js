@@ -3,14 +3,75 @@ import { GAME_DATA, getRoleFromClass, getSubclassesForClass, getTimezoneRegions,
 import { queries } from '../database/queries.js';
 import stateManager from '../utils/stateManager.js';
 
+// ==================== EPHEMERAL CONFIGURATION ====================
+// Per-command ephemeral settings (default: true = private)
+const EPHEMERAL_CONFIG = {
+  admin: process.env.ADMIN_EPHEMERAL !== 'false',
+  editMemberDetails: process.env.EDIT_MEMBER_DETAILS_EPHEMERAL !== 'false',
+  viewChar: process.env.VIEW_CHAR_EPHEMERAL !== 'false',
+};
+
+console.log(`🔒 [CHARACTER] Ephemeral configuration:`);
+console.log(`   /admin: ${EPHEMERAL_CONFIG.admin ? 'PRIVATE ✅' : 'PUBLIC ⚠️'}`);
+console.log(`   /edit-member-details: ${EPHEMERAL_CONFIG.editMemberDetails ? 'PRIVATE ✅' : 'PUBLIC ⚠️'}`);
+console.log(`   /view-char: ${EPHEMERAL_CONFIG.viewChar ? 'PRIVATE ✅' : 'PUBLIC ⚠️'}`);
+
+// Helper to get ephemeral flag based on context
+function getEphemeralFlag(userId, interactionUserId) {
+  const isAdminEdit = userId !== interactionUserId;
+  
+  if (isAdminEdit) {
+    return EPHEMERAL_CONFIG.admin ? 64 : undefined;
+  } else {
+    return EPHEMERAL_CONFIG.editMemberDetails ? 64 : undefined;
+  }
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
+function extractUserIdFromCustomId(customId) {
+  const parts = customId.split('_');
+  return parts[parts.length - 1];
+}
+
+function getClassEmoji(className) {
+  const emojis = {
+    'Beat Performer': '🎵',
+    'Frost Mage': '❄️',
+    'Heavy Guardian': '🛡️',
+    'Marksman': '🏹',
+    'Shield Knight': '⚔️',
+    'Stormblade': '⚡',
+    'Verdant Oracle': '🌿',
+    'Wind Knight': '💨'
+  };
+  return emojis[className] || '⭐';
+}
+
+function getRegionEmoji(region) {
+  const emojis = {
+    'North America': '🌎',
+    'Europe (West)': '🇪🇺',
+    'Europe (North)': '❄️',
+    'Europe (East & Other)': '🇪🇺',
+    'Asia (East)': '🌏',
+    'Asia (Southeast)': '🌏',
+    'Asia (South & Central)': '🌏',
+    'Middle East': '🕌',
+    'Oceania': '🌏',
+    'Africa': '🌍',
+    'South America': '🌎',
+    'Other': '🌐'
+  };
+  return emojis[region] || '🌐';
+}
+
 // ==================== MAIN CHARACTER HANDLERS ====================
 
 export async function handleAddMain(interaction) {
   try {
-    // ✅ CRITICAL FIX: Extract userId from button customId
     const userId = extractUserIdFromCustomId(interaction.customId);
     
-    // Check if they already have a main
     const existingMain = await queries.getMainCharacter(userId);
     if (existingMain) {
       const embed = new EmbedBuilder()
@@ -26,15 +87,15 @@ export async function handleAddMain(interaction) {
       
       return interaction.reply({ 
         embeds: [embed], 
-        flags: 64
+        flags: getEphemeralFlag(userId, interaction.user.id)
       });
     }
 
-    // Initialize state and show class selection
     stateManager.setRegistrationState(userId, { 
       type: 'main',
       characterType: 'main',
-      step: 'class' 
+      step: 'class',
+      isAdminEdit: userId !== interaction.user.id
     });
     
     await showClassSelection(interaction, userId, 'main');
@@ -43,19 +104,15 @@ export async function handleAddMain(interaction) {
     console.error('Error in handleAddMain:', error);
     await interaction.reply({
       content: '❌ An error occurred. Please try again.',
-      flags: 64
+      flags: getEphemeralFlag(extractUserIdFromCustomId(interaction.customId), interaction.user.id)
     });
   }
 }
 
-// ==================== ALT CHARACTER HANDLERS ====================
-
 export async function handleAddAlt(interaction) {
   try {
-    // ✅ CRITICAL FIX: Extract userId from button customId
     const userId = extractUserIdFromCustomId(interaction.customId);
     
-    // Check if they have a main character
     const mainChar = await queries.getMainCharacter(userId);
     if (!mainChar) {
       const embed = new EmbedBuilder()
@@ -71,15 +128,15 @@ export async function handleAddAlt(interaction) {
       
       return interaction.reply({ 
         embeds: [embed], 
-        flags: 64
+        flags: getEphemeralFlag(userId, interaction.user.id)
       });
     }
 
-    // Initialize state and show class selection
     stateManager.setRegistrationState(userId, { 
       type: 'alt',
       characterType: 'alt',
-      step: 'class' 
+      step: 'class',
+      isAdminEdit: userId !== interaction.user.id
     });
     
     await showClassSelection(interaction, userId, 'alt');
@@ -88,12 +145,12 @@ export async function handleAddAlt(interaction) {
     console.error('Error in handleAddAlt:', error);
     await interaction.reply({
       content: '❌ An error occurred. Please try again.',
-      flags: 64
+      flags: getEphemeralFlag(extractUserIdFromCustomId(interaction.customId), interaction.user.id)
     });
   }
 }
 
-// ==================== SHARED CLASS SELECTION ====================
+// ==================== CLASS SELECTION ====================
 
 async function showClassSelection(interaction, userId, type) {
   const classes = Object.keys(GAME_DATA.classes);
@@ -128,8 +185,6 @@ async function showClassSelection(interaction, userId, type) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-// ==================== CLASS SELECTION HANDLER ====================
-
 export async function handleClassSelection(interaction) {
   try {
     const userId = extractUserIdFromCustomId(interaction.customId);
@@ -139,26 +194,25 @@ export async function handleClassSelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        flags: 64
+        flags: getEphemeralFlag(userId, interaction.user.id)
       });
     }
 
-    // Update state
     stateManager.setRegistrationState(userId, {
       ...state,
       class: selectedClass,
       step: 'subclass'
     });
 
-    // Show subclass selection
     await showSubclassSelection(interaction, userId, state.type, selectedClass);
     
   } catch (error) {
     console.error('Error in handleClassSelection:', error);
-    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    stateManager.clearRegistrationState(userId);
     await interaction.reply({
       content: '❌ An error occurred. Please try again.',
-      flags: 64
+      flags: getEphemeralFlag(userId, interaction.user.id)
     });
   }
 }
@@ -202,29 +256,21 @@ async function showSubclassSelection(interaction, userId, type, selectedClass) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-// ==================== SUBCLASS SELECTION HANDLER ====================
-
 export async function handleSubclassSelection(interaction) {
   try {
     const userId = extractUserIdFromCustomId(interaction.customId);
     const selectedSubclass = interaction.values[0];
     const state = stateManager.getRegistrationState(userId);
     
-    console.log('📊 [DEBUG] handleSubclassSelection - userId:', userId);
-    console.log('📊 [DEBUG] handleSubclassSelection - selectedSubclass:', selectedSubclass);
-    console.log('📊 [DEBUG] handleSubclassSelection - state:', JSON.stringify(state));
-    
     if (!state || !state.class) {
-      console.log('❌ [DEBUG] State validation failed - state:', state);
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        flags: 64
+        flags: getEphemeralFlag(userId, interaction.user.id)
       });
     }
 
     const role = getRoleFromClass(state.class);
     
-    // Update state with new values
     const updatedState = {
       ...state,
       subclass: selectedSubclass,
@@ -232,19 +278,16 @@ export async function handleSubclassSelection(interaction) {
       step: 'ability_score'
     };
     
-    console.log('📊 [DEBUG] handleSubclassSelection - updatedState:', JSON.stringify(updatedState));
-    
     stateManager.setRegistrationState(userId, updatedState);
-
-    // Show ability score selection with updated state
     await showAbilityScoreSelection(interaction, userId, updatedState);
     
   } catch (error) {
     console.error('Error in handleSubclassSelection:', error);
-    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    stateManager.clearRegistrationState(userId);
     await interaction.reply({
       content: '❌ An error occurred. Please try again.',
-      flags: 64
+      flags: getEphemeralFlag(userId, interaction.user.id)
     });
   }
 }
@@ -252,12 +295,11 @@ export async function handleSubclassSelection(interaction) {
 // ==================== ABILITY SCORE SELECTION ====================
 
 async function showAbilityScoreSelection(interaction, userId, state) {
-  // Validate state has required fields
   if (!state || !state.class || !state.subclass) {
     console.error('Invalid state in showAbilityScoreSelection:', state);
     return interaction.reply({
       content: '❌ Session data is incomplete. Please start over.',
-      flags: 64
+      flags: getEphemeralFlag(userId, interaction.user.id)
     });
   }
 
@@ -317,8 +359,6 @@ async function showAbilityScoreSelection(interaction, userId, state) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-// ==================== ABILITY SCORE HANDLER ====================
-
 export async function handleAbilityScoreSelection(interaction) {
   try {
     const userId = extractUserIdFromCustomId(interaction.customId);
@@ -328,23 +368,22 @@ export async function handleAbilityScoreSelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        flags: 64
+        flags: getEphemeralFlag(userId, interaction.user.id)
       });
     }
 
-    // Update state
     stateManager.setRegistrationState(userId, {
       ...state,
       abilityScore: selectedScore,
       step: 'guild'
     });
 
-    // Show guild selection
     await showGuildSelection(interaction, userId, state);
     
   } catch (error) {
     console.error('Error in handleAbilityScoreSelection:', error);
-    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    stateManager.clearRegistrationState(userId);
   }
 }
 
@@ -354,13 +393,11 @@ async function showGuildSelection(interaction, userId, state) {
   const guilds = GAME_DATA.guilds;
   
   if (guilds.length === 0) {
-    // No guilds configured, skip to next step
     stateManager.setRegistrationState(userId, {
       ...state,
       guild: null
     });
     
-    // Main goes to timezone, alt goes to IGN
     if (state.type === 'main') {
       await showTimezoneRegionSelection(interaction, userId, state);
     } else {
@@ -404,8 +441,6 @@ async function showGuildSelection(interaction, userId, state) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-// ==================== GUILD SELECTION HANDLER ====================
-
 export async function handleGuildSelection(interaction) {
   try {
     const userId = extractUserIdFromCustomId(interaction.customId);
@@ -415,18 +450,16 @@ export async function handleGuildSelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        flags: 64
+        flags: getEphemeralFlag(userId, interaction.user.id)
       });
     }
 
-    // Store guild
     stateManager.setRegistrationState(userId, {
       ...state,
       guild: selectedGuild,
       step: 'timezone_or_ign'
     });
 
-    // Main goes to timezone, alt goes to IGN modal
     if (state.type === 'main') {
       await showTimezoneRegionSelection(interaction, userId, state);
     } else {
@@ -435,11 +468,12 @@ export async function handleGuildSelection(interaction) {
     
   } catch (error) {
     console.error('Error in handleGuildSelection:', error);
-    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    stateManager.clearRegistrationState(userId);
   }
 }
 
-// ==================== TIMEZONE SELECTION (MAIN ONLY) ====================
+// ==================== TIMEZONE SELECTION ====================
 
 async function showTimezoneRegionSelection(interaction, userId, state) {
   const regions = getTimezoneRegions();
@@ -488,8 +522,6 @@ async function showTimezoneRegionSelection(interaction, userId, state) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-// ==================== TIMEZONE REGION HANDLER ====================
-
 export async function handleTimezoneRegionSelection(interaction) {
   try {
     const userId = extractUserIdFromCustomId(interaction.customId);
@@ -499,18 +531,16 @@ export async function handleTimezoneRegionSelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        flags: 64
+        flags: getEphemeralFlag(userId, interaction.user.id)
       });
     }
 
-    // Check if user wants to skip timezone
     if (selectedRegion === 'SKIP_TIMEZONE') {
       stateManager.setRegistrationState(userId, {
         ...state,
         timezone: null
       });
       
-      // Show IGN modal
       await showIGNModal(interaction, userId, 'main');
       return;
     }
@@ -555,11 +585,10 @@ export async function handleTimezoneRegionSelection(interaction) {
     
   } catch (error) {
     console.error('Error in handleTimezoneRegionSelection:', error);
-    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    stateManager.clearRegistrationState(userId);
   }
 }
-
-// ==================== TIMEZONE COUNTRY HANDLER ====================
 
 export async function handleTimezoneCountrySelection(interaction) {
   try {
@@ -570,7 +599,7 @@ export async function handleTimezoneCountrySelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        flags: 64
+        flags: getEphemeralFlag(userId, interaction.user.id)
       });
     }
 
@@ -615,11 +644,10 @@ export async function handleTimezoneCountrySelection(interaction) {
     
   } catch (error) {
     console.error('Error in handleTimezoneCountrySelection:', error);
-    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    stateManager.clearRegistrationState(userId);
   }
 }
-
-// ==================== TIMEZONE SELECTION HANDLER ====================
 
 export async function handleTimezoneSelection(interaction) {
   try {
@@ -630,22 +658,21 @@ export async function handleTimezoneSelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        flags: 64
+        flags: getEphemeralFlag(userId, interaction.user.id)
       });
     }
 
-    // Store timezone
     stateManager.setRegistrationState(userId, {
       ...state,
       timezone: selectedTimezone
     });
 
-    // Show IGN modal
     await showIGNModal(interaction, userId, 'main');
     
   } catch (error) {
     console.error('Error in handleTimezoneSelection:', error);
-    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    stateManager.clearRegistrationState(userId);
   }
 }
 
@@ -670,8 +697,6 @@ async function showIGNModal(interaction, userId, type) {
   await interaction.showModal(modal);
 }
 
-// ==================== IGN MODAL HANDLER ====================
-
 export async function handleIGNModal(interaction) {
   try {
     const userId = extractUserIdFromCustomId(interaction.customId);
@@ -680,14 +705,13 @@ export async function handleIGNModal(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        flags: 64
+        flags: getEphemeralFlag(userId, interaction.user.id)
       });
     }
 
     const ign = interaction.fields.getTextInputValue('ign');
     const type = state.type;
     
-    // ✅ CRITICAL: Get the target user to save with correct discord_id
     const targetUser = await interaction.client.users.fetch(userId);
 
     if (type === 'main') {
@@ -698,24 +722,24 @@ export async function handleIGNModal(interaction) {
     
   } catch (error) {
     console.error('Error in handleIGNModal:', error);
-    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    stateManager.clearRegistrationState(userId);
     await interaction.reply({
       content: '❌ An error occurred. Please try again.',
-      flags: 64
+      flags: getEphemeralFlag(userId, interaction.user.id)
     });
   }
 }
 
-// ==================== SAVE MAIN CHARACTER ====================
+// ==================== SAVE CHARACTERS ====================
 
 async function saveMainCharacter(interaction, userId, targetUser, state, ign) {
   try {
-    await interaction.deferReply({ flags: 64 });
+    await interaction.deferReply({ flags: getEphemeralFlag(userId, interaction.user.id) });
 
-    // Save main character with TARGET user's discord_id
     const characterData = {
-      discordId: userId, // ✅ Use extracted userId, not interaction.user.id
-      discordName: targetUser.tag, // ✅ Use target user's tag
+      discordId: userId,
+      discordName: targetUser.tag,
       ign: ign,
       role: state.role,
       className: state.class,
@@ -727,7 +751,6 @@ async function saveMainCharacter(interaction, userId, targetUser, state, ign) {
 
     await queries.createCharacter(characterData);
 
-    // Save timezone separately if provided
     if (state.timezone) {
       await queries.setUserTimezone(userId, targetUser.tag, state.timezone);
     }
@@ -741,7 +764,7 @@ async function saveMainCharacter(interaction, userId, targetUser, state, ign) {
         { name: '🎭 Class', value: `${state.class} (${state.subclass})`, inline: true },
         { name: '⚔️ Role', value: state.role, inline: true }
       )
-      .setFooter({ text: '💡 Registration complete' })
+      .setFooter({ text: '💡 Returning to profile...' })
       .setTimestamp();
 
     if (state.guild) {
@@ -760,6 +783,19 @@ async function saveMainCharacter(interaction, userId, targetUser, state, ign) {
     
     stateManager.clearRegistrationState(userId);
     
+    setTimeout(async () => {
+      try {
+        if (state.isAdminEdit) {
+          await showAdminEditMenu(interaction, userId, targetUser);
+        } else {
+          const editMemberDetails = await import('../commands/edit-member-details.js');
+          await editMemberDetails.default.showMainMenu(interaction, false);
+        }
+      } catch (error) {
+        console.error('Error returning to menu after main registration:', error);
+      }
+    }, 2000);
+    
   } catch (error) {
     console.error('Error saving main character:', error);
     stateManager.clearRegistrationState(userId);
@@ -774,16 +810,13 @@ async function saveMainCharacter(interaction, userId, targetUser, state, ign) {
   }
 }
 
-// ==================== SAVE ALT CHARACTER ====================
-
 async function saveAltCharacter(interaction, userId, targetUser, state, ign) {
   try {
-    await interaction.deferReply({ flags: 64 });
+    await interaction.deferReply({ flags: getEphemeralFlag(userId, interaction.user.id) });
 
-    // Save alt character with TARGET user's discord_id
     const altData = {
-      discordId: userId, // ✅ Use extracted userId
-      discordName: targetUser.tag, // ✅ Use target user's tag
+      discordId: userId,
+      discordName: targetUser.tag,
       ign: ign,
       role: state.role,
       className: state.class,
@@ -804,7 +837,7 @@ async function saveAltCharacter(interaction, userId, targetUser, state, ign) {
         { name: '🎭 Class', value: `${state.class} (${state.subclass})`, inline: true },
         { name: '⚔️ Role', value: state.role, inline: true }
       )
-      .setFooter({ text: '💡 Registration complete' })
+      .setFooter({ text: '💡 Returning to profile...' })
       .setTimestamp();
 
     if (state.abilityScore) {
@@ -818,6 +851,19 @@ async function saveAltCharacter(interaction, userId, targetUser, state, ign) {
     await interaction.editReply({ embeds: [embed] });
     
     stateManager.clearRegistrationState(userId);
+    
+    setTimeout(async () => {
+      try {
+        if (state.isAdminEdit) {
+          await showAdminEditMenu(interaction, userId, targetUser);
+        } else {
+          const editMemberDetails = await import('../commands/edit-member-details.js');
+          await editMemberDetails.default.showMainMenu(interaction, false);
+        }
+      } catch (error) {
+        console.error('Error returning to menu after alt registration:', error);
+      }
+    }, 2000);
     
   } catch (error) {
     console.error('Error saving alt character:', error);
@@ -833,22 +879,149 @@ async function saveAltCharacter(interaction, userId, targetUser, state, ign) {
   }
 }
 
+// ==================== ADMIN EDIT MENU ====================
+
+async function showAdminEditMenu(interaction, targetUserId, targetUser) {
+  try {
+    const admin = await import('../commands/admin.js');
+    
+    const allCharacters = await queries.getAllCharactersWithSubclasses(targetUserId);
+    const userTimezone = await queries.getUserTimezone(targetUserId);
+
+    const mainChar = allCharacters.find(c => c.character_type === 'main');
+    const mainSubclasses = allCharacters.filter(c => c.character_type === 'main_subclass');
+    const alts = allCharacters.filter(c => c.character_type === 'alt');
+    
+    const altsWithSubclasses = alts.map(alt => ({
+      ...alt,
+      subclasses: allCharacters.filter(c => 
+        c.character_type === 'alt_subclass' && c.parent_character_id === alt.id
+      )
+    }));
+
+    const embed = new EmbedBuilder()
+      .setColor(mainChar ? '#6640D9' : '#5865F2')
+      .setAuthor({ 
+        name: `🛡️ Admin Edit: ${targetUser.tag}'s Character Profile`,
+        iconURL: targetUser.displayAvatarURL({ dynamic: true })
+      })
+      .setThumbnail(targetUser.displayAvatarURL({ size: 512 }))
+      .setFooter({ text: `Admin: ${interaction.user.tag}` })
+      .setTimestamp();
+
+    if (!mainChar) {
+      embed.setDescription('**No main character registered yet.**\n\nThis user needs to register a main character first.');
+    } else {
+      let timezoneDisplay = '🌍 *No timezone set*';
+      
+      if (userTimezone?.timezone) {
+        const timezoneOffsets = {
+          'PST': -8, 'PDT': -7, 'MST': -7, 'MDT': -6, 'CST': -6, 'CDT': -5,
+          'EST': -5, 'EDT': -4, 'UTC': 0, 'GMT': 0, 'CET': 1, 'CEST': 2,
+          'JST': 9, 'KST': 9, 'AEST': 10, 'AEDT': 11
+        };
+        
+        const offset = timezoneOffsets[userTimezone.timezone] || 0;
+        const now = new Date();
+        const localTime = new Date(now.getTime() + (offset * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
+        const hours = localTime.getHours();
+        const minutes = localTime.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+        
+        timezoneDisplay = `🌍 ${userTimezone.timezone} • ${displayHours}:${minutes} ${ampm}`;
+      }
+      
+      embed.setDescription(`${timezoneDisplay}\n`);
+
+      const mainRoleEmoji = admin.default.getRoleEmoji(mainChar.role);
+      
+      embed.addFields({
+        name: '⭐ **MAIN CHARACTER**',
+        value: 
+          '```ansi\n' +
+          `✨ \u001b[1;36mIGN:\u001b[0m       ${mainChar.ign}\n` +
+          `\n` +
+          `🏰 \u001b[1;34mGuild:\u001b[0m     ${mainChar.guild || 'None'}\n` +
+          `🎭 \u001b[1;33mClass:\u001b[0m     ${mainChar.class}\n` +
+          `🎯 \u001b[1;35mSubclass:\u001b[0m  ${mainChar.subclass}\n` +
+          `${mainRoleEmoji} \u001b[1;32mRole:\u001b[0m      ${mainChar.role}\n` +
+          `\n` +
+          `💪 \u001b[1;31mAbility Score:\u001b[0m ${mainChar.ability_score?.toLocaleString() || 'N/A'}\n` +
+          '```',
+        inline: false
+      });
+
+      if (mainSubclasses.length > 0) {
+        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+        
+        const subclassText = mainSubclasses.map((sc, i) => {
+          const numberEmoji = numberEmojis[i] || `${i + 1}.`;
+          return (
+            '```ansi\n' +
+            `${numberEmoji} ${sc.class} › ${sc.subclass} › ${sc.role}\n` +
+            `   \u001b[1;31mAS:\u001b[0m ${sc.ability_score?.toLocaleString() || 'N/A'}\n` +
+            '```'
+          );
+        }).join('');
+
+        embed.addFields({
+          name: '📊 **SUBCLASSES**',
+          value: subclassText,
+          inline: false
+        });
+      }
+
+      if (altsWithSubclasses.length > 0) {
+        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+        
+        const allAltsText = altsWithSubclasses.map((alt, altIndex) => {
+          const numberEmoji = numberEmojis[altIndex] || `${altIndex + 1}.`;
+          
+          return (
+            '```ansi\n' +
+            `${numberEmoji} \u001b[1;36mIGN:\u001b[0m ${alt.ign}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
+            `   ${alt.class} › ${alt.subclass} › ${alt.role}\n` +
+            `   \u001b[1;31mAS:\u001b[0m ${alt.ability_score?.toLocaleString() || 'N/A'}\n` +
+            '```'
+          );
+        }).join('');
+
+        embed.addFields({
+          name: '📋 **ALT CHARACTERS**',
+          value: allAltsText,
+          inline: false
+        });
+      }
+    }
+
+    const totalChars = allCharacters.length;
+    if (totalChars > 0) {
+      embed.setFooter({ 
+        text: `${totalChars} character${totalChars !== 1 ? 's' : ''} registered • Admin: ${interaction.user.tag}`,
+      });
+    } else {
+      embed.setFooter({ text: `Admin: ${interaction.user.tag}` });
+    }
+
+    const editMemberDetails = await import('../commands/edit-member-details.js');
+    const rows = editMemberDetails.default.buildPremiumButtonRows(mainChar, mainSubclasses, altsWithSubclasses, targetUserId);
+
+    await interaction.followUp({ embeds: [embed], components: rows, flags: getEphemeralFlag(targetUserId, interaction.user.id) });
+    
+  } catch (error) {
+    console.error('Error showing admin edit menu:', error);
+  }
+}
+
 // ==================== BACK BUTTON HANDLERS ====================
 
 export async function handleBackToMenu(interaction) {
   const userId = extractUserIdFromCustomId(interaction.customId);
   
-  // If admin is editing someone else, we can't show the menu
-  // So just acknowledge and clear state
   if (userId !== interaction.user.id) {
-    const embed = new EmbedBuilder()
-      .setColor('#6640D9')
-      .setTitle('✅ Cancelled')
-      .setDescription('Character registration cancelled.')
-      .setTimestamp();
-    
-    await interaction.update({ embeds: [embed], components: [] });
-    stateManager.clearRegistrationState(userId);
+    const targetUser = await interaction.client.users.fetch(userId);
+    await showAdminEditMenu(interaction, userId, targetUser);
     return;
   }
   
@@ -863,7 +1036,7 @@ export async function handleBackToClass(interaction) {
   if (!state) {
     return interaction.reply({
       content: '❌ Session expired. Please start over.',
-      flags: 64
+      flags: getEphemeralFlag(userId, interaction.user.id)
     });
   }
 
@@ -877,7 +1050,7 @@ export async function handleBackToSubclass(interaction) {
   if (!state || !state.class) {
     return interaction.reply({
       content: '❌ Session expired. Please start over.',
-      flags: 64
+      flags: getEphemeralFlag(userId, interaction.user.id)
     });
   }
 
@@ -891,7 +1064,7 @@ export async function handleBackToAbility(interaction) {
   if (!state) {
     return interaction.reply({
       content: '❌ Session expired. Please start over.',
-      flags: 64
+      flags: getEphemeralFlag(userId, interaction.user.id)
     });
   }
 
@@ -905,7 +1078,7 @@ export async function handleBackToGuild(interaction) {
   if (!state) {
     return interaction.reply({
       content: '❌ Session expired. Please start over.',
-      flags: 64
+      flags: getEphemeralFlag(userId, interaction.user.id)
     });
   }
 
@@ -919,7 +1092,7 @@ export async function handleBackToTimezoneRegion(interaction) {
   if (!state) {
     return interaction.reply({
       content: '❌ Session expired. Please start over.',
-      flags: 64
+      flags: getEphemeralFlag(userId, interaction.user.id)
     });
   }
 
@@ -933,7 +1106,7 @@ export async function handleBackToTimezoneCountry(interaction) {
   if (!state || !state.selectedRegion) {
     return interaction.reply({
       content: '❌ Session expired. Please start over.',
-      flags: 64
+      flags: getEphemeralFlag(userId, interaction.user.id)
     });
   }
 
@@ -969,49 +1142,4 @@ export async function handleBackToTimezoneCountry(interaction) {
     .setTimestamp();
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-}
-
-// ==================== UTILITY FUNCTIONS ====================
-
-/**
- * Extract user ID from customId pattern like "button_name_userId"
- * @param {string} customId - The custom ID from the interaction
- * @returns {string} - The extracted user ID
- */
-function extractUserIdFromCustomId(customId) {
-  // Pattern: anything_userId where userId is at the end
-  const parts = customId.split('_');
-  return parts[parts.length - 1];
-}
-
-function getClassEmoji(className) {
-  const emojis = {
-    'Beat Performer': '🎵',
-    'Frost Mage': '❄️',
-    'Heavy Guardian': '🛡️',
-    'Marksman': '🏹',
-    'Shield Knight': '⚔️',
-    'Stormblade': '⚡',
-    'Verdant Oracle': '🌿',
-    'Wind Knight': '💨'
-  };
-  return emojis[className] || '⭐';
-}
-
-function getRegionEmoji(region) {
-  const emojis = {
-    'North America': '🌎',
-    'Europe (West)': '🇪🇺',
-    'Europe (North)': '❄️',
-    'Europe (East & Other)': '🇪🇺',
-    'Asia (East)': '🌏',
-    'Asia (Southeast)': '🌏',
-    'Asia (South & Central)': '🌏',
-    'Middle East': '🕌',
-    'Oceania': '🌏',
-    'Africa': '🌍',
-    'South America': '🌎',
-    'Other': '🌐'
-  };
-  return emojis[region] || '🌐';
 }
