@@ -2,9 +2,16 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, 
 import { queries } from '../database/queries.js';
 import stateManager from '../utils/stateManager.js';
 
+// ✅ Extract userId from button customId (handles both user and admin contexts)
+function extractUserIdFromCustomId(customId) {
+  const parts = customId.split('_');
+  return parts[parts.length - 1];
+}
+
 export async function handleRemoveMain(interaction) {
   try {
-    const userId = interaction.user.id;
+    // ✅ Extract userId from button customId
+    const userId = extractUserIdFromCustomId(interaction.customId);
     
     const mainChar = await queries.getMainCharacter(userId);
     
@@ -12,10 +19,11 @@ export async function handleRemoveMain(interaction) {
       const embed = new EmbedBuilder()
         .setColor('#FFA500')
         .setTitle('⚠️ No Main Character')
-        .setDescription('You don\'t have a main character to remove!')
+        .setDescription('This user doesn\'t have a main character to remove!')
         .setTimestamp();
       
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      // ✅ Use update for button interactions
+      return interaction.update({ embeds: [embed], components: [] });
     }
 
     const alts = await queries.getAltCharacters(userId);
@@ -24,10 +32,18 @@ export async function handleRemoveMain(interaction) {
     
   } catch (error) {
     console.error('Error in handleRemoveMain:', error);
-    await interaction.reply({
-      content: '❌ An error occurred. Please try again.',
-      ephemeral: true
-    });
+    
+    const errorEmbed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setTitle('❌ Error')
+      .setDescription('An error occurred. Please try again.')
+      .setTimestamp();
+    
+    try {
+      await interaction.update({ embeds: [errorEmbed], components: [] });
+    } catch {
+      await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+    }
   }
 }
 
@@ -152,7 +168,8 @@ export async function handleCancelRemoveMain(interaction) {
 
 export async function handleRemoveAlt(interaction) {
   try {
-    const userId = interaction.user.id;
+    // ✅ Extract userId from button customId
+    const userId = extractUserIdFromCustomId(interaction.customId);
     
     const alts = await queries.getAltCharacters(userId);
     
@@ -160,20 +177,29 @@ export async function handleRemoveAlt(interaction) {
       const embed = new EmbedBuilder()
         .setColor('#FFA500')
         .setTitle('⚠️ No Alt Characters')
-        .setDescription('You don\'t have any alt characters to remove!')
+        .setDescription('This user doesn\'t have any alt characters to remove!')
         .setTimestamp();
       
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      // ✅ Use update for button interactions
+      return interaction.update({ embeds: [embed], components: [] });
     }
 
     await showAltSelectionForRemoval(interaction, userId, alts);
     
   } catch (error) {
     console.error('Error in handleRemoveAlt:', error);
-    await interaction.reply({
-      content: '❌ An error occurred. Please try again.',
-      ephemeral: true
-    });
+    
+    const errorEmbed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setTitle('❌ Error')
+      .setDescription('An error occurred. Please try again.')
+      .setTimestamp();
+    
+    try {
+      await interaction.update({ embeds: [errorEmbed], components: [] });
+    } catch {
+      await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+    }
   }
 }
 
