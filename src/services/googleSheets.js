@@ -156,6 +156,44 @@ class GoogleSheetsService {
     return { red: 0.62, green: 0.64, blue: 0.66 };
   }
 
+  // ✅ Convert stored ability score number back to the range label they selected
+  formatAbilityScore(score) {
+    if (!score || score === '' || score === 0) return '';
+    
+    const numScore = parseInt(score);
+    
+    // Map stored values to display labels (must match character.js options)
+    const scoreRanges = {
+      10000: '≤10k',
+      11000: '10-12k',
+      13000: '12-14k',
+      15000: '14-16k',
+      17000: '16-18k',
+      19000: '18-20k',
+      21000: '20-22k',
+      23000: '22-24k',
+      25000: '24-26k',
+      27000: '26-28k',
+      29000: '28-30k',
+      31000: '30-32k',
+      33000: '32-34k',
+      35000: '34-36k',
+      37000: '36-38k',
+      39000: '38-40k',
+      41000: '40-42k',
+      43000: '42-44k',
+      45000: '44-46k',
+      47000: '46-48k',
+      49000: '48-50k',
+      51000: '50-52k',
+      53000: '52-54k',
+      55000: '54-56k',
+      57000: '56k+'
+    };
+    
+    return scoreRanges[numScore] || numScore.toLocaleString();
+  }
+
   getClassColor(className) {
     const classColors = {
       'Beat Performer': { red: 0.58, green: 0.29, blue: 0.82 },
@@ -336,7 +374,7 @@ class GoogleSheetsService {
             mainChar.class,
             mainChar.subclass,
             mainChar.role,
-            mainChar.ability_score || '',
+            this.formatAbilityScore(mainChar.ability_score), // ✅ Format as range
             mainChar.guild || '',
             '', // Empty - will be filled by formula
             `'${this.formatDate(mainChar.created_at)}`
@@ -362,7 +400,7 @@ class GoogleSheetsService {
               subclass.class,
               subclass.subclass,
               subclass.role,
-              subclass.ability_score || '',
+              this.formatAbilityScore(subclass.ability_score), // ✅ Format as range
               mainChar.guild || '',
               '', // Empty - will be filled by formula
               `'${this.formatDate(mainChar.created_at)}`
@@ -392,7 +430,7 @@ class GoogleSheetsService {
             alt.class,
             alt.subclass,
             alt.role,
-            alt.ability_score || '',
+            this.formatAbilityScore(alt.ability_score), // ✅ Format as range
             alt.guild || '',
             '', // Empty - will be filled by formula
             `'${this.formatDate(alt.created_at)}`
@@ -423,7 +461,7 @@ class GoogleSheetsService {
               subclass.class,
               subclass.subclass,
               subclass.role,
-              subclass.ability_score || '',
+              this.formatAbilityScore(subclass.ability_score), // ✅ Format as range
               alt.guild || '',
               '', // Empty - will be filled by formula
               `'${this.formatDate(alt.created_at)}`
