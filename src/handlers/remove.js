@@ -9,11 +9,15 @@ function extractUserIdFromCustomId(customId) {
 }
 
 export async function handleRemoveMain(interaction) {
+  console.log('[REMOVE_MAIN] Starting handler for:', interaction.customId);
+  
   try {
     // ✅ Extract userId from button customId
     const userId = extractUserIdFromCustomId(interaction.customId);
+    console.log('[REMOVE_MAIN] Extracted userId:', userId);
     
     const mainChar = await queries.getMainCharacter(userId);
+    console.log('[REMOVE_MAIN] Main character:', mainChar ? mainChar.ign : 'none');
     
     if (!mainChar) {
       const embed = new EmbedBuilder()
@@ -22,32 +26,47 @@ export async function handleRemoveMain(interaction) {
         .setDescription('This user doesn\'t have a main character to remove!')
         .setTimestamp();
       
-      // ✅ Use update for button interactions
-      return interaction.update({ embeds: [embed], components: [] });
+      console.log('[REMOVE_MAIN] No main char, sending update...');
+      await interaction.update({ embeds: [embed], components: [] });
+      console.log('[REMOVE_MAIN] Update sent successfully');
+      return;
     }
 
     const alts = await queries.getAltCharacters(userId);
+    console.log('[REMOVE_MAIN] Found', alts.length, 'alts');
     
+    console.log('[REMOVE_MAIN] Showing confirmation...');
     await showRemoveMainConfirmation(interaction, userId, mainChar, alts.length);
+    console.log('[REMOVE_MAIN] Confirmation shown successfully');
     
   } catch (error) {
-    console.error('Error in handleRemoveMain:', error);
+    console.error('[REMOVE_MAIN] ERROR:', error);
+    console.error('[REMOVE_MAIN] Stack:', error.stack);
     
     const errorEmbed = new EmbedBuilder()
       .setColor('#FF0000')
       .setTitle('❌ Error')
-      .setDescription('An error occurred. Please try again.')
+      .setDescription(`An error occurred: ${error.message}`)
       .setTimestamp();
     
     try {
+      console.log('[REMOVE_MAIN] Sending error update...');
       await interaction.update({ embeds: [errorEmbed], components: [] });
-    } catch {
-      await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+      console.log('[REMOVE_MAIN] Error update sent');
+    } catch (updateError) {
+      console.error('[REMOVE_MAIN] Update failed, trying reply:', updateError);
+      try {
+        await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+      } catch (replyError) {
+        console.error('[REMOVE_MAIN] Reply also failed:', replyError);
+      }
     }
   }
 }
 
 async function showRemoveMainConfirmation(interaction, userId, mainChar, altCount) {
+  console.log('[REMOVE_MAIN_CONFIRM] Building confirmation for userId:', userId);
+  
   const confirmButton = new ButtonBuilder()
     .setCustomId(`confirm_remove_main_${userId}`)
     .setLabel('Yes, Remove Main Character')
@@ -82,9 +101,12 @@ async function showRemoveMainConfirmation(interaction, userId, mainChar, altCoun
     });
   }
 
+  console.log('[REMOVE_MAIN_CONFIRM] Sending update with embed and buttons...');
   await interaction.update({ embeds: [embed], components: [row] });
+  console.log('[REMOVE_MAIN_CONFIRM] Update sent successfully');
   
   stateManager.setRemovalState(userId, { mainChar, type: 'main' });
+  console.log('[REMOVE_MAIN_CONFIRM] State saved');
 }
 
 export async function handleConfirmRemoveMain(interaction) {
