@@ -7,7 +7,8 @@ import stateManager from '../utils/stateManager.js';
 
 export async function handleAddSubclassToMain(interaction) {
   try {
-    const userId = interaction.user.id;
+    // ✅ CRITICAL FIX: Extract userId from button customId
+    const userId = extractUserIdFromCustomId(interaction.customId);
     
     // Check if they have a main character
     const mainChar = await queries.getMainCharacter(userId);
@@ -15,7 +16,7 @@ export async function handleAddSubclassToMain(interaction) {
       const embed = new EmbedBuilder()
         .setColor('#FFA500')
         .setTitle('⚠️ No Main Character')
-        .setDescription('You need a main character before adding subclasses!')
+        .setDescription('This user needs a main character before adding subclasses!')
         .setTimestamp();
       
       return interaction.reply({ embeds: [embed], flags: 64 });
@@ -47,7 +48,8 @@ export async function handleAddSubclassToMain(interaction) {
 
 export async function handleAddSubclassToAlt(interaction) {
   try {
-    const userId = interaction.user.id;
+    // ✅ CRITICAL FIX: Extract userId from button customId
+    const userId = extractUserIdFromCustomId(interaction.customId);
     
     // Get all alts
     const alts = await queries.getAltCharacters(userId);
@@ -55,7 +57,7 @@ export async function handleAddSubclassToAlt(interaction) {
       const embed = new EmbedBuilder()
         .setColor('#FFA500')
         .setTitle('⚠️ No Alt Characters')
-        .setDescription('You need at least one alt character before adding subclasses to it!')
+        .setDescription('This user needs at least one alt character before adding subclasses to it!')
         .setTimestamp();
       
       return interaction.reply({ embeds: [embed], flags: 64 });
@@ -126,7 +128,7 @@ async function showAltSelectionForSubclass(interaction, userId, alts) {
 
 export async function handleAltSelectionForSubclass(interaction) {
   try {
-    const userId = interaction.user.id;
+    const userId = extractUserIdFromCustomId(interaction.customId);
     const selectedAltId = parseInt(interaction.values[0]);
     
     // Get the selected alt
@@ -155,7 +157,7 @@ export async function handleAltSelectionForSubclass(interaction) {
     
   } catch (error) {
     console.error('Error in handleAltSelectionForSubclass:', error);
-    stateManager.clearRegistrationState(interaction.user.id);
+    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
   }
 }
 
@@ -203,7 +205,7 @@ async function showSubclassClassSelection(interaction, userId, parentType, paren
 
 export async function handleSubclassClassSelection(interaction) {
   try {
-    const userId = interaction.user.id;
+    const userId = extractUserIdFromCustomId(interaction.customId);
     const selectedClass = interaction.values[0];
     const state = stateManager.getRegistrationState(userId);
     
@@ -228,7 +230,7 @@ export async function handleSubclassClassSelection(interaction) {
     
   } catch (error) {
     console.error('Error in handleSubclassClassSelection:', error);
-    stateManager.clearRegistrationState(interaction.user.id);
+    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
   }
 }
 
@@ -276,7 +278,7 @@ async function showSubclassSubclassSelection(interaction, userId, state, selecte
 
 export async function handleSubclassSubclassSelection(interaction) {
   try {
-    const userId = interaction.user.id;
+    const userId = extractUserIdFromCustomId(interaction.customId);
     const selectedSubclass = interaction.values[0];
     const state = stateManager.getRegistrationState(userId);
     
@@ -310,7 +312,7 @@ export async function handleSubclassSubclassSelection(interaction) {
     
   } catch (error) {
     console.error('Error in handleSubclassSubclassSelection:', error);
-    stateManager.clearRegistrationState(interaction.user.id);
+    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
   }
 }
 
@@ -389,7 +391,7 @@ async function showSubclassAbilityScoreSelection(interaction, userId, state) {
 
 export async function handleSubclassAbilityScoreSelection(interaction) {
   try {
-    const userId = interaction.user.id;
+    const userId = extractUserIdFromCustomId(interaction.customId);
     const selectedScore = interaction.values[0];
     const state = stateManager.getRegistrationState(userId);
     
@@ -407,7 +409,7 @@ export async function handleSubclassAbilityScoreSelection(interaction) {
     
   } catch (error) {
     console.error('Error in handleSubclassAbilityScoreSelection:', error);
-    stateManager.clearRegistrationState(interaction.user.id);
+    stateManager.clearRegistrationState(extractUserIdFromCustomId(interaction.customId));
   }
 }
 
@@ -417,10 +419,13 @@ async function saveSubclass(interaction, userId, state, abilityScore) {
   try {
     await interaction.deferReply({ flags: 64 });
 
+    // ✅ CRITICAL: Get the target user to save with correct discord_id
+    const targetUser = await interaction.client.users.fetch(userId);
+
     // Create subclass
     const subclassData = {
-      discordId: userId,
-      discordName: interaction.user.tag,
+      discordId: userId, // ✅ Use extracted userId
+      discordName: targetUser.tag, // ✅ Use target user's tag
       parentCharacterId: state.parentCharacterId,
       className: state.class,
       subclass: state.subclass,
@@ -438,29 +443,19 @@ async function saveSubclass(interaction, userId, state, abilityScore) {
     const embed = new EmbedBuilder()
       .setColor('#00FF00')
       .setTitle('✅ Subclass Added!')
-      .setDescription(`Subclass has been successfully added to your ${parentType.toLowerCase()} character.`)
+      .setDescription(`Subclass has been successfully added to the ${parentType.toLowerCase()} character for **${targetUser.tag}**.`)
       .addFields(
         { name: '🎮 Parent Character', value: String(state.parentIGN), inline: true },
         { name: '🎭 Class', value: `${state.class} (${state.subclass})`, inline: true },
         { name: '💪 Ability Score', value: `~${parseInt(abilityScore).toLocaleString()}`, inline: true }
       )
-      .setFooter({ text: '💡 Returning to menu...' })
+      .setFooter({ text: '💡 Subclass registration complete' })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
     
     // Clear state
     stateManager.clearRegistrationState(userId);
-    
-    // Show menu
-    setTimeout(async () => {
-      try {
-        const editMemberDetails = await import('../commands/edit-member-details.js');
-        await editMemberDetails.default.showMainMenu(interaction, false);
-      } catch (error) {
-        console.error('Error returning to menu after subclass creation:', error);
-      }
-    }, 2000);
     
   } catch (error) {
     console.error('Error saving subclass:', error);
@@ -477,6 +472,16 @@ async function saveSubclass(interaction, userId, state, abilityScore) {
 }
 
 // ==================== UTILITY FUNCTIONS ====================
+
+/**
+ * Extract user ID from customId pattern like "button_name_userId"
+ * @param {string} customId - The custom ID from the interaction
+ * @returns {string} - The extracted user ID
+ */
+function extractUserIdFromCustomId(customId) {
+  const parts = customId.split('_');
+  return parts[parts.length - 1];
+}
 
 function getClassEmoji(className) {
   const emojis = {
