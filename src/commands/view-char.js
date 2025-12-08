@@ -96,6 +96,7 @@ export default {
 
         // === MAIN CHARACTER CARD ===
         const mainRoleEmoji = this.getRoleEmoji(mainChar.role);
+        const mainAbilityScore = this.formatAbilityScore(mainChar.ability_score);
         
         embed.addFields({
           name: '⭐ **MAIN CHARACTER**',
@@ -108,7 +109,7 @@ export default {
             `🎯 \u001b[1;35mSubclass:\u001b[0m  ${mainChar.subclass}\n` +
             `${mainRoleEmoji} \u001b[1;32mRole:\u001b[0m      ${mainChar.role}\n` +
             `\n` +
-            `💪 \u001b[1;31mAbility Score:\u001b[0m ${mainChar.ability_score?.toLocaleString() || 'N/A'}\n` +
+            `💪 \u001b[1;31mAbility Score:\u001b[0m ${mainAbilityScore}\n` +
             '```',
           inline: false
         });
@@ -119,10 +120,11 @@ export default {
           
           const subclassText = mainSubclasses.map((sc, i) => {
             const numberEmoji = numberEmojis[i] || `${i + 1}.`;
+            const scAbilityScore = this.formatAbilityScore(sc.ability_score);
             return (
               '```ansi\n' +
               `${numberEmoji} ${sc.class} › ${sc.subclass} › ${sc.role}\n` +
-              `   \u001b[1;31mAS:\u001b[0m ${sc.ability_score?.toLocaleString() || 'N/A'}\n` +
+              `   \u001b[1;31mAS:\u001b[0m ${scAbilityScore}\n` +
               '```'
             );
           }).join('');
@@ -140,12 +142,13 @@ export default {
           
           const allAltsText = altsWithSubclasses.map((alt, altIndex) => {
             const numberEmoji = numberEmojis[altIndex] || `${altIndex + 1}.`;
+            const altAbilityScore = this.formatAbilityScore(alt.ability_score);
             
             return (
               '```ansi\n' +
               `${numberEmoji} \u001b[1;36mIGN:\u001b[0m ${alt.ign}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
               `   ${alt.class} › ${alt.subclass} › ${alt.role}\n` +
-              `   \u001b[1;31mAS:\u001b[0m ${alt.ability_score?.toLocaleString() || 'N/A'}\n` +
+              `   \u001b[1;31mAS:\u001b[0m ${altAbilityScore}\n` +
               '```'
             );
           }).join('');
@@ -181,6 +184,44 @@ export default {
       
       await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
     }
+  },
+
+  // ✅ NEW: Format ability score to range display
+  formatAbilityScore(score) {
+    if (!score || score === '' || score === 0) return 'Not set';
+    
+    const numScore = parseInt(score);
+    
+    // Map stored values to display labels
+    const scoreRanges = {
+      10000: '≤10k',
+      11000: '10-12k',
+      13000: '12-14k',
+      15000: '14-16k',
+      17000: '16-18k',
+      19000: '18-20k',
+      21000: '20-22k',
+      23000: '22-24k',
+      25000: '24-26k',
+      27000: '26-28k',
+      29000: '28-30k',
+      31000: '30-32k',
+      33000: '32-34k',
+      35000: '34-36k',
+      37000: '36-38k',
+      39000: '38-40k',
+      41000: '40-42k',
+      43000: '42-44k',
+      45000: '44-46k',
+      47000: '46-48k',
+      49000: '48-50k',
+      51000: '50-52k',
+      53000: '52-54k',
+      55000: '54-56k',
+      57000: '56k+'
+    };
+    
+    return scoreRanges[numScore] || `~${numScore.toLocaleString()}`;
   },
 
   // Helper: Get role emoji
