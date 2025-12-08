@@ -19,7 +19,8 @@ export async function handleAddSubclassToMain(interaction) {
         .setDescription('This user needs a main character before adding subclasses!')
         .setTimestamp();
       
-      return interaction.reply({ embeds: [embed], flags: 64 });
+      // ✅ Use update for button interactions
+      return interaction.update({ embeds: [embed], components: [] });
     }
 
     // Initialize state for subclass
@@ -37,10 +38,18 @@ export async function handleAddSubclassToMain(interaction) {
     
   } catch (error) {
     console.error('Error in handleAddSubclassToMain:', error);
-    await interaction.reply({
-      content: '❌ An error occurred. Please try again.',
-      flags: 64
-    });
+    
+    const errorEmbed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setTitle('❌ Error')
+      .setDescription('An error occurred. Please try again.')
+      .setTimestamp();
+    
+    try {
+      await interaction.update({ embeds: [errorEmbed], components: [] });
+    } catch {
+      await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+    }
   }
 }
 
