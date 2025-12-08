@@ -18,7 +18,7 @@ export async function handleUpdateMain(interaction) {
         .setDescription('This user doesn\'t have a main character to update!')
         .setTimestamp();
       
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply({ embeds: [embed], flags: 64 });
     }
 
     // Show update options menu
@@ -28,7 +28,7 @@ export async function handleUpdateMain(interaction) {
     console.error('Error in handleUpdateMain:', error);
     await interaction.reply({
       content: '❌ An error occurred. Please try again.',
-      ephemeral: true
+      flags: 64
     });
   }
 }
@@ -119,7 +119,7 @@ export async function handleUpdateOptionSelection(interaction) {
     if (!state || !state.mainChar) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -146,7 +146,7 @@ export async function handleUpdateOptionSelection(interaction) {
     stateManager.clearUpdateState(extractUserIdFromCustomId(interaction.customId));
     await interaction.reply({
       content: '❌ An error occurred. Please try again.',
-      ephemeral: true
+      flags: 64
     });
   }
 }
@@ -202,7 +202,7 @@ export async function handleUpdateClassSelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -260,7 +260,7 @@ export async function handleUpdateSubclassSelection(interaction) {
     if (!state || !state.newClass) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -390,7 +390,7 @@ export async function handleUpdateAbilityScoreSelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -476,7 +476,7 @@ export async function handleUpdateTimezoneRegionSelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -535,7 +535,7 @@ export async function handleUpdateTimezoneCountrySelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -595,7 +595,7 @@ export async function handleUpdateTimezoneFinalSelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -690,7 +690,7 @@ export async function handleUpdateGuildSelection(interaction) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -732,11 +732,11 @@ export async function handleUpdateModal(interaction, updateType) {
     if (!state) {
       return interaction.reply({
         content: '❌ Session expired. Please start over.',
-        ephemeral: true
+        flags: 64
       });
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     let updates = {};
     let fieldName = '';
@@ -782,7 +782,7 @@ export async function handleBackToUpdateMenu(interaction) {
   if (!state || !state.mainChar) {
     return interaction.reply({
       content: '❌ Session expired. Please start over.',
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -796,7 +796,7 @@ export async function handleBackToUpdateClass(interaction) {
   if (!state || !state.mainChar) {
     return interaction.reply({
       content: '❌ Session expired. Please start over.',
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -810,7 +810,7 @@ export async function handleBackToUpdateTimezoneRegion(interaction) {
   if (!state || !state.mainChar) {
     return interaction.reply({
       content: '❌ Session expired. Please start over.',
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -824,7 +824,7 @@ export async function handleBackToUpdateTimezoneCountry(interaction) {
   if (!state || !state.selectedRegion) {
     return interaction.reply({
       content: '❌ Session expired. Please start over.',
-      ephemeral: true
+      flags: 64
     });
   }
 
