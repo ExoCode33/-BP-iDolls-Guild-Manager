@@ -32,6 +32,7 @@ export default {
     const mainChar = await queries.getMainCharacter(userId);
     const allCharacters = mainChar ? await queries.getAllCharactersWithSubclasses(userId) : [];
     const alts = allCharacters.filter(char => char.character_type === 'alt');
+    const mainSubclasses = allCharacters.filter(char => char.character_type === 'main_subclass');
     const userTimezone = await queries.getUserTimezone(userId);
 
     const embed = new EmbedBuilder()
@@ -47,7 +48,7 @@ export default {
     if (!mainChar) {
       embed.setDescription('**No main character registered yet.**\n\nUse the button below to register your first character!');
     } else {
-      // ✅ FIXED: Calculate timezone display with corrected UTC-based formula
+      // ✅ Timezone display
       let timezoneDisplay = '🌍 *No timezone set*';
       
       if (userTimezone?.timezone) {
@@ -62,7 +63,6 @@ export default {
           'NZDT': 13, 'NZST': 12
         };
         
-        // Map full timezone names to abbreviations
         const timezoneAbbreviations = {
           'America/New_York': 'EST', 'America/Chicago': 'CST', 'America/Denver': 'MST',
           'America/Los_Angeles': 'PST', 'America/Phoenix': 'MST', 'America/Anchorage': 'AKST',
@@ -85,16 +85,13 @@ export default {
         const abbrev = timezoneAbbreviations[userTimezone.timezone] || userTimezone.timezone;
         const offset = timezoneOffsets[abbrev] || 0;
         
-        // Calculate user's local time from UTC
         const now = new Date();
         const utcHours = now.getUTCHours();
         const utcMinutes = now.getUTCMinutes();
         
-        // Add offset to UTC to get user's local time
         let localHours = utcHours + offset;
         let localMinutes = utcMinutes;
         
-        // Handle day overflow
         if (localHours >= 24) localHours -= 24;
         if (localHours < 0) localHours += 24;
         
@@ -116,37 +113,68 @@ export default {
       embed.addFields({
         name: '⭐ **MAIN CHARACTER**',
         value: 
-          `**${mainClassEmoji} IGN:** ${mainChar.ign}\n` +
-          `**🏰 Guild:** ${mainChar.guild || 'None'}\n` +
-          `**🎭 Class:** ${mainChar.class}\n` +
-          `**📚 Subclass:** ${mainChar.subclass}\n` +
-          `**${mainRoleEmoji} Role:** ${mainChar.role}\n` +
-          `**💪 Ability Score:** ${formattedAbilityScore}`,
+          '```ansi\n' +
+          `✨ \u001b[1;36mIGN:\u001b[0m       ${mainChar.ign}\n` +
+          `\n` +
+          `🏰 \u001b[1;34mGuild:\u001b[0m     ${mainChar.guild || 'None'}\n` +
+          `🎭 \u001b[1;33mClass:\u001b[0m     ${mainChar.class}\n` +
+          `🎯 \u001b[1;35mSubclass:\u001b[0m  ${mainChar.subclass}\n` +
+          `${mainRoleEmoji} \u001b[1;32mRole:\u001b[0m      ${mainChar.role}\n` +
+          `\n` +
+          `💪 \u001b[1;31mAbility Score:\u001b[0m ${formattedAbilityScore}\n` +
+          '```',
         inline: false
       });
 
-      if (alts && alts.length > 0) {
-        const altsList = alts.map(alt => {
-          const altRoleEmoji = this.getRoleEmoji(alt.role);
-          const altClassEmoji = this.getClassEmoji(alt.class);
-          const altAbilityScore = this.formatAbilityScore(alt.ability_score);
+      // === MAIN SUBCLASSES (if any) ===
+      if (mainSubclasses.length > 0) {
+        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+        
+        const subclassText = mainSubclasses.map((sc, i) => {
+          const numberEmoji = numberEmojis[i] || `${i + 1}.`;
+          const scAbilityScore = this.formatAbilityScore(sc.ability_score);
           return (
-            `**${altClassEmoji} ${alt.ign}**\n` +
-            `${altRoleEmoji} ${alt.role} • ${alt.class} (${alt.subclass})\n` +
-            `💪 AS: ${altAbilityScore}`
+            '```ansi\n' +
+            `${numberEmoji} ${sc.class} › ${sc.subclass} › ${sc.role}\n` +
+            `   \u001b[1;31mAbility Score:\u001b[0m ${scAbilityScore}\n` +
+            '```'
           );
-        }).join('\n\n');
+        }).join('');
 
         embed.addFields({
-          name: `🎭 **ALT CHARACTERS** (${alts.length})`,
-          value: altsList,
+          name: '📊 **Subclasses**',
+          value: subclassText,
+          inline: false
+        });
+      }
+
+      // === ALT CHARACTERS (if any) ===
+      if (alts && alts.length > 0) {
+        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+        
+        const altsText = alts.map((alt, i) => {
+          const numberEmoji = numberEmojis[i] || `${i + 1}.`;
+          const altAbilityScore = this.formatAbilityScore(alt.ability_score);
+          
+          return (
+            '```ansi\n' +
+            `${numberEmoji} \u001b[1;36mIGN:\u001b[0m ${alt.ign}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
+            `   ${alt.class} › ${alt.subclass} › ${alt.role}\n` +
+            `   \u001b[1;31mAbility Score:\u001b[0m ${altAbilityScore}\n` +
+            '```'
+          );
+        }).join('');
+
+        embed.addFields({
+          name: `📋 **Alt**`,
+          value: altsText,
           inline: false
         });
       }
 
       embed.addFields({
         name: '\u200B',
-        value: `**Total Characters:** ${alts.length + 1}`,
+        value: `**${allCharacters.length} character${allCharacters.length !== 1 ? 's' : ''} registered • Last updated** •`,
         inline: false
       });
     }
@@ -228,7 +256,7 @@ export default {
     return emojis[role] || '⭐';
   },
 
-  // ✅ NEW: Build button rows (used by both edit-member-details and admin)
+  // ✅ Build button rows (used by both edit-member-details and admin)
   buildButtonRows(mainChar, alts, userId) {
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
