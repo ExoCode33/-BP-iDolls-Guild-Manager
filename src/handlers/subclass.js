@@ -488,16 +488,6 @@ async function saveSubclass(interaction, userId, state, abilityScore) {
 
 // ==================== UTILITY FUNCTIONS ====================
 
-/**
- * Extract user ID from customId pattern like "button_name_userId"
- * @param {string} customId - The custom ID from the interaction
- * @returns {string} - The extracted user ID
- */
-function extractUserIdFromCustomId(customId) {
-  const parts = customId.split('_');
-  return parts[parts.length - 1];
-}
-
 function getClassEmoji(className) {
   const emojis = {
     'Beat Performer': '🎵',
