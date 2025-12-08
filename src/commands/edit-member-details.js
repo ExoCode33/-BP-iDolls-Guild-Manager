@@ -152,50 +152,8 @@ export default {
       });
     }
 
-    const row1 = new ActionRowBuilder();
-    const row2 = new ActionRowBuilder();
-
-    if (mainChar) {
-      row1.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`edit_main_${userId}`)
-          .setLabel('✏️ Edit Main')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId(`add_subclass_${userId}`)
-          .setLabel('➕ Add Subclass')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`add_alt_${userId}`)
-          .setLabel('🎭 Add Alt')
-          .setStyle(ButtonStyle.Success)
-      );
-
-      row2.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`remove_alt_${userId}`)
-          .setLabel('❌ Remove Alt')
-          .setStyle(ButtonStyle.Danger)
-          .setDisabled(alts.length === 0),
-        new ButtonBuilder()
-          .setCustomId(`remove_subclass_${userId}`)
-          .setLabel('🗑️ Remove Subclass')
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId(`remove_main_${userId}`)
-          .setLabel('⚠️ Remove Main')
-          .setStyle(ButtonStyle.Danger)
-      );
-    } else {
-      row1.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`register_main_${userId}`)
-          .setLabel('⭐ Register Main Character')
-          .setStyle(ButtonStyle.Success)
-      );
-    }
-
-    const components = mainChar ? [row1, row2] : [row1];
+    // ✅ Use the new buildButtonRows function
+    const components = this.buildButtonRows(mainChar, alts, userId);
 
     // ✅ Use flags instead of ephemeral (Discord.js deprecation fix)
     const replyOptions = { embeds: [embed], components };
@@ -231,5 +189,55 @@ export default {
       'Support': '💚'
     };
     return emojis[role] || '⭐';
+  },
+
+  // ✅ NEW: Build button rows (used by both edit-member-details and admin)
+  buildButtonRows(mainChar, alts, userId) {
+    const row1 = new ActionRowBuilder();
+    const row2 = new ActionRowBuilder();
+
+    if (mainChar) {
+      row1.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`edit_main_${userId}`)
+          .setLabel('✏️ Edit Main')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId(`add_subclass_${userId}`)
+          .setLabel('➕ Add Subclass')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`add_alt_${userId}`)
+          .setLabel('🎭 Add Alt')
+          .setStyle(ButtonStyle.Success)
+      );
+
+      row2.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`remove_alt_${userId}`)
+          .setLabel('❌ Remove Alt')
+          .setStyle(ButtonStyle.Danger)
+          .setDisabled(alts.length === 0),
+        new ButtonBuilder()
+          .setCustomId(`remove_subclass_${userId}`)
+          .setLabel('🗑️ Remove Subclass')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`remove_main_${userId}`)
+          .setLabel('⚠️ Remove Main')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      return [row1, row2];
+    } else {
+      row1.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`register_main_${userId}`)
+          .setLabel('⭐ Register Main Character')
+          .setStyle(ButtonStyle.Success)
+      );
+
+      return [row1];
+    }
   }
 };
