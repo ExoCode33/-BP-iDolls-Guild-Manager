@@ -3,6 +3,12 @@ import { GAME_DATA, getRoleFromClass, getSubclassesForClass } from '../config/ga
 import { queries } from '../database/queries.js';
 import stateManager from '../utils/stateManager.js';
 
+// ✅ Extract userId from button customId
+function extractUserIdFromCustomId(customId) {
+  const parts = customId.split('_');
+  return parts[parts.length - 1];
+}
+
 // ==================== ADD SUBCLASS TO MAIN ====================
 
 export async function handleAddSubclassToMain(interaction) {
