@@ -224,37 +224,40 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
 
-  // Handle button interactions
+  // ==================== BUTTON INTERACTIONS ====================
   if (interaction.isButton()) {
     console.log(`🔘 ${interaction.user.tag} clicked button: ${interaction.customId}`);
     
     try {
+      // ✅ FIXED: Correct button prefixes (removed char_ and subclass_ prefixes)
+      
       // Character handlers (main/alt)
-      if (interaction.customId.startsWith('char_add_main_')) {
+      if (interaction.customId.startsWith('register_main_') || interaction.customId.startsWith('add_main_')) {
         await characterHandlers.handleAddMain(interaction);
       }
-      else if (interaction.customId.startsWith('char_add_alt_')) {
+      else if (interaction.customId.startsWith('add_alt_')) {
         await characterHandlers.handleAddAlt(interaction);
       }
-      else if (interaction.customId.startsWith('char_edit_main_')) {
+      else if (interaction.customId.startsWith('edit_main_')) {
         await updateHandlers.handleUpdateMain(interaction);
       }
-      else if (interaction.customId.startsWith('char_remove_main_')) {
+      else if (interaction.customId.startsWith('remove_main_')) {
         await removeHandlers.handleRemoveMain(interaction);
       }
-      else if (interaction.customId.startsWith('char_remove_alt_')) {
+      else if (interaction.customId.startsWith('remove_alt_')) {
         await removeHandlers.handleRemoveAlt(interaction);
       }
       
       // Subclass handlers
-      else if (interaction.customId.startsWith('subclass_add_to_main_')) {
+      else if (interaction.customId.startsWith('add_subclass_')) {
         await subclassHandlers.handleAddSubclassToMain(interaction);
       }
-      else if (interaction.customId.startsWith('subclass_add_to_alt_')) {
-        await subclassHandlers.handleAddSubclassToAlt(interaction);
-      }
-      else if (interaction.customId.startsWith('subclass_remove_')) {
-        await interaction.reply({ content: '🚧 Subclass removal coming soon!', flags: 64 });
+      else if (interaction.customId.startsWith('remove_subclass_')) {
+        await interaction.update({ 
+          content: '🚧 Subclass removal coming soon!',
+          embeds: [],
+          components: []
+        });
       }
       
       // Back buttons
@@ -308,19 +311,35 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await removeHandlers.handleCancelRemoveAlt(interaction);
       }
       
+      // If no handler matched
+      else {
+        console.log(`⚠️ Unhandled button: ${interaction.customId}`);
+        await interaction.update({
+          content: '❌ This button is not yet implemented.',
+          embeds: [],
+          components: []
+        });
+        return;
+      }
+      
       console.log(`✅ Button handled: ${interaction.customId}`);
     } catch (error) {
       console.error(`❌ Error handling button ${interaction.customId}:`, error);
+      console.error('Stack:', error.stack);
       
-      const errorMessage = { 
-        content: '❌ An error occurred!', 
+      const errorEmbed = { 
+        content: `❌ An error occurred: ${error.message}`, 
         flags: 64 
       };
       
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(errorMessage);
-      } else {
-        await interaction.reply(errorMessage);
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp(errorEmbed);
+        } else {
+          await interaction.update(errorEmbed);
+        }
+      } catch (replyError) {
+        console.error('❌ Failed to send error response:', replyError);
       }
     }
   }
