@@ -288,4 +288,4 @@ export default {
     };
     return roleEmojis[role] || '⭐';
   }
-}
+};
