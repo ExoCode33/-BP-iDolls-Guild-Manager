@@ -45,7 +45,7 @@ export default {
         .setTimestamp();
       
       const replyMethod = interaction.replied || interaction.deferred ? 'followUp' : 'reply';
-      await interaction[replyMethod]({ embeds: [errorEmbed], ephemeral: true });
+      await interaction[replyMethod]({ embeds: [errorEmbed], flags: 64 });
     }
   },
 
@@ -224,9 +224,9 @@ export default {
 
     // === BUILD BUTTON ROWS (same as edit-member-details) ===
     // ✅ CRITICAL FIX: Pass targetUser.id instead of interaction.user.id
-    const rows = editMemberDetails.default.buildPremiumButtonRows(mainChar, mainSubclasses, altsWithSubclasses, targetUser.id);
+    const rows = editMemberDetails.default.buildButtonRows(mainChar, alts, targetUser.id);
 
-    await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+    await interaction.reply({ embeds: [embed], components: rows, flags: 64 });
   },
 
   async handleSync(interaction) {
@@ -239,7 +239,7 @@ export default {
         .setDescription('Syncing all character data to Google Sheets. This may take a moment.')
         .setTimestamp();
       
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: 64 });
       await interaction.editReply({ embeds: [startEmbed] });
 
       // Get all characters with subclasses
