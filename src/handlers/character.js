@@ -949,12 +949,23 @@ async function showAdminEditMenu(interaction, targetUserId, targetUser) {
         
         const abbrev = timezoneAbbreviations[userTimezone.timezone] || userTimezone.timezone;
         const offset = timezoneOffsets[abbrev] || 0;
+        
+        // Calculate user's local time from UTC
         const now = new Date();
-        const localTime = new Date(now.getTime() + (offset * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
-        const hours = localTime.getHours();
-        const minutes = localTime.getMinutes().toString().padStart(2, '0');
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        const displayHours = hours % 12 || 12;
+        const utcHours = now.getUTCHours();
+        const utcMinutes = now.getUTCMinutes();
+        
+        // Add offset to UTC to get user's local time
+        let localHours = utcHours + offset;
+        let localMinutes = utcMinutes;
+        
+        // Handle day overflow
+        if (localHours >= 24) localHours -= 24;
+        if (localHours < 0) localHours += 24;
+        
+        const ampm = localHours >= 12 ? 'PM' : 'AM';
+        const displayHours = localHours % 12 || 12;
+        const minutes = localMinutes.toString().padStart(2, '0');
         
         timezoneDisplay = `🌍 ${userTimezone.timezone} • ${displayHours}:${minutes} ${ampm}`;
       }
