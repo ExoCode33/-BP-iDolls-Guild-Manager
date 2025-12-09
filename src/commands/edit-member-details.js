@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { queries } from '../database/queries.js';
 
 // ✅ Ephemeral configuration (matches character.js)
@@ -30,9 +30,24 @@ export default {
   async showMainMenu(interaction, isUpdate = false) {
     const userId = interaction.user.id;
     const mainChar = await queries.getMainCharacter(userId);
+    
+    // Get ALL characters to properly count
     const allCharacters = mainChar ? await queries.getAllCharactersWithSubclasses(userId) : [];
+    
+    // Properly filter by character_type
     const alts = allCharacters.filter(char => char.character_type === 'alt');
     const mainSubclasses = allCharacters.filter(char => char.character_type === 'main_subclass');
+    const altSubclasses = allCharacters.filter(char => char.character_type === 'alt_subclass');
+    const totalSubclasses = mainSubclasses.length + altSubclasses.length;
+    
+    console.log('📊 Character counts:', {
+      total: allCharacters.length,
+      alts: alts.length,
+      mainSubclasses: mainSubclasses.length,
+      altSubclasses: altSubclasses.length,
+      totalSubclasses
+    });
+    
     const userTimezone = await queries.getUserTimezone(userId);
 
     const embed = new EmbedBuilder()
@@ -149,7 +164,7 @@ export default {
       }
 
       // === ALT CHARACTERS (if any) ===
-      if (alts && alts.length > 0) {
+      if (alts.length > 0) {
         const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
         
         const altsText = alts.map((alt, i) => {
@@ -179,8 +194,8 @@ export default {
       });
     }
 
-    // ✅ Use the new buildButtonRows function
-    const components = this.buildButtonRows(mainChar, alts, userId);
+    // ✅ Build buttons with proper counts
+    const components = this.buildButtonRows(mainChar, alts.length, totalSubclasses, userId);
 
     // ✅ Use flags instead of ephemeral (Discord.js deprecation fix)
     const replyOptions = { embeds: [embed], components };
@@ -256,17 +271,20 @@ export default {
     return emojis[role] || '⭐';
   },
 
-  // ✅ Build button rows (used by both edit-member-details and admin)
-  buildButtonRows(mainChar, alts, userId) {
+  // ✅ COMPLETELY REWRITTEN: Single Edit button + smart disabling based on counts
+  buildButtonRows(mainChar, altCount, subclassCount, userId) {
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
 
     if (mainChar) {
+      console.log('🔧 Building buttons with counts:', { altCount, subclassCount });
+      
+      // Row 1: Edit button (always active) + Add buttons
       row1.addComponents(
         new ButtonBuilder()
-          .setCustomId(`edit_main_${userId}`)
-          .setLabel('✏️ Edit Main')
-          .setStyle(ButtonStyle.Primary),
+          .setCustomId(`show_edit_menu_${userId}`)
+          .setLabel('✏️ Edit')
+          .setStyle(ButtonStyle.Primary), // Always active - will show options
         new ButtonBuilder()
           .setCustomId(`add_subclass_${userId}`)
           .setLabel('➕ Add Subclass')
@@ -277,16 +295,18 @@ export default {
           .setStyle(ButtonStyle.Success)
       );
 
+      // Row 2: Remove buttons with smart disabling
       row2.addComponents(
         new ButtonBuilder()
           .setCustomId(`remove_alt_${userId}`)
           .setLabel('❌ Remove Alt')
           .setStyle(ButtonStyle.Danger)
-          .setDisabled(alts.length === 0),
+          .setDisabled(altCount === 0), // ✅ Disable if no alts
         new ButtonBuilder()
           .setCustomId(`remove_subclass_${userId}`)
           .setLabel('🗑️ Remove Subclass')
-          .setStyle(ButtonStyle.Danger),
+          .setStyle(ButtonStyle.Danger)
+          .setDisabled(subclassCount === 0), // ✅ Disable if no subclasses
         new ButtonBuilder()
           .setCustomId(`remove_main_${userId}`)
           .setLabel('⚠️ Remove Main')
@@ -304,5 +324,72 @@ export default {
 
       return [row1];
     }
+  },
+
+  // ✅ NEW: Show edit menu when Edit button is clicked
+  async showEditMenu(interaction, userId) {
+    const allCharacters = await queries.getAllCharactersWithSubclasses(userId);
+    const mainChar = allCharacters.find(c => c.character_type === 'main');
+    const alts = allCharacters.filter(c => c.character_type === 'alt');
+    const totalSubclasses = allCharacters.filter(c => 
+      c.character_type === 'main_subclass' || c.character_type === 'alt_subclass'
+    ).length;
+
+    const options = [];
+
+    // Always add Main option
+    options.push({
+      label: 'Edit Main Character',
+      value: 'edit_main',
+      description: `${mainChar.ign} - ${mainChar.class}`,
+      emoji: '⭐'
+    });
+
+    // Add Alt option if alts exist
+    if (alts.length > 0) {
+      options.push({
+        label: `Edit Alt Character (${alts.length} available)`,
+        value: 'edit_alt',
+        description: 'Choose which alt to edit',
+        emoji: '🎭'
+      });
+    }
+
+    // Add Subclass option if subclasses exist
+    if (totalSubclasses > 0) {
+      options.push({
+        label: `Edit Subclass (${totalSubclasses} available)`,
+        value: 'edit_subclass',
+        description: 'Choose which subclass to edit',
+        emoji: '📊'
+      });
+    }
+
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId(`edit_type_select_${userId}`)
+      .setPlaceholder('✏️ What would you like to edit?')
+      .addOptions(options);
+
+    const backButton = new ButtonBuilder()
+      .setCustomId(`back_to_menu_${userId}`)
+      .setLabel('◀️ Back')
+      .setStyle(ButtonStyle.Secondary);
+
+    const row1 = new ActionRowBuilder().addComponents(selectMenu);
+    const row2 = new ActionRowBuilder().addComponents(backButton);
+
+    const embed = new EmbedBuilder()
+      .setColor('#6640D9')
+      .setTitle('✏️ Edit Characters')
+      .setDescription('**Select what you want to edit:**')
+      .addFields(
+        { name: '⭐ Main Character', value: `${mainChar.ign} - ${mainChar.class}`, inline: false },
+        { name: '🎭 Alt Characters', value: alts.length > 0 ? `${alts.length} alt(s)` : 'None', inline: true },
+        { name: '📊 Subclasses', value: totalSubclasses > 0 ? `${totalSubclasses} subclass(es)` : 'None', inline: true }
+      )
+      .setFooter({ text: '💡 Only options with characters are available' })
+      .setTimestamp();
+
+    await interaction.update({ embeds: [embed], components: [row1, row2] });
   }
 };
