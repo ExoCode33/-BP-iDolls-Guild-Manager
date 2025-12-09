@@ -94,7 +94,7 @@ for (const file of commandFiles) {
     if ('data' in command && 'execute' in command) {
       client.commands.set(command.data.name, command);
     } else {
-      logger.warning(`⚠️ Command at ${file} missing data/execute`, false);
+      logger.warning(`Command at ${file} missing data/execute`, false);
     }
   });
 }
@@ -130,19 +130,15 @@ async function registerCommands() {
 
 // Bot ready event
 client.once(Events.ClientReady, async (c) => {
-  // Initialize logger with client FIRST
   logger.init(client);
-  
   logger.botReady(c.user.tag);
-  
-  // Register commands
   await registerCommands();
   
-  // Start auto-sync if configured and sheets service is available
+  // Start auto-sync if configured
   if (syncToSheets) {
     const autoSyncInterval = parseInt(process.env.AUTO_SYNC_INTERVAL) || 300000;
     if (autoSyncInterval > 0) {
-      logger.info(`⏰ Auto-sync: every ${autoSyncInterval / 1000}s`, false);
+      logger.info(`Auto-sync enabled: every ${autoSyncInterval / 1000}s`, false);
       setInterval(async () => {
         try {
           logger.syncStarted();
@@ -163,7 +159,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const command = client.commands.get(interaction.commandName);
 
   if (!command) {
-    logger.error(`No command: ${interaction.commandName}`);
+    logger.error(`Command not found: ${interaction.commandName}`);
     return;
   }
 
@@ -174,7 +170,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     logger.commandError(interaction.commandName, error);
     
     const errorResponse = {
-      content: '❌ There was an error executing this command!',
+      content: 'An error occurred while executing this command.',
       ephemeral: true
     };
 
@@ -186,10 +182,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-// Safe handler call helper
-function safeCall(handlerName, functionName, ...args) {
+// Safe handler call helper with timeout protection
+async function safeCall(handlerName, functionName, interaction, ...args) {
   if (handlers[handlerName] && handlers[handlerName][functionName]) {
-    return handlers[handlerName][functionName](...args);
+    // Defer immediately to prevent "interaction failed" errors
+    if (!interaction.deferred && !interaction.replied) {
+      try {
+        await interaction.deferUpdate();
+      } catch (error) {
+        logger.verbose(`Could not defer ${functionName}: ${error.message}`);
+      }
+    }
+    return handlers[handlerName][functionName](interaction, ...args);
   }
   return Promise.resolve();
 }
@@ -298,12 +302,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp({ 
-          content: '❌ An error occurred while processing your request.', 
+          content: 'An error occurred while processing your request.', 
           ephemeral: true 
         });
       } else {
         await interaction.reply({ 
-          content: '❌ An error occurred while processing your request.', 
+          content: 'An error occurred while processing your request.', 
           ephemeral: true 
         });
       }
@@ -421,12 +425,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp({ 
-          content: '❌ An error occurred while processing your selection.', 
+          content: 'An error occurred while processing your selection.', 
           ephemeral: true 
         });
       } else {
         await interaction.reply({ 
-          content: '❌ An error occurred while processing your selection.', 
+          content: 'An error occurred while processing your selection.', 
           ephemeral: true 
         });
       }
@@ -459,12 +463,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp({ 
-          content: '❌ An error occurred while processing your submission.', 
+          content: 'An error occurred while processing your submission.', 
           ephemeral: true 
         });
       } else {
         await interaction.reply({ 
-          content: '❌ An error occurred while processing your submission.', 
+          content: 'An error occurred while processing your submission.', 
           ephemeral: true 
         });
       }
