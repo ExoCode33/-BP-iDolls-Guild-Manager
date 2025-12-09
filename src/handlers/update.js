@@ -132,7 +132,338 @@ export async function handleUpdateMain(interaction) {
   }
 }
 
-async function showUpdateMenu(interaction, userId, mainChar) {
+// ==================== UPDATE ALT CHARACTER ====================
+
+export async function handleUpdateAlt(interaction) {
+  try {
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    
+    const alts = await queries.getAltCharacters(userId);
+    if (alts.length === 0) {
+      const errorEmbed = new EmbedBuilder()
+        .setColor('#FFA500')
+        .setTitle('⚠️ No Alt Characters')
+        .setDescription('This user doesn\'t have any alt characters to update!')
+        .setTimestamp();
+      
+      return interaction.update({ embeds: [errorEmbed], components: [] });
+    }
+
+    await showAltSelectionForUpdate(interaction, userId, alts);
+    
+  } catch (error) {
+    console.error('Error in handleUpdateAlt:', error);
+    
+    const errorEmbed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setTitle('❌ Error')
+      .setDescription('An error occurred. Please try again.')
+      .setTimestamp();
+    
+    try {
+      await interaction.update({ embeds: [errorEmbed], components: [] });
+    } catch {
+      await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+    }
+  }
+}
+
+async function showAltSelectionForUpdate(interaction, userId, alts) {
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_alt_update_${userId}`)
+    .setPlaceholder('📋 Select which alt to edit')
+    .addOptions(
+      alts.map((alt, index) => ({
+        label: `${alt.ign} (${alt.class})`,
+        value: alt.id.toString(),
+        description: `AS: ${formatAbilityScore(alt.ability_score)}`,
+        emoji: getClassEmoji(alt.class)
+      }))
+    );
+
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_menu_${userId}`)
+    .setLabel('Back to Menu')
+    .setStyle(ButtonStyle.Secondary)
+    .setEmoji('◀️');
+
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton);
+
+  const embed = new EmbedBuilder()
+    .setColor('#6640D9')
+    .setTitle('✏️ Edit Alt Character')
+    .setDescription('**Select which alt character you want to edit:**')
+    .addFields({
+      name: '📋 Your Alt Characters',
+      value: alts.map((alt, i) => `${i + 1}. ${alt.ign} - ${alt.class} (${alt.subclass})`).join('\n'),
+      inline: false
+    })
+    .setTimestamp();
+
+  await interaction.update({ embeds: [embed], components: [row1, row2] });
+  
+  stateManager.setUpdateState(userId, { 
+    alts, 
+    type: 'alt_selection',
+    isAdminEdit: userId !== interaction.user.id
+  });
+}
+
+export async function handleAltSelectionForUpdate(interaction) {
+  try {
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    const selectedAltId = parseInt(interaction.values[0]);
+    const state = stateManager.getUpdateState(userId);
+    
+    if (!state || !state.alts) {
+      return interaction.reply({
+        content: '❌ Session expired. Please start over.',
+        ...getEphemeralOptions(userId, interaction.user.id)
+      });
+    }
+
+    const selectedAlt = state.alts.find(alt => alt.id === selectedAltId);
+    
+    if (!selectedAlt) {
+      return interaction.reply({
+        content: '❌ Alt character not found.',
+        ...getEphemeralOptions(userId, interaction.user.id)
+      });
+    }
+
+    stateManager.setUpdateState(userId, {
+      characterId: selectedAlt.id,
+      type: 'alt',
+      character: selectedAlt,
+      isAdminEdit: state.isAdminEdit
+    });
+
+    await showUpdateMenu(interaction, userId, selectedAlt);
+    
+  } catch (error) {
+    console.error('Error in handleAltSelectionForUpdate:', error);
+    stateManager.clearUpdateState(extractUserIdFromCustomId(interaction.customId));
+  }
+}
+
+// ==================== UPDATE SUBCLASS ====================
+
+export async function handleUpdateSubclass(interaction) {
+  try {
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    
+    const allCharacters = await queries.getAllCharactersWithSubclasses(userId);
+    const mainSubclasses = allCharacters.filter(c => c.character_type === 'main_subclass');
+    const altSubclasses = allCharacters.filter(c => c.character_type === 'alt_subclass');
+    const alts = allCharacters.filter(c => c.character_type === 'alt');
+    const mainChar = allCharacters.find(c => c.character_type === 'main');
+    
+    const totalSubclasses = mainSubclasses.length + altSubclasses.length;
+    
+    if (totalSubclasses === 0) {
+      const errorEmbed = new EmbedBuilder()
+        .setColor('#FFA500')
+        .setTitle('⚠️ No Subclasses')
+        .setDescription('This user doesn\'t have any subclasses to update!')
+        .setTimestamp();
+      
+      return interaction.update({ embeds: [errorEmbed], components: [] });
+    }
+
+    await showSubclassSelectionForUpdate(interaction, userId, mainChar, mainSubclasses, alts, altSubclasses);
+    
+  } catch (error) {
+    console.error('Error in handleUpdateSubclass:', error);
+    
+    const errorEmbed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setTitle('❌ Error')
+      .setDescription('An error occurred. Please try again.')
+      .setTimestamp();
+    
+    try {
+      await interaction.update({ embeds: [errorEmbed], components: [] });
+    } catch {
+      await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+    }
+  }
+}
+
+async function showSubclassSelectionForUpdate(interaction, userId, mainChar, mainSubclasses, alts, altSubclasses) {
+  const options = [];
+  
+  // Add main subclasses
+  mainSubclasses.forEach((sc, index) => {
+    options.push({
+      label: `Main: ${sc.class} (${sc.subclass})`,
+      value: `main_${sc.id}`,
+      description: `${mainChar.ign} - ${sc.role} - AS: ${formatAbilityScore(sc.ability_score)}`,
+      emoji: '⭐'
+    });
+  });
+  
+  // Add alt subclasses
+  altSubclasses.forEach((sc, index) => {
+    const parentAlt = alts.find(a => a.id === sc.parent_character_id);
+    if (parentAlt) {
+      options.push({
+        label: `Alt: ${sc.class} (${sc.subclass})`,
+        value: `alt_${sc.id}`,
+        description: `${parentAlt.ign} - ${sc.role} - AS: ${formatAbilityScore(sc.ability_score)}`,
+        emoji: '🎭'
+      });
+    }
+  });
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_subclass_update_${userId}`)
+    .setPlaceholder('📊 Select subclass to edit')
+    .addOptions(options);
+
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_menu_${userId}`)
+    .setLabel('Back to Menu')
+    .setStyle(ButtonStyle.Secondary)
+    .setEmoji('◀️');
+
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton);
+
+  const embed = new EmbedBuilder()
+    .setColor('#6640D9')
+    .setTitle('✏️ Edit Subclass')
+    .setDescription('**Select which subclass you want to edit:**')
+    .addFields({
+      name: '📊 Available Subclasses',
+      value: `**Main Subclasses:** ${mainSubclasses.length}\n**Alt Subclasses:** ${altSubclasses.length}\n**Total:** ${options.length}`,
+      inline: false
+    })
+    .setTimestamp();
+
+  await interaction.update({ embeds: [embed], components: [row1, row2] });
+  
+  stateManager.setUpdateState(userId, { 
+    mainSubclasses,
+    altSubclasses,
+    alts,
+    mainChar,
+    type: 'subclass_selection',
+    isAdminEdit: userId !== interaction.user.id
+  });
+}
+
+export async function handleSubclassSelectionForUpdate(interaction) {
+  try {
+    const userId = extractUserIdFromCustomId(interaction.customId);
+    const selectedValue = interaction.values[0];
+    const state = stateManager.getUpdateState(userId);
+    
+    if (!state) {
+      return interaction.reply({
+        content: '❌ Session expired. Please start over.',
+        ...getEphemeralOptions(userId, interaction.user.id)
+      });
+    }
+
+    const [type, idStr] = selectedValue.split('_');
+    const subclassId = parseInt(idStr);
+    
+    let selectedSubclass;
+    let parentName;
+    
+    if (type === 'main') {
+      selectedSubclass = state.mainSubclasses.find(sc => sc.id === subclassId);
+      parentName = state.mainChar.ign;
+    } else {
+      selectedSubclass = state.altSubclasses.find(sc => sc.id === subclassId);
+      const parentAlt = state.alts.find(a => a.id === selectedSubclass.parent_character_id);
+      parentName = parentAlt ? parentAlt.ign : 'Unknown';
+    }
+    
+    if (!selectedSubclass) {
+      return interaction.reply({
+        content: '❌ Subclass not found.',
+        ...getEphemeralOptions(userId, interaction.user.id)
+      });
+    }
+
+    stateManager.setUpdateState(userId, {
+      characterId: selectedSubclass.id,
+      type: 'subclass',
+      character: selectedSubclass,
+      parentName: parentName,
+      isAdminEdit: state.isAdminEdit
+    });
+
+    // For subclasses, we only allow updating ability score
+    await showSubclassAbilityScoreUpdate(interaction, userId, selectedSubclass, parentName);
+    
+  } catch (error) {
+    console.error('Error in handleSubclassSelectionForUpdate:', error);
+    stateManager.clearUpdateState(extractUserIdFromCustomId(interaction.customId));
+  }
+}
+
+async function showSubclassAbilityScoreUpdate(interaction, userId, subclass, parentName) {
+  const abilityScoreRanges = [
+    { label: '10k or smaller', value: '10000', description: 'Ability Score: ≤10,000' },
+    { label: '10k - 12k', value: '11000', description: 'Ability Score: 10,001 - 12,000' },
+    { label: '12k - 14k', value: '13000', description: 'Ability Score: 12,001 - 14,000' },
+    { label: '14k - 16k', value: '15000', description: 'Ability Score: 14,001 - 16,000' },
+    { label: '16k - 18k', value: '17000', description: 'Ability Score: 16,001 - 18,000' },
+    { label: '18k - 20k', value: '19000', description: 'Ability Score: 18,001 - 20,000' },
+    { label: '20k - 22k', value: '21000', description: 'Ability Score: 20,001 - 22,000' },
+    { label: '22k - 24k', value: '23000', description: 'Ability Score: 22,001 - 24,000' },
+    { label: '24k - 26k', value: '25000', description: 'Ability Score: 24,001 - 26,000' },
+    { label: '26k - 28k', value: '27000', description: 'Ability Score: 26,001 - 28,000' },
+    { label: '28k - 30k', value: '29000', description: 'Ability Score: 28,001 - 30,000' },
+    { label: '30k - 32k', value: '31000', description: 'Ability Score: 30,001 - 32,000' },
+    { label: '32k - 34k', value: '33000', description: 'Ability Score: 32,001 - 34,000' },
+    { label: '34k - 36k', value: '35000', description: 'Ability Score: 34,001 - 36,000' },
+    { label: '36k - 38k', value: '37000', description: 'Ability Score: 36,001 - 38,000' },
+    { label: '38k - 40k', value: '39000', description: 'Ability Score: 38,001 - 40,000' },
+    { label: '40k - 42k', value: '41000', description: 'Ability Score: 40,001 - 42,000' },
+    { label: '42k - 44k', value: '43000', description: 'Ability Score: 42,001 - 44,000' },
+    { label: '44k - 46k', value: '45000', description: 'Ability Score: 44,001 - 46,000' },
+    { label: '46k - 48k', value: '47000', description: 'Ability Score: 46,001 - 48,000' },
+    { label: '48k - 50k', value: '49000', description: 'Ability Score: 48,001 - 50,000' },
+    { label: '50k - 52k', value: '51000', description: 'Ability Score: 50,001 - 52,000' },
+    { label: '52k - 54k', value: '53000', description: 'Ability Score: 52,001 - 54,000' },
+    { label: '54k - 56k', value: '55000', description: 'Ability Score: 54,001 - 56,000' },
+    { label: '56k+', value: '57000', description: 'Ability Score: 56,001+' }
+  ];
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`update_ability_score_select_${userId}`)
+    .setPlaceholder('💪 Select new ability score range')
+    .addOptions(abilityScoreRanges);
+
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_menu_${userId}`)
+    .setLabel('Back to Menu')
+    .setStyle(ButtonStyle.Secondary)
+    .setEmoji('◀️');
+
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton);
+
+  const abilityUpdateEmbed = new EmbedBuilder()
+    .setColor('#6640D9')
+    .setTitle('✏️ Update Subclass Ability Score')
+    .setDescription('Select new ability score range for this subclass')
+    .addFields(
+      { name: '🎮 Parent Character', value: parentName, inline: true },
+      { name: '🎭 Subclass', value: `${subclass.class} (${subclass.subclass})`, inline: true },
+      { name: '💪 Current Ability Score', value: formatAbilityScore(subclass.ability_score), inline: true }
+    )
+    .setFooter({ text: '💪 Choose the range closest to your ability score' })
+    .setTimestamp();
+
+  await interaction.update({ embeds: [abilityUpdateEmbed], components: [row1, row2] });
+}
+
+async function showUpdateMenu(interaction, userId, character) {
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`update_option_${userId}`)
     .setPlaceholder('✏️ Choose what to update')
