@@ -36,7 +36,8 @@ export async function handleAddSubclassToMain(interaction) {
       parentCharacterId: mainChar.id,
       parentIGN: mainChar.ign,
       parentGuild: mainChar.guild,
-      step: 'class'
+      step: 'class',
+      isAdminEdit: userId !== interaction.user.id
     });
 
     // Show class selection
@@ -88,7 +89,8 @@ export async function handleAddSubclassToAlt(interaction) {
         parentCharacterId: alt.id,
         parentIGN: alt.ign,
         parentGuild: alt.guild,
-        step: 'class'
+        step: 'class',
+        isAdminEdit: userId !== interaction.user.id
       });
 
       await showSubclassClassSelection(interaction, userId, 'alt', alt.ign);
@@ -164,7 +166,8 @@ export async function handleAltSelectionForSubclass(interaction) {
       parentCharacterId: selectedAlt.id,
       parentIGN: selectedAlt.ign,
       parentGuild: selectedAlt.guild,
-      step: 'class'
+      step: 'class',
+      isAdminEdit: userId !== interaction.user.id
     });
 
     // Show class selection
@@ -462,15 +465,28 @@ async function saveSubclass(interaction, userId, state, abilityScore) {
       .addFields(
         { name: '🎮 Parent Character', value: String(state.parentIGN), inline: true },
         { name: '🎭 Class', value: `${state.class} (${state.subclass})`, inline: true },
-        { name: '💪 Ability Score', value: `~${parseInt(abilityScore).toLocaleString()}`, inline: true }
+        { name: '💪 Ability Score', value: formatAbilityScore(parseInt(abilityScore)), inline: true }
       )
-      .setFooter({ text: '💡 Subclass registration complete' })
+      .setFooter({ text: '💡 Returning to profile...' })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
     
     // Clear state
     stateManager.clearRegistrationState(userId);
+    
+    // ✅ Return to menu using followUp after 2 seconds
+    setTimeout(async () => {
+      try {
+        if (state.isAdminEdit) {
+          await returnToAdminMenu(interaction, userId, targetUser);
+        } else {
+          await returnToUserMenu(interaction, userId);
+        }
+      } catch (error) {
+        console.error('Error returning to menu after subclass registration:', error);
+      }
+    }, 2000);
     
   } catch (error) {
     console.error('Error saving subclass:', error);
@@ -484,6 +500,184 @@ async function saveSubclass(interaction, userId, state, abilityScore) {
     
     await interaction.editReply({ embeds: [embed] });
   }
+}
+
+// ==================== MENU RETURN HELPERS ====================
+
+async function returnToUserMenu(interaction, userId) {
+  try {
+    const mainChar = await queries.getMainCharacter(userId);
+    const allCharacters = mainChar ? await queries.getAllCharactersWithSubclasses(userId) : [];
+    const alts = allCharacters.filter(char => char.character_type === 'alt');
+    const mainSubclasses = allCharacters.filter(char => char.character_type === 'main_subclass');
+    const userTimezone = await queries.getUserTimezone(userId);
+
+    const embed = buildCharacterProfileEmbed(interaction.user, mainChar, allCharacters, alts, mainSubclasses, userTimezone);
+    
+    const editMemberDetails = await import('../commands/edit-member-details.js');
+    const components = editMemberDetails.default.buildButtonRows(mainChar, alts, userId);
+
+    const shouldBePrivate = process.env.EDIT_MEMBER_DETAILS_EPHEMERAL !== 'false';
+    const replyOptions = { embeds: [embed], components };
+    if (shouldBePrivate) {
+      replyOptions.flags = 64;
+    }
+
+    await interaction.followUp(replyOptions);
+  } catch (error) {
+    console.error('Error in returnToUserMenu:', error);
+  }
+}
+
+async function returnToAdminMenu(interaction, targetUserId, targetUser) {
+  try {
+    const allCharacters = await queries.getAllCharactersWithSubclasses(targetUserId);
+    const userTimezone = await queries.getUserTimezone(targetUserId);
+
+    const mainChar = allCharacters.find(c => c.character_type === 'main');
+    const mainSubclasses = allCharacters.filter(c => c.character_type === 'main_subclass');
+    const alts = allCharacters.filter(c => c.character_type === 'alt');
+
+    const embed = buildCharacterProfileEmbed(targetUser, mainChar, allCharacters, alts, mainSubclasses, userTimezone);
+    
+    const editMemberDetails = await import('../commands/edit-member-details.js');
+    const components = editMemberDetails.default.buildButtonRows(mainChar, alts, targetUserId);
+
+    const shouldBePrivate = process.env.ADMIN_EPHEMERAL !== 'false';
+    const replyOptions = { embeds: [embed], components };
+    if (shouldBePrivate) {
+      replyOptions.flags = 64;
+    }
+
+    await interaction.followUp(replyOptions);
+  } catch (error) {
+    console.error('Error in returnToAdminMenu:', error);
+  }
+}
+
+function buildCharacterProfileEmbed(user, mainChar, allCharacters, alts, mainSubclasses, userTimezone) {
+  const embed = new EmbedBuilder()
+    .setColor(mainChar ? '#6640D9' : '#5865F2')
+    .setAuthor({ 
+      name: `${user.tag}'s Character Profile`,
+      iconURL: user.displayAvatarURL({ dynamic: true })
+    })
+    .setThumbnail(user.displayAvatarURL({ size: 512 }))
+    .setFooter({ text: '💡 Click buttons below to manage your characters' })
+    .setTimestamp();
+
+  if (!mainChar) {
+    embed.setDescription('**No main character registered yet.**');
+    return embed;
+  }
+
+  let timezoneDisplay = '🌍 *No timezone set*';
+  if (userTimezone?.timezone) {
+    const timezoneOffsets = {
+      'PST': -8, 'PDT': -7, 'MST': -7, 'MDT': -6, 'CST': -6, 'CDT': -5,
+      'EST': -5, 'EDT': -4, 'AST': -4, 'ADT': -3, 'NST': -3.5, 'NDT': -2.5,
+      'AKST': -9, 'AKDT': -8, 'HST': -10, 'UTC': 0, 'GMT': 0,
+      'WET': 0, 'WEST': 1, 'CET': 1, 'CEST': 2, 'EET': 2, 'EEST': 3,
+      'TRT': 3, 'MSK': 3, 'GST': 4, 'IST': 5.5, 'ICT': 7, 'WIB': 7,
+      'SGT': 8, 'HKT': 8, 'PHT': 8, 'MYT': 8, 'JST': 9, 'KST': 9,
+      'AEST': 10, 'AEDT': 11, 'AWST': 8, 'NZDT': 13, 'NZST': 12
+    };
+    
+    const timezoneAbbreviations = {
+      'America/New_York': 'EST', 'America/Chicago': 'CST', 'America/Denver': 'MST',
+      'America/Los_Angeles': 'PST', 'America/Toronto': 'EST', 'Europe/London': 'GMT',
+      'Europe/Paris': 'CET', 'Asia/Tokyo': 'JST', 'Asia/Seoul': 'KST',
+      'Australia/Sydney': 'AEDT', 'Pacific/Auckland': 'NZDT'
+    };
+    
+    const abbrev = timezoneAbbreviations[userTimezone.timezone] || userTimezone.timezone;
+    const offset = timezoneOffsets[abbrev] || 0;
+    
+    const now = new Date();
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    
+    let localHours = utcHours + offset;
+    if (localHours >= 24) localHours -= 24;
+    if (localHours < 0) localHours += 24;
+    
+    const ampm = localHours >= 12 ? 'PM' : 'AM';
+    const displayHours = localHours % 12 || 12;
+    const minutes = utcMinutes.toString().padStart(2, '0');
+    
+    timezoneDisplay = `🌍 ${userTimezone.timezone} • ${displayHours}:${minutes} ${ampm}`;
+  }
+  
+  embed.setDescription(`${timezoneDisplay}\n`);
+
+  const mainRoleEmoji = getRoleEmoji(mainChar.role);
+  const formattedAbilityScore = formatAbilityScore(mainChar.ability_score);
+  
+  embed.addFields({
+    name: '⭐ **MAIN CHARACTER**',
+    value: 
+      '```ansi\n' +
+      `✨ \u001b[1;36mIGN:\u001b[0m       ${mainChar.ign}\n` +
+      `\n` +
+      `🏰 \u001b[1;34mGuild:\u001b[0m     ${mainChar.guild || 'None'}\n` +
+      `🎭 \u001b[1;33mClass:\u001b[0m     ${mainChar.class}\n` +
+      `🎯 \u001b[1;35mSubclass:\u001b[0m  ${mainChar.subclass}\n` +
+      `${mainRoleEmoji} \u001b[1;32mRole:\u001b[0m      ${mainChar.role}\n` +
+      `\n` +
+      `💪 \u001b[1;31mAbility Score:\u001b[0m ${formattedAbilityScore}\n` +
+      '```',
+    inline: false
+  });
+
+  if (mainSubclasses.length > 0) {
+    const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+    const subclassText = mainSubclasses.map((sc, i) => {
+      const numberEmoji = numberEmojis[i] || `${i + 1}.`;
+      const scAbilityScore = formatAbilityScore(sc.ability_score);
+      return '```ansi\n' + `${numberEmoji} ${sc.class} › ${sc.subclass} › ${sc.role}\n` +
+             `   \u001b[1;31mAbility Score:\u001b[0m ${scAbilityScore}\n` + '```';
+    }).join('');
+    embed.addFields({ name: '📊 **Subclasses**', value: subclassText, inline: false });
+  }
+
+  if (alts && alts.length > 0) {
+    const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+    const altsText = alts.map((alt, i) => {
+      const numberEmoji = numberEmojis[i] || `${i + 1}.`;
+      const altAbilityScore = formatAbilityScore(alt.ability_score);
+      return '```ansi\n' +
+             `${numberEmoji} \u001b[1;36mIGN:\u001b[0m ${alt.ign}  •  \u001b[1;34mGuild:\u001b[0m ${alt.guild || 'None'}\n` +
+             `   ${alt.class} › ${alt.subclass} › ${alt.role}\n` +
+             `   \u001b[1;31mAbility Score:\u001b[0m ${altAbilityScore}\n` + '```';
+    }).join('');
+    embed.addFields({ name: `📋 **Alt**`, value: altsText, inline: false });
+  }
+
+  embed.addFields({
+    name: '\u200B',
+    value: `**${allCharacters.length} character${allCharacters.length !== 1 ? 's' : ''} registered • Last updated** •`,
+    inline: false
+  });
+
+  return embed;
+}
+
+function formatAbilityScore(score) {
+  if (!score || score === '' || score === 0) return 'Not set';
+  const numScore = parseInt(score);
+  const scoreRanges = {
+    10000: '≤10k', 11000: '10-12k', 13000: '12-14k', 15000: '14-16k', 17000: '16-18k',
+    19000: '18-20k', 21000: '20-22k', 23000: '22-24k', 25000: '24-26k', 27000: '26-28k',
+    29000: '28-30k', 31000: '30-32k', 33000: '32-34k', 35000: '34-36k', 37000: '36-38k',
+    39000: '38-40k', 41000: '40-42k', 43000: '42-44k', 45000: '44-46k', 47000: '46-48k',
+    49000: '48-50k', 51000: '50-52k', 53000: '52-54k', 55000: '54-56k', 57000: '56k+'
+  };
+  return scoreRanges[numScore] || `~${numScore.toLocaleString()}`;
+}
+
+function getRoleEmoji(role) {
+  const emojis = { 'Tank': '🛡️', 'DPS': '⚔️', 'Support': '💚' };
+  return emojis[role] || '⭐';
 }
 
 // ==================== UTILITY FUNCTIONS ====================
