@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { queries } from '../database/queries.js';
+import logger from '../utils/logger.js';
 
 // ✅ Ephemeral configuration (matches character.js)
 const EPHEMERAL_CONFIG = {
@@ -15,7 +16,7 @@ export default {
     try {
       await this.showMainMenu(interaction, false);
     } catch (error) {
-      console.error('Error in edit-member-details command:', error);
+      logger.error(`Edit member details error: ${error.message}`);
       
       const errorEmbed = new EmbedBuilder()
         .setColor('#FF0000')
@@ -40,20 +41,8 @@ export default {
     const altSubclasses = allCharacters.filter(char => char.character_type === 'alt_subclass');
     const totalSubclasses = mainSubclasses.length + altSubclasses.length;
     
-    console.log('📊 Character counts:', {
-      total: allCharacters.length,
-      alts: alts.length,
-      mainSubclasses: mainSubclasses.length,
-      altSubclasses: altSubclasses.length,
-      totalSubclasses
-    });
-    
-    console.log('📋 All characters:', allCharacters.map(c => ({
-      id: c.id,
-      ign: c.ign,
-      type: c.character_type,
-      class: c.class
-    })));
+    // Only log in verbose mode
+    logger.verbose(`Character counts for ${userId}: total=${allCharacters.length}, alts=${alts.length}, subclasses=${totalSubclasses}`);
     
     const userTimezone = await queries.getUserTimezone(userId);
 
@@ -202,12 +191,7 @@ export default {
     }
 
     // ✅ Build buttons with proper counts
-    console.log('📍 About to build buttons:', { 
-      userId, 
-      hasMainChar: !!mainChar,
-      altCount: alts.length,
-      subclassCount: totalSubclasses 
-    });
+    logger.verbose(`Building button rows for ${userId}: hasMainChar=${!!mainChar}, alts=${alts.length}, subclasses=${totalSubclasses}`);
     
     const components = this.buildButtonRows(mainChar, alts.length, totalSubclasses, userId);
 
@@ -289,21 +273,12 @@ export default {
   buildButtonRows(mainChar, altCount, subclassCount, userId) {
     // ✅ Safety check for undefined userId
     if (!userId) {
-      console.error('❌ buildButtonRows called with undefined userId!');
-      console.trace('Stack trace:');
-      // Use a placeholder that will be obvious if it fails
+      logger.error('buildButtonRows called with undefined userId!');
       userId = 'ERROR_UNDEFINED_USER';
     }
     
-    console.log('🔧 Building buttons with counts:', { 
-      userId,
-      altCount, 
-      subclassCount,
-      altCountType: typeof altCount,
-      subclassCountType: typeof subclassCount,
-      altDisabled: altCount === 0,
-      subclassDisabled: subclassCount === 0
-    });
+    // Only log in verbose mode
+    logger.verbose(`buildButtonRows: userId=${userId}, alts=${altCount}, subclasses=${subclassCount}`);
     
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
@@ -362,11 +337,7 @@ export default {
     // ✅ If userId is undefined, use interaction user's ID
     const targetUserId = userId || interaction.user.id;
     
-    console.log('🔍 showEditMenu called with:', { 
-      providedUserId: userId, 
-      interactionUserId: interaction.user.id,
-      targetUserId 
-    });
+    logger.verbose(`showEditMenu: userId=${targetUserId}`);
     
     const allCharacters = await queries.getAllCharactersWithSubclasses(targetUserId);
     
