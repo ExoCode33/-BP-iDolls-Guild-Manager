@@ -172,16 +172,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-async function safeCall(handlerName, functionName, interaction, ...args) {
+// Safe handler call - NO AUTO-DEFER, let handlers control their own interactions
+function safeCall(handlerName, functionName, ...args) {
   if (handlers[handlerName] && handlers[handlerName][functionName]) {
-    if (!interaction.deferred && !interaction.replied) {
-      try {
-        await interaction.deferUpdate();
-      } catch (error) {
-        logger.verbose(`Could not defer ${functionName}: ${error.message}`);
-      }
-    }
-    return handlers[handlerName][functionName](interaction, ...args);
+    return handlers[handlerName][functionName](...args);
   }
   return Promise.resolve();
 }
