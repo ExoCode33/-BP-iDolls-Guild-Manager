@@ -229,8 +229,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.log(`🔘 ${interaction.user.tag} clicked button: ${interaction.customId}`);
     
     try {
-      // ✅ FIXED: Correct button prefixes (removed char_ and subclass_ prefixes)
-      
       // Character handlers (main/alt)
       if (interaction.customId.startsWith('register_main_') || interaction.customId.startsWith('add_main_')) {
         await characterHandlers.handleAddMain(interaction);
@@ -253,11 +251,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await subclassHandlers.handleAddSubclassToMain(interaction);
       }
       else if (interaction.customId.startsWith('remove_subclass_')) {
-        await interaction.update({ 
-          content: '🚧 Subclass removal coming soon!',
-          embeds: [],
-          components: []
-        });
+        await removeHandlers.handleRemoveSubclass(interaction);
       }
       
       // Back buttons
@@ -309,6 +303,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       else if (interaction.customId.startsWith('cancel_remove_alt_')) {
         await removeHandlers.handleCancelRemoveAlt(interaction);
+      }
+      else if (interaction.customId.startsWith('confirm_remove_subclass_')) {
+        await removeHandlers.handleConfirmRemoveSubclass(interaction);
+      }
+      else if (interaction.customId.startsWith('cancel_remove_subclass_')) {
+        await removeHandlers.handleCancelRemoveSubclass(interaction);
       }
       
       // If no handler matched
@@ -417,6 +417,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Remove selects
       else if (interaction.customId.startsWith('select_alt_remove_')) {
         await removeHandlers.handleAltSelectionForRemoval(interaction);
+      }
+      else if (interaction.customId.startsWith('select_subclass_remove_')) {
+        await removeHandlers.handleSubclassSelectionForRemoval(interaction);
       }
       
       console.log(`✅ Select menu handled: ${interaction.customId}`);
