@@ -236,8 +236,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('add_alt_')) {
         await characterHandlers.handleAddAlt(interaction);
       }
+      // Edit menu
+      else if (interaction.customId.startsWith('show_edit_menu_')) {
+        const userId = interaction.customId.split('_')[3];
+        const editMemberDetails = (await import('./commands/edit-member-details.js')).default;
+        await editMemberDetails.showEditMenu(interaction, userId);
+      }
       else if (interaction.customId.startsWith('edit_main_')) {
         await updateHandlers.handleUpdateMain(interaction);
+      }
+      else if (interaction.customId.startsWith('edit_alt_')) {
+        await updateHandlers.handleUpdateAlt(interaction);
+      }
+      else if (interaction.customId.startsWith('edit_subclass_')) {
+        await updateHandlers.handleUpdateSubclass(interaction);
       }
       else if (interaction.customId.startsWith('remove_main_')) {
         await removeHandlers.handleRemoveMain(interaction);
@@ -420,6 +432,28 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       else if (interaction.customId.startsWith('select_subclass_remove_')) {
         await removeHandlers.handleSubclassSelectionForRemoval(interaction);
+      }
+      
+      // Update selects (alt and subclass)
+      else if (interaction.customId.startsWith('select_alt_update_')) {
+        await updateHandlers.handleAltSelectionForUpdate(interaction);
+      }
+      else if (interaction.customId.startsWith('select_subclass_update_')) {
+        await updateHandlers.handleSubclassSelectionForUpdate(interaction);
+      }
+      
+      // Edit type selection
+      else if (interaction.customId.startsWith('edit_type_select_')) {
+        const userId = interaction.customId.split('_')[3];
+        const selectedType = interaction.values[0];
+        
+        if (selectedType === 'edit_main') {
+          await updateHandlers.handleUpdateMain(interaction);
+        } else if (selectedType === 'edit_alt') {
+          await updateHandlers.handleUpdateAlt(interaction);
+        } else if (selectedType === 'edit_subclass') {
+          await updateHandlers.handleUpdateSubclass(interaction);
+        }
       }
       
       console.log(`✅ Select menu handled: ${interaction.customId}`);
