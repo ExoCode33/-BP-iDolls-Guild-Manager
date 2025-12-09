@@ -3,25 +3,21 @@ import { GAME_DATA, getRoleFromClass, getSubclassesForClass, getTimezoneRegions,
 import { queries } from '../database/queries.js';
 import stateManager from '../utils/stateManager.js';
 
-// ✅ Ephemeral configuration
 const EPHEMERAL_CONFIG = {
   editMemberDetails: process.env.EDIT_MEMBER_DETAILS_EPHEMERAL !== 'false',
 };
 
-// ✅ Helper to get ephemeral options
 function getEphemeralOptions(userId, interactionUserId) {
   const isAdminEdit = userId !== interactionUserId;
   const shouldBePrivate = isAdminEdit ? process.env.ADMIN_EPHEMERAL !== 'false' : EPHEMERAL_CONFIG.editMemberDetails;
   return shouldBePrivate ? { flags: 64 } : {};
 }
 
-// ✅ Extract userId from button customId
 function extractUserIdFromCustomId(customId) {
   const parts = customId.split('_');
   return parts[parts.length - 1];
 }
 
-// ✅ Format ability score to range display
 function formatAbilityScore(score) {
   if (!score || score === '' || score === 0) return 'Not set';
   
@@ -90,8 +86,6 @@ function getRegionEmoji(region) {
   return emojis[region] || '🌐';
 }
 
-// ==================== UPDATE MAIN CHARACTER ====================
-
 export async function handleUpdateMain(interaction) {
   try {
     const userId = extractUserIdFromCustomId(interaction.customId);
@@ -131,8 +125,6 @@ export async function handleUpdateMain(interaction) {
     }
   }
 }
-
-// ==================== UPDATE ALT CHARACTER ====================
 
 export async function handleUpdateAlt(interaction) {
   try {
@@ -247,8 +239,6 @@ export async function handleAltSelectionForUpdate(interaction) {
   }
 }
 
-// ==================== UPDATE SUBCLASS ====================
-
 export async function handleUpdateSubclass(interaction) {
   try {
     const userId = extractUserIdFromCustomId(interaction.customId);
@@ -293,7 +283,6 @@ export async function handleUpdateSubclass(interaction) {
 async function showSubclassSelectionForUpdate(interaction, userId, mainChar, mainSubclasses, alts, altSubclasses) {
   const options = [];
   
-  // Add main subclasses
   mainSubclasses.forEach((sc, index) => {
     options.push({
       label: `Main: ${sc.class} (${sc.subclass})`,
@@ -303,7 +292,6 @@ async function showSubclassSelectionForUpdate(interaction, userId, mainChar, mai
     });
   });
   
-  // Add alt subclasses
   altSubclasses.forEach((sc, index) => {
     const parentAlt = alts.find(a => a.id === sc.parent_character_id);
     if (parentAlt) {
@@ -396,7 +384,6 @@ export async function handleSubclassSelectionForUpdate(interaction) {
       isAdminEdit: state.isAdminEdit
     });
 
-    // For subclasses, we only allow updating ability score
     await showSubclassAbilityScoreUpdate(interaction, userId, selectedSubclass, parentName);
     
   } catch (error) {
@@ -471,25 +458,25 @@ async function showUpdateMenu(interaction, userId, character) {
       {
         label: 'Update IGN',
         value: 'ign',
-        description: `Current: ${mainChar.ign}`,
+        description: `Current: ${character.ign}`,
         emoji: '🎮'
       },
       {
         label: 'Update Class & Subclass',
         value: 'class',
-        description: `Current: ${mainChar.class} (${mainChar.subclass})`,
+        description: `Current: ${character.class} (${character.subclass})`,
         emoji: '🎭'
       },
       {
         label: 'Update Ability Score',
         value: 'ability_score',
-        description: `Current: ${formatAbilityScore(mainChar.ability_score)}`,
+        description: `Current: ${formatAbilityScore(character.ability_score)}`,
         emoji: '💪'
       },
       {
         label: 'Update Guild',
         value: 'guild',
-        description: `Current: ${mainChar.guild || 'None'}`,
+        description: `Current: ${character.guild || 'None'}`,
         emoji: '🏰'
       },
       {
@@ -511,13 +498,13 @@ async function showUpdateMenu(interaction, userId, character) {
 
   const updateEmbed = new EmbedBuilder()
     .setColor('#6640D9')
-    .setTitle('✏️ Update Main Character')
+    .setTitle('✏️ Update Character')
     .setDescription('**Select what you want to update:**')
     .addFields(
-      { name: '🎮 Current IGN', value: mainChar.ign, inline: true },
-      { name: '🎭 Current Class', value: `${mainChar.class} (${mainChar.subclass})`, inline: true },
-      { name: '💪 Current Ability Score', value: formatAbilityScore(mainChar.ability_score), inline: true },
-      { name: '🏰 Current Guild', value: mainChar.guild || 'None', inline: true }
+      { name: '🎮 Current IGN', value: character.ign, inline: true },
+      { name: '🎭 Current Class', value: `${character.class} (${character.subclass})`, inline: true },
+      { name: '💪 Current Ability Score', value: formatAbilityScore(character.ability_score), inline: true },
+      { name: '🏰 Current Guild', value: character.guild || 'None', inline: true }
     )
     .setFooter({ text: '💡 Choose an option to update' })
     .setTimestamp();
@@ -538,8 +525,8 @@ export async function handleUpdateOptionSelection(interaction) {
       });
     }
 
-    const mainChar = await queries.getMainCharacter(userId);
-    if (!mainChar) {
+    const character = state.character || await queries.getMainCharacter(userId);
+    if (!character) {
       return interaction.reply({
         content: '❌ Character not found.',
         ...getEphemeralOptions(userId, interaction.user.id)
@@ -548,7 +535,8 @@ export async function handleUpdateOptionSelection(interaction) {
 
     stateManager.setUpdateState(userId, {
       ...state,
-      field: selectedOption
+      field: selectedOption,
+      character: character
     });
 
     switch (selectedOption) {
@@ -556,13 +544,13 @@ export async function handleUpdateOptionSelection(interaction) {
         await showUpdateIGNModal(interaction, userId);
         break;
       case 'class':
-        await showUpdateClassSelection(interaction, userId, mainChar);
+        await showUpdateClassSelection(interaction, userId, character);
         break;
       case 'ability_score':
-        await showAbilityScoreSelectionForUpdate(interaction, userId, mainChar);
+        await showAbilityScoreSelectionForUpdate(interaction, userId, character);
         break;
       case 'guild':
-        await showUpdateGuildSelection(interaction, userId, mainChar);
+        await showUpdateGuildSelection(interaction, userId, character);
         break;
       case 'timezone':
         await showUpdateTimezoneSelection(interaction, userId);
@@ -574,8 +562,6 @@ export async function handleUpdateOptionSelection(interaction) {
     stateManager.clearUpdateState(extractUserIdFromCustomId(interaction.customId));
   }
 }
-
-// ==================== UPDATE IGN ====================
 
 async function showUpdateIGNModal(interaction, userId) {
   const modal = new ModalBuilder()
@@ -637,9 +623,7 @@ export async function handleUpdateModal(interaction, field) {
   }
 }
 
-// ==================== UPDATE CLASS ====================
-
-async function showUpdateClassSelection(interaction, userId, mainChar) {
+async function showUpdateClassSelection(interaction, userId, character) {
   const classes = Object.keys(GAME_DATA.classes);
   
   const selectMenu = new StringSelectMenuBuilder()
@@ -668,7 +652,7 @@ async function showUpdateClassSelection(interaction, userId, mainChar) {
     .setDescription('Select your new class')
     .addFields({
       name: '🎭 Current Class',
-      value: `${mainChar.class} (${mainChar.subclass})`,
+      value: `${character.class} (${character.subclass})`,
       inline: false
     })
     .setFooter({ text: '💡 This will also update your subclass' })
@@ -783,9 +767,7 @@ export async function handleUpdateSubclassSelection(interaction) {
   }
 }
 
-// ==================== UPDATE ABILITY SCORE ====================
-
-async function showAbilityScoreSelectionForUpdate(interaction, userId, mainChar) {
+async function showAbilityScoreSelectionForUpdate(interaction, userId, character) {
   const abilityScoreRanges = [
     { label: '10k or smaller', value: '10000', description: 'Ability Score: ≤10,000' },
     { label: '10k - 12k', value: '11000', description: 'Ability Score: 10,001 - 12,000' },
@@ -834,7 +816,7 @@ async function showAbilityScoreSelectionForUpdate(interaction, userId, mainChar)
     .setDescription('Select your new ability score range')
     .addFields({
       name: '💪 Current Ability Score',
-      value: formatAbilityScore(mainChar.ability_score),
+      value: formatAbilityScore(character.ability_score),
       inline: false
     })
     .setFooter({ text: '💪 Choose the range closest to your ability score' })
@@ -883,9 +865,7 @@ export async function handleUpdateAbilityScoreSelection(interaction) {
   }
 }
 
-// ==================== UPDATE GUILD ====================
-
-async function showUpdateGuildSelection(interaction, userId, mainChar) {
+async function showUpdateGuildSelection(interaction, userId, character) {
   const guilds = GAME_DATA.guilds;
   
   if (guilds.length === 0) {
@@ -924,7 +904,7 @@ async function showUpdateGuildSelection(interaction, userId, mainChar) {
     .setDescription('Select your new guild')
     .addFields({
       name: '🏰 Current Guild',
-      value: mainChar.guild || 'None',
+      value: character.guild || 'None',
       inline: false
     })
     .setFooter({ text: '💡 Choose your guild affiliation' })
@@ -972,8 +952,6 @@ export async function handleUpdateGuildSelection(interaction) {
     stateManager.clearUpdateState(extractUserIdFromCustomId(interaction.customId));
   }
 }
-
-// ==================== UPDATE TIMEZONE ====================
 
 async function showUpdateTimezoneSelection(interaction, userId) {
   const regions = getTimezoneRegions();
@@ -1167,8 +1145,6 @@ export async function handleUpdateTimezoneFinalSelection(interaction) {
   }
 }
 
-// ==================== BACK BUTTON HANDLERS ====================
-
 export async function handleBackToUpdateMenu(interaction) {
   const userId = extractUserIdFromCustomId(interaction.customId);
   const state = stateManager.getUpdateState(userId);
@@ -1180,15 +1156,15 @@ export async function handleBackToUpdateMenu(interaction) {
     });
   }
 
-  const mainChar = await queries.getMainCharacter(userId);
-  if (!mainChar) {
+  const character = state.character || await queries.getMainCharacter(userId);
+  if (!character) {
     return interaction.reply({
       content: '❌ Character not found.',
       ...getEphemeralOptions(userId, interaction.user.id)
     });
   }
 
-  await showUpdateMenu(interaction, userId, mainChar);
+  await showUpdateMenu(interaction, userId, character);
 }
 
 export async function handleBackToUpdateClass(interaction) {
@@ -1202,15 +1178,15 @@ export async function handleBackToUpdateClass(interaction) {
     });
   }
 
-  const mainChar = await queries.getMainCharacter(userId);
-  if (!mainChar) {
+  const character = state.character || await queries.getMainCharacter(userId);
+  if (!character) {
     return interaction.reply({
       content: '❌ Character not found.',
       ...getEphemeralOptions(userId, interaction.user.id)
     });
   }
 
-  await showUpdateClassSelection(interaction, userId, mainChar);
+  await showUpdateClassSelection(interaction, userId, character);
 }
 
 export async function handleBackToUpdateTimezoneRegion(interaction) {
