@@ -68,6 +68,8 @@ export default {
     const mainChar = allCharacters.find(c => c.character_type === 'main');
     const mainSubclasses = allCharacters.filter(c => c.character_type === 'main_subclass');
     const alts = allCharacters.filter(c => c.character_type === 'alt');
+    const altSubclasses = allCharacters.filter(c => c.character_type === 'alt_subclass');
+    const totalSubclasses = mainSubclasses.length + altSubclasses.length;
     
     // Get subclasses for each alt
     const altsWithSubclasses = alts.map(alt => ({
@@ -228,8 +230,8 @@ export default {
     }
 
     // === BUILD BUTTON ROWS (same as edit-member-details) ===
-    // ✅ CRITICAL FIX: Pass targetUser.id instead of interaction.user.id
-    const rows = editMemberDetails.default.buildButtonRows(mainChar, alts, targetUser.id);
+    // ✅ FIXED: Pass counts (alts.length, totalSubclasses) instead of arrays
+    const rows = editMemberDetails.default.buildButtonRows(mainChar, alts.length, totalSubclasses, targetUser.id);
 
     // ✅ Use conditional flags based on EPHEMERAL_CONFIG
     const replyOptions = { embeds: [embed], components: rows };
