@@ -9,12 +9,12 @@ class Logger {
     this.verboseMode = process.env.LOG_VERBOSE === 'true';
     this.logToDiscord = process.env.LOG_TO_DISCORD !== 'false'; // Default true
     
-    // Track what's been logged to avoid duplicates
-    this.startupLogs = {
+    // Track startup to send one summary
+    this.startup = {
       handlers: null,
-      server: false,
-      bot: false,
-      commands: false
+      server: null,
+      bot: null,
+      commands: null
     };
   }
 
@@ -23,10 +23,28 @@ class Logger {
     this.client = client;
     if (this.logChannelId && this.logToDiscord) {
       console.log('📡 Discord logging → enabled');
+      this.sendStartupSummary();
     }
   }
 
-  // Send to Discord
+  // Send consolidated startup summary to Discord
+  async sendStartupSummary() {
+    if (!this.startup.handlers || !this.startup.server || !this.startup.bot || !this.startup.commands) {
+      return; // Wait until all startup info is collected
+    }
+
+    const summary = [
+      '**🚀 BOT STARTED**',
+      `├─ 🤖 ${this.startup.bot}`,
+      `├─ 🔧 ${this.startup.handlers}`,
+      `├─ 📝 ${this.startup.commands}`,
+      `└─ 🌐 ${this.startup.server}`
+    ].join('\n');
+
+    await this.toDiscord(summary, 'SUCCESS');
+  }
+
+  // Send to Discord with compact format
   async toDiscord(message, level = 'INFO') {
     if (!this.logChannelId || !this.client || !this.logToDiscord) return;
     
@@ -39,19 +57,26 @@ class Logger {
         'SUCCESS': '✅',
         'ERROR': '❌',
         'WARNING': '⚠️',
+        'COMMAND': '⚡',
         'SYNC': '🔄'
       };
       
       const icon = icons[level] || '📝';
-      const timestamp = new Date().toLocaleString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
+      const timestamp = new Date().toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit',
-        second: '2-digit'
+        second: '2-digit',
+        hour12: false
       });
       
-      await channel.send(`${icon} **[${level}]** ${timestamp}\n\`\`\`${message}\`\`\``);
+      // Compact format: icon [time] message
+      if (level === 'SUCCESS' || level === 'ERROR') {
+        // Multi-line messages (like startup summary)
+        await channel.send(`${icon} **[${timestamp}]**\n${message}`);
+      } else {
+        // Single line messages
+        await channel.send(`${icon} **[${timestamp}]** ${message}`);
+      }
     } catch (error) {
       // Silently fail
     }
@@ -73,9 +98,14 @@ class Logger {
     if (sendToDiscord) this.toDiscord(message, 'ERROR');
   }
 
-  warning(message, sendToDiscord = false) {
+  warning(message, sendToDiscord = true) {
     console.log(message);
     if (sendToDiscord) this.toDiscord(message, 'WARNING');
+  }
+
+  command(message, sendToDiscord = true) {
+    console.log(message);
+    if (sendToDiscord) this.toDiscord(message, 'COMMAND');
   }
 
   sync(message, sendToDiscord = true) {
@@ -83,7 +113,7 @@ class Logger {
     if (sendToDiscord) this.toDiscord(message, 'SYNC');
   }
 
-  // Verbose logging (only if LOG_VERBOSE=true)
+  // Verbose logging (only console, never Discord)
   verbose(message) {
     if (this.verboseMode) {
       console.log(`[VERBOSE] ${message}`);
@@ -92,66 +122,84 @@ class Logger {
 
   // Startup logs (compact)
   handlers(loaded, missing) {
-    if (this.startupLogs.handlers) return; // Already logged
-    
-    if (loaded.length > 0) {
-      this.info(`✅ Handlers: ${loaded.join(', ')}`);
+    const loadedStr = loaded.length > 0 ? loaded.join(', ') : 'none';
+    const msg = `Handlers: ${loadedStr}`;
+    this.info(`✅ ${msg}`);
+    this.startup.handlers = msg;
+    if (missing.length > 0) {
+      this.warning(`Missing handlers: ${missing.join(', ')}`, false);
     }
-    if (missing.length > 0 && this.verboseMode) {
-      this.info(`⚠️ Missing: ${missing.join(', ')}`);
-    }
-    
-    this.startupLogs.handlers = true;
+    this.sendStartupSummary();
   }
 
   server(port) {
-    if (this.startupLogs.server) return;
-    this.info(`✅ Server: :${port}`);
-    this.startupLogs.server = true;
+    const msg = `Server: port ${port}`;
+    this.info(`✅ ${msg}`);
+    this.startup.server = msg;
+    this.sendStartupSummary();
   }
 
   botReady(username) {
-    if (this.startupLogs.bot) return;
-    this.success(`✅ Bot ready: ${username}`);
-    this.startupLogs.bot = true;
+    const msg = `Bot: ${username}`;
+    this.info(`✅ ${msg}`);
+    this.startup.bot = msg;
+    this.sendStartupSummary();
   }
 
   commands(count) {
-    if (this.startupLogs.commands) return;
-    this.info(`✅ Commands: ${count} registered`);
-    this.startupLogs.commands = true;
+    const msg = `Commands: ${count} registered`;
+    this.info(`✅ ${msg}`);
+    this.startup.commands = msg;
+    this.sendStartupSummary();
   }
 
-  // Auto-sync logs
-  syncStarted() {
-    this.sync('🔄 Syncing to Sheets...');
-  }
-
-  syncComplete() {
-    this.success('✅ Sync complete');
-  }
-
-  syncFailed(error) {
-    this.error(`❌ Sync failed: ${error.message}`);
-  }
-
-  // Interaction logs (verbose only)
-  interaction(type, customId) {
-    this.verbose(`${type}: ${customId}`);
-  }
-
-  // Command execution
+  // Command execution (compact, to Discord)
   commandExecuted(commandName, username) {
+    const msg = `\`/${commandName}\` by **${username}**`;
+    this.command(msg);
     this.verbose(`/${commandName} by ${username}`);
   }
 
   commandError(commandName, error) {
-    this.error(`❌ /${commandName}: ${error.message}`);
+    const msg = `**Command Failed:** \`/${commandName}\`\n└─ ${error.message}`;
+    this.error(msg);
+  }
+
+  // Button/Select/Modal interactions (compact)
+  interaction(type, customId) {
+    // Extract just the action, not the full ID
+    const action = customId.split('_').slice(0, -1).join('_') || customId;
+    this.verbose(`${type}: ${action}`);
+    
+    // Only log important interactions to Discord
+    if (type === 'Button' && (customId.includes('confirm') || customId.includes('remove'))) {
+      this.command(`**${type}:** \`${action}\``);
+    }
+  }
+
+  // Sync logs
+  syncStarted() {
+    this.sync('Syncing to Sheets...');
+  }
+
+  syncComplete() {
+    this.success('Sync complete');
+  }
+
+  syncFailed(error) {
+    this.error(`**Sync Failed:** ${error.message}`);
+  }
+
+  // Database connection
+  dbConnected() {
+    this.info('✅ Database connected', false);
   }
 
   // Shutdown
   shutdown() {
-    this.info('🛑 Shutting down...');
+    const msg = 'Bot shutting down...';
+    this.warning(msg);
+    console.log('🛑 Shutting down...');
   }
 }
 
