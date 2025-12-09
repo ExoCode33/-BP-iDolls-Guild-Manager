@@ -3,8 +3,6 @@ import { GAME_DATA, getRoleFromClass, getSubclassesForClass, getTimezoneRegions,
 import { queries } from '../database/queries.js';
 import stateManager from '../utils/stateManager.js';
 
-// ==================== EPHEMERAL CONFIGURATION ====================
-// Per-command ephemeral settings (default: true = private)
 const EPHEMERAL_CONFIG = {
   admin: process.env.ADMIN_EPHEMERAL !== 'false',
   editMemberDetails: process.env.EDIT_MEMBER_DETAILS_EPHEMERAL !== 'false',
@@ -16,24 +14,16 @@ console.log(`   /admin: ${EPHEMERAL_CONFIG.admin ? 'PRIVATE ✅' : 'PUBLIC ⚠�
 console.log(`   /edit-member-details: ${EPHEMERAL_CONFIG.editMemberDetails ? 'PRIVATE ✅' : 'PUBLIC ⚠️'}`);
 console.log(`   /view-char: ${EPHEMERAL_CONFIG.viewChar ? 'PRIVATE ✅' : 'PUBLIC ⚠️'}`);
 
-// Helper to get ephemeral flag based on context  
-// Returns options object to spread - either {flags: 64} or {}
 function getEphemeralOptions(userId, interactionUserId) {
   const isAdminEdit = userId !== interactionUserId;
   const shouldBePrivate = isAdminEdit ? EPHEMERAL_CONFIG.admin : EPHEMERAL_CONFIG.editMemberDetails;
-  
-  // Only include flags property if it should be private
-  // DO NOT include flags: null or flags: undefined - Discord rejects these!
   return shouldBePrivate ? { flags: 64 } : {};
 }
 
-// Backwards compatibility - returns boolean for if statements
 function getEphemeralFlag(userId, interactionUserId) {
   const isAdminEdit = userId !== interactionUserId;
   return isAdminEdit ? EPHEMERAL_CONFIG.admin : EPHEMERAL_CONFIG.editMemberDetails;
 }
-
-// ==================== UTILITY FUNCTIONS ====================
 
 function extractUserIdFromCustomId(customId) {
   const parts = customId.split('_');
@@ -72,8 +62,6 @@ function getRegionEmoji(region) {
   return emojis[region] || '🌐';
 }
 
-// ==================== MAIN CHARACTER HANDLERS ====================
-
 export async function handleAddMain(interaction) {
   try {
     const userId = extractUserIdFromCustomId(interaction.customId);
@@ -91,7 +79,6 @@ export async function handleAddMain(interaction) {
         })
         .setTimestamp();
       
-      // ✅ Use update for button interactions
       return interaction.update({ 
         embeds: [embed], 
         components: []
@@ -141,7 +128,6 @@ export async function handleAddAlt(interaction) {
         })
         .setTimestamp();
       
-      // ✅ Use update for button interactions, not reply
       return interaction.update({ 
         embeds: [embed], 
         components: []
@@ -173,8 +159,6 @@ export async function handleAddAlt(interaction) {
     }
   }
 }
-
-// ==================== CLASS SELECTION ====================
 
 async function showClassSelection(interaction, userId, type) {
   const classes = Object.keys(GAME_DATA.classes);
@@ -240,8 +224,6 @@ export async function handleClassSelection(interaction) {
     });
   }
 }
-
-// ==================== SUBCLASS SELECTION ====================
 
 async function showSubclassSelection(interaction, userId, type, selectedClass) {
   const subclasses = getSubclassesForClass(selectedClass);
@@ -315,8 +297,6 @@ export async function handleSubclassSelection(interaction) {
     });
   }
 }
-
-// ==================== ABILITY SCORE SELECTION ====================
 
 async function showAbilityScoreSelection(interaction, userId, state) {
   if (!state || !state.class || !state.subclass) {
@@ -411,8 +391,6 @@ export async function handleAbilityScoreSelection(interaction) {
   }
 }
 
-// ==================== GUILD SELECTION ====================
-
 async function showGuildSelection(interaction, userId, state) {
   const guilds = GAME_DATA.guilds;
   
@@ -496,8 +474,6 @@ export async function handleGuildSelection(interaction) {
     stateManager.clearRegistrationState(userId);
   }
 }
-
-// ==================== TIMEZONE SELECTION ====================
 
 async function showTimezoneRegionSelection(interaction, userId, state) {
   const regions = getTimezoneRegions();
@@ -700,8 +676,6 @@ export async function handleTimezoneSelection(interaction) {
   }
 }
 
-// ==================== IGN MODAL ====================
-
 async function showIGNModal(interaction, userId, type) {
   const modal = new ModalBuilder()
     .setCustomId(`ign_modal_${type}_${userId}`)
@@ -755,8 +729,6 @@ export async function handleIGNModal(interaction) {
   }
 }
 
-// ==================== SAVE CHARACTERS ====================
-
 async function saveMainCharacter(interaction, userId, targetUser, state, ign) {
   try {
     await interaction.deferReply({ ...getEphemeralOptions(userId, interaction.user.id) });
@@ -807,7 +779,6 @@ async function saveMainCharacter(interaction, userId, targetUser, state, ign) {
     
     stateManager.clearRegistrationState(userId);
     
-    // ✅ Return to menu using followUp
     setTimeout(async () => {
       try {
         if (state.isAdminEdit) {
@@ -876,7 +847,6 @@ async function saveAltCharacter(interaction, userId, targetUser, state, ign) {
     
     stateManager.clearRegistrationState(userId);
     
-    // ✅ Return to menu using followUp
     setTimeout(async () => {
       try {
         if (state.isAdminEdit) {
@@ -903,20 +873,20 @@ async function saveAltCharacter(interaction, userId, targetUser, state, ign) {
   }
 }
 
-// ==================== MENU RETURN HELPERS ====================
-
 async function returnToUserMenu(interaction, userId) {
   try {
     const mainChar = await queries.getMainCharacter(userId);
     const allCharacters = mainChar ? await queries.getAllCharactersWithSubclasses(userId) : [];
     const alts = allCharacters.filter(char => char.character_type === 'alt');
     const mainSubclasses = allCharacters.filter(char => char.character_type === 'main_subclass');
+    const altSubclasses = allCharacters.filter(char => char.character_type === 'alt_subclass');
+    const totalSubclasses = mainSubclasses.length + altSubclasses.length;
     const userTimezone = await queries.getUserTimezone(userId);
 
     const embed = buildCharacterProfileEmbed(interaction.user, mainChar, allCharacters, alts, mainSubclasses, userTimezone);
     
     const editMemberDetails = await import('../commands/edit-member-details.js');
-    const components = editMemberDetails.default.buildButtonRows(mainChar, alts, userId);
+    const components = editMemberDetails.default.buildButtonRows(mainChar, alts.length, totalSubclasses, userId);
 
     await interaction.followUp({ 
       embeds: [embed], 
@@ -936,11 +906,13 @@ async function returnToAdminMenu(interaction, targetUserId, targetUser) {
     const mainChar = allCharacters.find(c => c.character_type === 'main');
     const mainSubclasses = allCharacters.filter(c => c.character_type === 'main_subclass');
     const alts = allCharacters.filter(c => c.character_type === 'alt');
+    const altSubclasses = allCharacters.filter(c => c.character_type === 'alt_subclass');
+    const totalSubclasses = mainSubclasses.length + altSubclasses.length;
 
     const embed = buildCharacterProfileEmbed(targetUser, mainChar, allCharacters, alts, mainSubclasses, userTimezone);
     
     const editMemberDetails = await import('../commands/edit-member-details.js');
-    const components = editMemberDetails.default.buildButtonRows(mainChar, alts, targetUserId);
+    const components = editMemberDetails.default.buildButtonRows(mainChar, alts.length, totalSubclasses, targetUserId);
 
     await interaction.followUp({ 
       embeds: [embed], 
@@ -1077,8 +1049,6 @@ function getRoleEmoji(role) {
   return emojis[role] || '⭐';
 }
 
-// ==================== BACK BUTTON HANDLERS ====================
-
 export async function handleBackToMenu(interaction) {
   const userId = extractUserIdFromCustomId(interaction.customId);
   
@@ -1208,8 +1178,6 @@ export async function handleBackToTimezoneCountry(interaction) {
 }
 
 async function showAdminEditMenu(interaction, userId, targetUser) {
-  // This function would mirror the admin command's showMainMenu
-  // For now, just return to edit-member-details
   const editMemberDetails = await import('../commands/edit-member-details.js');
   await editMemberDetails.default.showMainMenu(interaction, true);
 }
