@@ -1,4 +1,5 @@
 // src/utils/logger.js
+import { EmbedBuilder } from 'discord.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -9,7 +10,6 @@ class Logger {
     this.verboseMode = process.env.LOG_VERBOSE === 'true';
     this.logToDiscord = process.env.LOG_TO_DISCORD !== 'false';
     
-    // Track startup to send one summary
     this.startup = {
       handlers: null,
       server: null,
@@ -18,7 +18,6 @@ class Logger {
     };
   }
 
-  // Initialize with Discord client
   init(client) {
     this.client = client;
     if (this.logChannelId && this.logToDiscord) {
@@ -27,95 +26,92 @@ class Logger {
     }
   }
 
-  // Send consolidated startup summary to Discord
   async sendStartupSummary() {
     if (!this.startup.handlers || !this.startup.server || !this.startup.bot || !this.startup.commands) {
       return;
     }
 
-    const summary = [
-      '**BOT STARTED**',
-      `Bot: ${this.startup.bot}`,
-      `Handlers: ${this.startup.handlers}`,
-      `Commands: ${this.startup.commands}`,
-      `Server: ${this.startup.server}`
-    ].join('\n');
+    const embed = new EmbedBuilder()
+      .setColor('#00FF00')
+      .setTitle('Bot Started')
+      .addFields(
+        { name: 'Bot', value: `\`${this.startup.bot}\``, inline: true },
+        { name: 'Server', value: `\`${this.startup.server}\``, inline: true },
+        { name: 'Commands', value: `\`${this.startup.commands}\``, inline: true },
+        { name: 'Handlers', value: `\`${this.startup.handlers}\``, inline: false }
+      )
+      .setTimestamp();
 
-    await this.toDiscord(summary, 'SUCCESS');
+    await this.sendEmbed(embed);
   }
 
-  // Send to Discord with professional format
-  async toDiscord(message, level = 'INFO') {
+  async sendEmbed(embed) {
     if (!this.logChannelId || !this.client || !this.logToDiscord) return;
     
     try {
       const channel = await this.client.channels.fetch(this.logChannelId);
       if (!channel) return;
-      
-      const prefix = {
-        'INFO': '[INFO]',
-        'SUCCESS': '[SUCCESS]',
-        'ERROR': '[ERROR]',
-        'WARNING': '[WARNING]',
-        'COMMAND': '[COMMAND]',
-        'SYNC': '[SYNC]'
-      };
-      
-      const logPrefix = prefix[level] || '[LOG]';
-      const timestamp = new Date().toISOString();
-      
-      // Professional format: [LEVEL] YYYY-MM-DD HH:MM:SS - message
-      if (level === 'SUCCESS' || level === 'ERROR') {
-        // Multi-line messages
-        await channel.send(`**${logPrefix}** ${timestamp}\n${message}`);
-      } else {
-        // Single line messages
-        await channel.send(`**${logPrefix}** ${timestamp} - ${message}`);
-      }
+      await channel.send({ embeds: [embed] });
     } catch (error) {
       // Silently fail
     }
   }
 
-  // Core logging methods
+  async toDiscord(title, description, color) {
+    const embed = new EmbedBuilder()
+      .setColor(color)
+      .setTitle(title)
+      .setDescription(description)
+      .setTimestamp();
+    
+    await this.sendEmbed(embed);
+  }
+
+  // Console logging methods
   info(message, sendToDiscord = false) {
     console.log(`[INFO] ${message}`);
-    if (sendToDiscord) this.toDiscord(message, 'INFO');
+    if (sendToDiscord) this.toDiscord('Info', message, '#3498DB');
   }
 
   success(message, sendToDiscord = true) {
     console.log(`[SUCCESS] ${message}`);
-    if (sendToDiscord) this.toDiscord(message, 'SUCCESS');
+    if (sendToDiscord) this.toDiscord('Success', message, '#00FF00');
   }
 
   error(message, sendToDiscord = true) {
     console.error(`[ERROR] ${message}`);
-    if (sendToDiscord) this.toDiscord(message, 'ERROR');
+    if (sendToDiscord) this.toDiscord('Error', message, '#FF0000');
   }
 
   warning(message, sendToDiscord = true) {
     console.log(`[WARNING] ${message}`);
-    if (sendToDiscord) this.toDiscord(message, 'WARNING');
+    if (sendToDiscord) this.toDiscord('Warning', message, '#FFA500');
   }
 
   command(message, sendToDiscord = true) {
     console.log(`[COMMAND] ${message}`);
-    if (sendToDiscord) this.toDiscord(message, 'COMMAND');
+    if (sendToDiscord) {
+      const embed = new EmbedBuilder()
+        .setColor('#9B59B6')
+        .setTitle('Command Executed')
+        .setDescription(`\`${message}\``)
+        .setTimestamp();
+      this.sendEmbed(embed);
+    }
   }
 
   sync(message, sendToDiscord = true) {
     console.log(`[SYNC] ${message}`);
-    if (sendToDiscord) this.toDiscord(message, 'SYNC');
+    if (sendToDiscord) this.toDiscord('Sync', message, '#3498DB');
   }
 
-  // Verbose logging (only console, never Discord)
   verbose(message) {
     if (this.verboseMode) {
       console.log(`[VERBOSE] ${message}`);
     }
   }
 
-  // Startup logs (compact)
+  // Startup logs
   handlers(loaded, missing) {
     const loadedStr = loaded.length > 0 ? loaded.join(', ') : 'none';
     const msg = `Handlers loaded: ${loadedStr}`;
@@ -148,55 +144,90 @@ class Logger {
     this.sendStartupSummary();
   }
 
-  // Command execution
+  // Command execution with clean embed
   commandExecuted(commandName, username) {
-    const msg = `Command /${commandName} executed by ${username}`;
-    this.command(msg);
-    this.verbose(`/${commandName} by ${username}`);
+    const msg = `/${commandName} by ${username}`;
+    this.verbose(msg);
+    
+    const embed = new EmbedBuilder()
+      .setColor('#9B59B6')
+      .setTitle('Command Executed')
+      .addFields(
+        { name: 'Command', value: `\`/${commandName}\``, inline: true },
+        { name: 'User', value: `**${username}**`, inline: true }
+      )
+      .setTimestamp();
+    
+    this.sendEmbed(embed);
   }
 
   commandError(commandName, error) {
     const msg = `Command /${commandName} failed: ${error.message}`;
-    this.error(msg);
+    this.error(msg, false);
+    
+    const embed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setTitle('Command Failed')
+      .addFields(
+        { name: 'Command', value: `\`/${commandName}\``, inline: true },
+        { name: 'Error', value: `\`\`\`${error.message}\`\`\``, inline: false }
+      )
+      .setTimestamp();
+    
+    this.sendEmbed(embed);
   }
 
-  // Button/Select/Modal interactions
   interaction(type, customId) {
     const action = customId.split('_').slice(0, -1).join('_') || customId;
     this.verbose(`${type} interaction: ${action}`);
-    
-    // Log important interactions to Discord
-    if (type === 'Button' && (customId.includes('confirm') || customId.includes('remove'))) {
-      this.command(`${type} interaction: ${action}`);
-    }
   }
 
-  // Sync logs
+  // Sync logs with embeds
   syncStarted() {
-    this.sync('Sync to Google Sheets started');
+    console.log('[SYNC] Sync started');
+    
+    const embed = new EmbedBuilder()
+      .setColor('#3498DB')
+      .setTitle('Sync Started')
+      .setDescription('Syncing data to Google Sheets...')
+      .setTimestamp();
+    
+    this.sendEmbed(embed);
   }
 
   syncComplete() {
-    this.success('Sync to Google Sheets completed');
+    console.log('[SUCCESS] Sync completed');
+    
+    const embed = new EmbedBuilder()
+      .setColor('#00FF00')
+      .setTitle('Sync Complete')
+      .setDescription('All data successfully synced to Google Sheets')
+      .setTimestamp();
+    
+    this.sendEmbed(embed);
   }
 
   syncFailed(error) {
-    this.error(`Sync to Google Sheets failed: ${error.message}`);
+    console.error(`[ERROR] Sync failed: ${error.message}`);
+    
+    const embed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setTitle('Sync Failed')
+      .setDescription(`\`\`\`${error.message}\`\`\``)
+      .setTimestamp();
+    
+    this.sendEmbed(embed);
   }
 
-  // Database connection
   dbConnected() {
     this.verbose('Database connected');
   }
 
-  // Shutdown
   shutdown() {
-    const msg = 'Bot shutting down';
-    this.warning(msg);
     console.log('[SHUTDOWN] Bot shutting down');
+    this.warning('Bot shutting down');
   }
 }
 
-// Export singleton instance
 const logger = new Logger();
 export default logger;
