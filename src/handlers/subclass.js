@@ -510,12 +510,15 @@ async function returnToUserMenu(interaction, userId) {
     const allCharacters = mainChar ? await queries.getAllCharactersWithSubclasses(userId) : [];
     const alts = allCharacters.filter(char => char.character_type === 'alt');
     const mainSubclasses = allCharacters.filter(char => char.character_type === 'main_subclass');
+    const altSubclasses = allCharacters.filter(char => char.character_type === 'alt_subclass');
+    const totalSubclasses = mainSubclasses.length + altSubclasses.length;
     const userTimezone = await queries.getUserTimezone(userId);
 
     const embed = buildCharacterProfileEmbed(interaction.user, mainChar, allCharacters, alts, mainSubclasses, userTimezone);
     
     const editMemberDetails = await import('../commands/edit-member-details.js');
-    const components = editMemberDetails.default.buildButtonRows(mainChar, alts, userId);
+    // ✅ Fixed: Pass counts, not arrays, and include subclass count
+    const components = editMemberDetails.default.buildButtonRows(mainChar, alts.length, totalSubclasses, userId);
 
     const shouldBePrivate = process.env.EDIT_MEMBER_DETAILS_EPHEMERAL !== 'false';
     const replyOptions = { embeds: [embed], components };
@@ -536,12 +539,15 @@ async function returnToAdminMenu(interaction, targetUserId, targetUser) {
 
     const mainChar = allCharacters.find(c => c.character_type === 'main');
     const mainSubclasses = allCharacters.filter(c => c.character_type === 'main_subclass');
+    const altSubclasses = allCharacters.filter(c => c.character_type === 'alt_subclass');
+    const totalSubclasses = mainSubclasses.length + altSubclasses.length;
     const alts = allCharacters.filter(c => c.character_type === 'alt');
 
     const embed = buildCharacterProfileEmbed(targetUser, mainChar, allCharacters, alts, mainSubclasses, userTimezone);
     
     const editMemberDetails = await import('../commands/edit-member-details.js');
-    const components = editMemberDetails.default.buildButtonRows(mainChar, alts, targetUserId);
+    // ✅ Fixed: Pass counts, not arrays, and include subclass count
+    const components = editMemberDetails.default.buildButtonRows(mainChar, alts.length, totalSubclasses, targetUserId);
 
     const shouldBePrivate = process.env.ADMIN_EPHEMERAL !== 'false';
     const replyOptions = { embeds: [embed], components };
