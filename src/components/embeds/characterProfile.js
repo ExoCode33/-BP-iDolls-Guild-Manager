@@ -43,7 +43,7 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
 
   const embed = new EmbedBuilder()
     .setColor('#EC4899')
-    .setDescription(`**JOIN ${guildName.toUpperCase()}**\n\n**${displayName}'s Profile**`);
+    .setDescription(`# **Join ${guildName} - ${displayName}'s Profile**`);
 
   if (!mainChar) {
     embed.setDescription('```ansi\n\u001b[0;31mNo main character registered\u001b[0m\n```');
@@ -57,7 +57,8 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
   mainSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${mainChar.ign}\n`;
   mainSection += `\n`;
   mainSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${mainChar.guild || 'None'}\n`;
-  mainSection += `\u001b[1;34m🎭 Class:\u001b[0m ${mainChar.class} - ${mainChar.subclass} ${roleEmoji}\n`;
+  mainSection += `\u001b[1;34m🎭 Class:\u001b[0m ${mainChar.class}\n`;
+  mainSection += `\u001b[1;34m📋 Subclass:\u001b[0m ${mainChar.subclass} ${roleEmoji}\n`;
   mainSection += `\n`;
   mainSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(mainChar.ability_score)}\n`;
   mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
