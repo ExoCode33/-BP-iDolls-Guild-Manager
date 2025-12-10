@@ -14,7 +14,9 @@ export default {
       logger.log(`User ${userId} started registration`);
     } catch (error) {
       logger.error(`Register error: ${error.message}`);
-      await interaction.reply({ content: '❌ Error.', ephemeral: true });
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: '❌ Error.', ephemeral: true });
+      }
     }
   }
 };
