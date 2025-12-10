@@ -11,7 +11,6 @@ export async function buildCharacterProfileEmbed(user, characters) {
 
   const embed = new EmbedBuilder()
     .setColor('#EC4899')
-    .setThumbnail(user.displayAvatarURL({ dynamic: true }))
     .setDescription(`# **JOIN ${guildName.toUpperCase()}**\n**${user.username}'s Profile**`);
 
   if (!mainChar) {
@@ -52,8 +51,7 @@ export async function buildCharacterProfileEmbed(user, characters) {
       const altRoleEmoji = alt.role === 'Tank' ? '🛡️' : alt.role === 'DPS' ? '⚔️' : '💚';
       if (i > 0) altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
       else altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-      altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}\n`;
-      altSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
+      altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}   \u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
       altSection += `\u001b[1;34m🎭 Class:\u001b[0m ${alt.class} - ${alt.subclass} ${altRoleEmoji}\n`;
       altSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(alt.ability_score)}\n`;
     });
