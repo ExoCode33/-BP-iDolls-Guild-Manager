@@ -422,6 +422,7 @@ export async function handleAbilityScoreSelect(interaction, userId) {
       const characterData = {
         userId,
         ign: parentChar.ign, // Inherit parent's IGN
+        uid: parentChar.uid, // Inherit parent's UID
         guild: parentChar.guild, // Inherit parent's guild
         class: state.class,
         subclass: state.subclass,
@@ -510,7 +511,7 @@ export async function handleGuildSelect(interaction, userId) {
 
   const modal = new ModalBuilder()
     .setCustomId(`ign_modal_${userId}`)
-    .setTitle('Enter Your IGN');
+    .setTitle('Enter Character Details');
 
   const ignInput = new TextInputBuilder()
     .setCustomId('ign')
@@ -520,17 +521,28 @@ export async function handleGuildSelect(interaction, userId) {
     .setRequired(true)
     .setMaxLength(50);
 
-  const row = new ActionRowBuilder().addComponents(ignInput);
-  modal.addComponents(row);
+  const uidInput = new TextInputBuilder()
+    .setCustomId('uid')
+    .setLabel('UID (User ID)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Your game UID')
+    .setRequired(false)
+    .setMaxLength(50);
+
+  const row1 = new ActionRowBuilder().addComponents(ignInput);
+  const row2 = new ActionRowBuilder().addComponents(uidInput);
+  modal.addComponents(row1, row2);
 
   await interaction.showModal(modal);
 }
 
 export async function handleIGNModal(interaction, userId) {
   const ign = interaction.fields.getTextInputValue('ign');
+  const uid = interaction.fields.getTextInputValue('uid') || null;
   const state = stateManager.getRegistrationState(userId);
 
   console.log('[REGISTRATION] IGN entered:', ign);
+  console.log('[REGISTRATION] UID entered:', uid);
   console.log('[REGISTRATION] Final state:', JSON.stringify(state, null, 2));
   console.log('[REGISTRATION] Character type will be:', state.characterType || 'main');
 
@@ -538,6 +550,7 @@ export async function handleIGNModal(interaction, userId) {
     const characterData = {
       userId,
       ign,
+      uid,
       guild: state.guild,
       class: state.class,
       subclass: state.subclass,
