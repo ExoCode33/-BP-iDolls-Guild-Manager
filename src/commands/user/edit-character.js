@@ -19,7 +19,7 @@ export default {
       const alts = characters.filter(c => c.character_type === 'alt');
       const subclasses = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
       
-      const embed = await buildCharacterProfileEmbed(interaction.user, characters);
+      const embed = await buildCharacterProfileEmbed(interaction.user, characters, interaction);
       const buttons = buildCharacterButtons(mainChar, alts.length, subclasses.length, userId);
       
       await interaction.editReply({ embeds: [embed], components: buttons });
