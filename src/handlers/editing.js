@@ -20,50 +20,35 @@ export async function handleEditMain(interaction, userId) {
       return await interaction.update({ embeds: [embed], components: [] });
     }
 
-    const allChars = await db.getAllCharactersWithSubclasses(userId);
-    const alts = allChars.filter(c => c.character_type === 'alt');
-
-    const options = [
-      { 
-        label: 'Edit IGN', 
-        value: 'ign', 
-        description: `Current: ${mainChar.ign}`, 
-        emoji: '🎮' 
-      },
-      { 
-        label: 'Edit Class & Subclass', 
-        value: 'class', 
-        description: `Current: ${mainChar.class}`, 
-        emoji: '🎭' 
-      },
-      { 
-        label: 'Edit Ability Score', 
-        value: 'ability_score', 
-        description: `Current: ${formatAbilityScore(mainChar.ability_score)}`, 
-        emoji: '💪' 
-      },
-      { 
-        label: 'Edit Guild', 
-        value: 'guild', 
-        description: `Current: ${mainChar.guild || 'None'}`, 
-        emoji: '🏰' 
-      }
-    ];
-
-    // Add swap option if alts exist
-    if (alts.length > 0) {
-      options.push({
-        label: 'Swap Main with Alt',
-        value: 'swap',
-        description: 'Make an alt your main character',
-        emoji: '🔄'
-      });
-    }
-
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId(`edit_main_option_${userId}`)
       .setPlaceholder('✏️ What to edit?')
-      .addOptions(options);
+      .addOptions([
+        { 
+          label: 'Edit IGN', 
+          value: 'ign', 
+          description: `Current: ${mainChar.ign}`, 
+          emoji: '🎮' 
+        },
+        { 
+          label: 'Edit Class & Subclass', 
+          value: 'class', 
+          description: `Current: ${mainChar.class}`, 
+          emoji: '🎭' 
+        },
+        { 
+          label: 'Edit Ability Score', 
+          value: 'ability_score', 
+          description: `Current: ${formatAbilityScore(mainChar.ability_score)}`, 
+          emoji: '💪' 
+        },
+        { 
+          label: 'Edit Guild', 
+          value: 'guild', 
+          description: `Current: ${mainChar.guild || 'None'}`, 
+          emoji: '🏰' 
+        }
+      ]);
       
     const backButton = new ButtonBuilder()
       .setCustomId(`back_to_profile_${userId}`)
@@ -100,116 +85,6 @@ export async function handleEditMain(interaction, userId) {
   }
 }
 
-export async function handleSwapMainWithAlt(interaction, userId) {
-  try {
-    const mainChar = await db.getMainCharacter(userId);
-    const allChars = await db.getAllCharactersWithSubclasses(userId);
-    const alts = allChars.filter(c => c.character_type === 'alt');
-
-    if (alts.length === 0) {
-      return await interaction.update({
-        content: '⚠️ No alts to swap with!',
-        embeds: [],
-        components: []
-      });
-    }
-
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(`select_alt_to_swap_${userId}`)
-      .setPlaceholder('🔄 Select alt to make main')
-      .addOptions(alts.map(alt => ({
-        label: alt.ign,
-        value: alt.id.toString(),
-        description: `${alt.class} - ${alt.subclass}`,
-        emoji: '🎭'
-      })));
-
-    const cancelButton = new ButtonBuilder()
-      .setCustomId(`back_to_profile_${userId}`)
-      .setLabel('❌ Cancel')
-      .setStyle(ButtonStyle.Secondary);
-
-    const row1 = new ActionRowBuilder().addComponents(selectMenu);
-    const row2 = new ActionRowBuilder().addComponents(cancelButton);
-
-    const embed = new EmbedBuilder()
-      .setColor('#6640D9')
-      .setTitle('🔄 Swap Main with Alt')
-      .setDescription(`**Current Main:** ${mainChar.ign} (${mainChar.class})\n\nSelect which alt to make your new main:`)
-      .setFooter({ text: 'Your current main will become an alt' })
-      .setTimestamp();
-
-    await interaction.update({ embeds: [embed], components: [row1, row2] });
-    stateManager.setUpdateState(userId, { 
-      type: 'swap',
-      mainCharId: mainChar.id
-    });
-  } catch (error) {
-    logger.error(`Swap main error: ${error.message}`);
-    await interaction.update({ content: '❌ Error occurred.', embeds: [], components: [] });
-  }
-}
-
-export async function handleConfirmSwap(interaction, userId, altId) {
-  try {
-    await interaction.deferUpdate();
-
-    const mainChar = await db.getMainCharacter(userId);
-    const altChar = await db.getCharacterById(parseInt(altId));
-
-    if (!mainChar || !altChar) {
-      return await interaction.editReply({ content: '❌ Characters not found.', embeds: [], components: [] });
-    }
-
-    // Swap character types
-    await db.query(
-      'UPDATE characters SET character_type = $1 WHERE id = $2',
-      ['alt', mainChar.id]
-    );
-    
-    await db.query(
-      'UPDATE characters SET character_type = $1 WHERE id = $2',
-      ['main', altChar.id]
-    );
-
-    // Update sheets
-    const allChars = await db.getAllCharacters();
-    await sheetsService.syncAllCharacters(allChars);
-
-    const embed = new EmbedBuilder()
-      .setColor('#00FF00')
-      .setTitle('✅ Swapped Successfully!')
-      .setDescription(`**New Main:** ${altChar.ign} (${altChar.class})\n**Now Alt:** ${mainChar.ign} (${mainChar.class})`)
-      .setTimestamp();
-
-    await interaction.editReply({ embeds: [embed], components: [] });
-    stateManager.clearUpdateState(userId);
-
-    logger.logAction(interaction.user.tag, 'swapped main with alt', `${altChar.ign} is now main`);
-
-    // Show updated profile
-    setTimeout(async () => {
-      const characters = await db.getAllCharactersWithSubclasses(userId);
-      const newMain = characters.find(c => c.character_type === 'main');
-      const alts = characters.filter(c => c.character_type === 'alt');
-      const subs = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
-      const targetUser = await interaction.client.users.fetch(userId);
-      const profileEmbed = await buildCharacterProfileEmbed(targetUser, characters, interaction);
-      const buttons = buildCharacterButtons(newMain, alts.length, subs.length, userId);
-
-      await interaction.followUp({ 
-        embeds: [profileEmbed], 
-        components: buttons, 
-        ephemeral: config.ephemeral.editChar 
-      });
-    }, 2000);
-  } catch (error) {
-    logger.error(`Confirm swap error: ${error.message}`);
-    await interaction.editReply({ content: '❌ Error during swap.', embeds: [], components: [] });
-    stateManager.clearUpdateState(userId);
-  }
-}
-
 export async function handleAddAlt(interaction, userId) {
   try {
     const mainChar = await db.getMainCharacter(userId);
@@ -228,7 +103,7 @@ export async function handleAddAlt(interaction, userId) {
       characterType: 'alt' 
     });
     
-    const { startRegistrationFlow } = await import('./registration.js');
+    const { handleRegisterMain } = await import('./registration.js');
     await interaction.update({ 
       content: '🎭 Starting alt registration...', 
       embeds: [], 
@@ -236,7 +111,7 @@ export async function handleAddAlt(interaction, userId) {
     });
     
     setTimeout(async () => { 
-      await startRegistrationFlow(interaction, userId); 
+      await handleRegisterMain(interaction, userId); 
     }, 500);
   } catch (error) {
     logger.error(`Add alt error: ${error.message}`);
@@ -383,19 +258,18 @@ export async function handleRemoveMain(interaction, userId) {
     const embed = new EmbedBuilder()
       .setColor('#FF0000')
       .setTitle('⚠️ Confirm Removal')
-      .setDescription('**Remove main character?**\n\n⚠️ This ONLY removes the main character.\n✅ Alts and subclasses will remain.')
+      .setDescription('**Remove main character?**\n\n⚠️ This removes ALL alts and subclasses!')
       .addFields(
         { name: '🎮 Main', value: mainChar.ign, inline: true },
         { name: '🎭 Class', value: `${mainChar.class}`, inline: true }
       )
-      .setFooter({ text: '⚠️ Cannot be undone! Alts stay.' })
+      .setFooter({ text: '⚠️ Cannot be undone!' })
       .setTimestamp();
       
     await interaction.update({ embeds: [embed], components: [row] });
     stateManager.setRemovalState(userId, { 
       type: 'main', 
-      character: mainChar,
-      characterId: mainChar.id
+      character: mainChar 
     });
   } catch (error) {
     logger.error(`Remove main error: ${error.message}`);
@@ -530,8 +404,11 @@ export async function handleConfirmRemove(interaction, userId) {
     
     await interaction.deferUpdate();
     
-    // Only delete the specific character, not cascade
-    await db.deleteCharacter(state.characterId);
+    if (state.type === 'main') {
+      await db.deleteMainCharacter(userId);
+    } else {
+      await db.deleteCharacter(state.characterId);
+    }
     
     const allChars = await db.getAllCharacters();
     await sheetsService.syncAllCharacters(allChars);
@@ -539,13 +416,11 @@ export async function handleConfirmRemove(interaction, userId) {
     const embed = new EmbedBuilder()
       .setColor('#00FF00')
       .setTitle('✅ Removed')
-      .setDescription(`${state.type} character removed successfully.`)
+      .setDescription(`${state.type} removed.`)
       .setTimestamp();
       
     await interaction.editReply({ embeds: [embed], components: [] });
     stateManager.clearRemovalState(userId);
-    
-    logger.logAction(interaction.user.tag, `removed ${state.type} character`);
     
     setTimeout(async () => {
       const characters = await db.getAllCharactersWithSubclasses(userId);
@@ -553,7 +428,7 @@ export async function handleConfirmRemove(interaction, userId) {
       const alts = characters.filter(c => c.character_type === 'alt');
       const subs = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
       const targetUser = await interaction.client.users.fetch(userId);
-      const embed = await buildCharacterProfileEmbed(targetUser, characters, interaction);
+      const embed = await buildCharacterProfileEmbed(targetUser, characters);
       const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, userId);
       
       await interaction.followUp({ 
@@ -585,7 +460,7 @@ export async function handleCancelRemove(interaction, userId) {
     const alts = characters.filter(c => c.character_type === 'alt');
     const subs = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
     const targetUser = await interaction.client.users.fetch(userId);
-    const embed = await buildCharacterProfileEmbed(targetUser, characters, interaction);
+    const embed = await buildCharacterProfileEmbed(targetUser, characters);
     const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, userId);
     
     await interaction.followUp({ 
@@ -598,8 +473,6 @@ export async function handleCancelRemove(interaction, userId) {
 
 export default { 
   handleEditMain, 
-  handleSwapMainWithAlt,
-  handleConfirmSwap,
   handleAddAlt, 
   handleAddSubclass, 
   handleRemoveMain, 
