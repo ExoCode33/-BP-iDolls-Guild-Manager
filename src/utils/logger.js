@@ -29,6 +29,34 @@ class Logger {
     }
   }
 
+  async logStartup(clientTag, port, commandCount) {
+    const message = `\`\`\`ansi
+\u001b[0;33m[BOT STARTED]\u001b[0m ${new Date().toLocaleTimeString()}
+\u001b[0;33m[BOT STARTED]\u001b[0m Logged in as: \u001b[0;36m${clientTag}\u001b[0m
+\u001b[0;33m[BOT STARTED]\u001b[0m Server: \u001b[0;36mport ${port}\u001b[0m
+\u001b[0;33m[BOT STARTED]\u001b[0m Commands: \u001b[0;36m${commandCount} commands\u001b[0m
+\u001b[0;33m[BOT STARTED]\u001b[0m Activated Handlers: \u001b[0;36mcharacter, registration, update, subclass, remove\u001b[0m
+\`\`\``;
+    
+    console.log('\x1b[33m[BOT STARTED]\x1b[0m ' + new Date().toLocaleTimeString());
+    console.log('\x1b[33m[BOT STARTED]\x1b[0m Logged in as: \x1b[36m' + clientTag + '\x1b[0m');
+    console.log('\x1b[33m[BOT STARTED]\x1b[0m Server: \x1b[36mport ' + port + '\x1b[0m');
+    console.log('\x1b[33m[BOT STARTED]\x1b[0m Commands: \x1b[36m' + commandCount + ' commands\x1b[0m');
+    console.log('\x1b[33m[BOT STARTED]\x1b[0m Activated Handlers: \x1b[36mcharacter, registration, update, subclass, remove\x1b[0m');
+    
+    await this.sendToChannel(message);
+  }
+
+  async logCommand(commandName, userTag, userId) {
+    const message = `\`\`\`ansi
+\u001b[0;35m[COMMAND]\u001b[0m ${new Date().toLocaleTimeString()} - /${commandName} by \u001b[0;36m${userTag}\u001b[0m
+\`\`\``;
+    
+    console.log('\x1b[35m[COMMAND]\x1b[0m ' + new Date().toLocaleTimeString() + ' - /' + commandName + ' by \x1b[36m' + userTag + '\x1b[0m');
+    
+    await this.sendToChannel(message);
+  }
+
   log(message) {
     console.log(`[LOG] ${new Date().toISOString()} - ${message}`);
   }
