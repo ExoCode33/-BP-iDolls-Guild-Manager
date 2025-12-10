@@ -1,143 +1,87 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
+import { EmbedBuilder } from 'discord.js';
+import { formatAbilityScore } from '../../utils/gameData.js';
+import db from '../../services/database.js';
 
-export function buildCharacterButtons(mainChar, altCount, subclassCount, userId) {
-  const rows = [];
+export async function buildCharacterProfileEmbed(user, characters, interaction = null) {
+  const mainChar = characters.find(c => c.character_type === 'main');
+  const alts = characters.filter(c => c.character_type === 'alt');
+  const subclasses = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
+
+  const guildName = mainChar?.guild || 'heal';
+  
+  // Get nickname from guild member if interaction is provided, otherwise use username
+  let displayName = user.username;
+  if (interaction && interaction.guild) {
+    try {
+      const member = await interaction.guild.members.fetch(user.id);
+      displayName = member.nickname || user.username;
+    } catch (error) {
+      // If fetch fails, use username
+      displayName = user.username;
+    }
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor('#EC4899')
+    .setDescription(`# **Join ${guildName} - ${displayName}'s Profile**`);
 
   if (!mainChar) {
-    const registerButton = new ButtonBuilder()
-      .setCustomId(`register_main_${userId}`)
-      .setLabel('📝 Register Main Character')
-      .setStyle(ButtonStyle.Primary);
-    rows.push(new ActionRowBuilder().addComponents(registerButton));
-    return rows;
+    embed.setDescription('```ansi\n\u001b[0;31mNo main character registered\u001b[0m\n```');
+    return embed;
   }
 
-  // Button Row
-  const buttonRow = new ActionRowBuilder();
-  buttonRow.addComponents(
-    new ButtonBuilder()
-      .setCustomId(`add_character_${userId}`)
-      .setLabel('➕ Add Character')
-      .setStyle(ButtonStyle.Primary), // BLUE
-    new ButtonBuilder()
-      .setCustomId(`edit_character_${userId}`)
-      .setLabel('✏️ Edit Character')
-      .setStyle(ButtonStyle.Secondary), // GREY
-    new ButtonBuilder()
-      .setCustomId(`remove_character_${userId}`)
-      .setLabel('🗑️ Remove Character')
-      .setStyle(ButtonStyle.Secondary) // GREY
-  );
+  const roleEmoji = mainChar.role === 'Tank' ? '🛡️' : mainChar.role === 'DPS' ? '⚔️' : '💚';
 
-  rows.push(buttonRow);
-  return rows;
-}
+  let mainSection = '```ansi\n';
+  mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+  mainSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${mainChar.ign}\n`;
+  mainSection += `\n`;
+  mainSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${mainChar.guild || 'None'}\n`;
+  mainSection += `\u001b[1;34m🎭 Class:\u001b[0m ${mainChar.class}\n`;
+  mainSection += `\u001b[1;34m📋 Subclass:\u001b[0m ${mainChar.subclass} ${roleEmoji}\n`;
+  mainSection += `\n`;
+  mainSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(mainChar.ability_score)}\n`;
+  mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+  mainSection += '```';
 
-export function buildAddCharacterMenu(userId, subclassCount) {
-  const options = [
-    {
-      label: 'Alt Character',
-      value: 'alt',
-      description: 'Add an alternate character',
-      emoji: '🎭'
-    },
-    {
-      label: 'Subclass',
-      value: 'subclass',
-      description: `Add a subclass (${subclassCount}/3 used)`,
-      emoji: '📊'
-    }
-  ];
+  embed.addFields({ name: '⭐ Main', value: mainSection, inline: false });
 
-  const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`add_character_select_${userId}`)
-    .setPlaceholder('➕ Choose what to add')
-    .addOptions(options);
-
-  const row = new ActionRowBuilder().addComponents(selectMenu);
-  return [row];
-}
-
-export function buildEditCharacterMenu(userId, mainChar, alts, subclasses) {
-  const options = [];
-
-  // Main character option
-  if (mainChar) {
-    options.push({
-      label: `Main: ${mainChar.ign}`,
-      value: `main_${mainChar.id}`,
-      description: `${mainChar.class} - ${mainChar.subclass}`,
-      emoji: '⭐'
+  if (subclasses.length > 0) {
+    let subSection = '```ansi\n';
+    subclasses.forEach((sub, i) => {
+      const subRoleEmoji = sub.role === 'Tank' ? '🛡️' : sub.role === 'DPS' ? '⚔️' : '💚';
+      if (i > 0) subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+      else subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+      subSection += `\u001b[1;34m🎭 Class:\u001b[0m ${sub.class} - ${sub.subclass} ${subRoleEmoji}\n`;
+      subSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(sub.ability_score)}\n`;
     });
+    subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+    subSection += '```';
+    embed.addFields({ name: '📊 Subclass', value: subSection, inline: false });
   }
 
-  // Subclass options
-  subclasses.forEach((sub, index) => {
-    options.push({
-      label: `Subclass ${index + 1}: ${sub.class}`,
-      value: `subclass_${sub.id}`,
-      description: `${sub.subclass} (${sub.parent_ign || 'Main'})`,
-      emoji: '📊'
+  if (alts.length > 0) {
+    let altSection = '```ansi\n';
+    alts.forEach((alt, i) => {
+      const altRoleEmoji = alt.role === 'Tank' ? '🛡️' : alt.role === 'DPS' ? '⚔️' : '💚';
+      if (i > 0) altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+      else altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+      altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}   \u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
+      altSection += `\u001b[1;34m🎭 Class:\u001b[0m ${alt.class} - ${alt.subclass} ${altRoleEmoji}\n`;
+      altSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(alt.ability_score)}\n`;
     });
-  });
-
-  // Alt options
-  alts.forEach((alt, index) => {
-    options.push({
-      label: `Alt ${index + 1}: ${alt.ign}`,
-      value: `alt_${alt.id}`,
-      description: `${alt.class} - ${alt.subclass}`,
-      emoji: '🎭'
-    });
-  });
-
-  const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`edit_character_select_${userId}`)
-    .setPlaceholder('✏️ Choose character to edit')
-    .addOptions(options);
-
-  const row = new ActionRowBuilder().addComponents(selectMenu);
-  return [row];
-}
-
-export function buildRemoveCharacterMenu(userId, mainChar, alts, subclasses) {
-  const options = [];
-
-  // Subclass options first (less destructive)
-  subclasses.forEach((sub, index) => {
-    options.push({
-      label: `Subclass ${index + 1}: ${sub.class}`,
-      value: `subclass_${sub.id}`,
-      description: `${sub.subclass} (${sub.parent_ign || 'Main'})`,
-      emoji: '📊'
-    });
-  });
-
-  // Alt options
-  alts.forEach((alt, index) => {
-    options.push({
-      label: `Alt ${index + 1}: ${alt.ign}`,
-      value: `alt_${alt.id}`,
-      description: `${alt.class} - ${alt.subclass}`,
-      emoji: '🎭'
-    });
-  });
-
-  // Main character option last (most destructive)
-  if (mainChar) {
-    options.push({
-      label: `⚠️ Main: ${mainChar.ign}`,
-      value: `main_${mainChar.id}`,
-      description: '⚠️ Removes ALL alts and subclasses!',
-      emoji: '⭐'
-    });
+    altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+    altSection += '```';
+    embed.addFields({ name: `🎭 Alts (${alts.length})`, value: altSection, inline: false });
   }
 
-  const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`remove_character_select_${userId}`)
-    .setPlaceholder('🗑️ Choose character to remove')
-    .addOptions(options);
+  const timezone = await db.getUserTimezone(user.id);
+  if (timezone) {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: true });
+    embed.setFooter({ text: `🌍 ${timezone} • ${timeString}` });
+  }
 
-  const row = new ActionRowBuilder().addComponents(selectMenu);
-  return [row];
+  embed.setTimestamp();
+  return embed;
 }
