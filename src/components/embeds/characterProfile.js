@@ -70,18 +70,14 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
 
   const embed = new EmbedBuilder()
     .setColor('#EC4899')
-    .setDescription(`# __**Join ${guildName} - ${displayName}'s Profile ${CLASS_EMOJIS[mainChar.class] || ''}**__${timezoneText}`);
+    .setDescription(`# __**Join ${guildName} - ${displayName}'s Profile**__ ${CLASS_EMOJIS[mainChar.class] || ''}${timezoneText}`);
 
   if (!mainChar) {
     embed.setDescription('```ansi\n\u001b[0;31mNo main character registered\u001b[0m\n```');
     return embed;
   }
 
-  // Set thumbnail to main character's class icon
-  const classEmojiId = CLASS_EMOJIS[mainChar.class]?.match(/:(\d+)>/)?.[1];
-  if (classEmojiId) {
-    embed.setThumbnail(`https://cdn.discordapp.com/emojis/${classEmojiId}.png`);
-  }
+  // No thumbnail - removed per user request
 
   const roleEmoji = mainChar.role === 'Tank' ? '🛡️' : mainChar.role === 'DPS' ? '⚔️' : '💚';
 
