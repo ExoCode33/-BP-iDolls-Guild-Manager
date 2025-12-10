@@ -1,16 +1,123 @@
-import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder } from 'discord.js';
-import stateManager from '../utils/stateManager.js';
-import config from '../utils/config.js';
-import db from '../services/database.js';
+import { 
+  ActionRowBuilder, 
+  StringSelectMenuBuilder, 
+  ModalBuilder, 
+  TextInputBuilder, 
+  TextInputStyle,
+  EmbedBuilder 
+} from 'discord.js';
 import logger from '../utils/logger.js';
+import db from '../services/database.js';
 import { buildCharacterProfileEmbed } from '../components/embeds/characterProfile.js';
 import { buildCharacterButtons } from '../components/buttons/characterButtons.js';
+import gameData from '../utils/gameData.js';
+import config from '../utils/config.js';
 
+const stateManager = (await import('../utils/stateManager.js')).default;
+
+// Helper to create consistent embeds
 function createRegEmbed(step, total, title, description) {
   return new EmbedBuilder()
     .setColor('#EC4899')
     .setDescription(`# **${title}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${description}\n\n*Step ${step} of ${total}*`)
     .setTimestamp();
+}
+
+// Region → Countries → Timezones mapping
+const REGIONS = {
+  'North America': {
+    '🇺🇸 United States': {
+      'EST (Eastern)': 'America/New_York',
+      'CST (Central)': 'America/Chicago',
+      'MST (Mountain)': 'America/Denver',
+      'PST (Pacific)': 'America/Los_Angeles',
+      'AKST (Alaska)': 'America/Anchorage',
+      'HST (Hawaii)': 'Pacific/Honolulu'
+    },
+    '🇨🇦 Canada': {
+      'EST (Eastern)': 'America/Toronto',
+      'CST (Central)': 'America/Winnipeg',
+      'MST (Mountain)': 'America/Edmonton',
+      'PST (Pacific)': 'America/Vancouver',
+      'AST (Atlantic)': 'America/Halifax'
+    },
+    '🇲🇽 Mexico': {
+      'CST (Central)': 'America/Mexico_City',
+      'MST (Mountain)': 'America/Chihuahua',
+      'PST (Pacific)': 'America/Tijuana'
+    }
+  },
+  'South America': {
+    '🇧🇷 Brazil': {
+      'BRT (Brasília)': 'America/Sao_Paulo',
+      'AMT (Amazon)': 'America/Manaus'
+    },
+    '🇦🇷 Argentina': { 'ART (Buenos Aires)': 'America/Buenos_Aires' },
+    '🇨🇱 Chile': { 'CLT (Santiago)': 'America/Santiago' },
+    '🇨🇴 Colombia': { 'COT (Bogotá)': 'America/Bogota' },
+    '🇵🇪 Peru': { 'PET (Lima)': 'America/Lima' }
+  },
+  'Europe': {
+    '🇬🇧 United Kingdom': { 'GMT (London)': 'Europe/London' },
+    '🇫🇷 France': { 'CET (Paris)': 'Europe/Paris' },
+    '🇩🇪 Germany': { 'CET (Berlin)': 'Europe/Berlin' },
+    '🇮🇹 Italy': { 'CET (Rome)': 'Europe/Rome' },
+    '🇪🇸 Spain': { 'CET (Madrid)': 'Europe/Madrid' },
+    '🇳🇱 Netherlands': { 'CET (Amsterdam)': 'Europe/Amsterdam' },
+    '🇧🇪 Belgium': { 'CET (Brussels)': 'Europe/Brussels' },
+    '🇦🇹 Austria': { 'CET (Vienna)': 'Europe/Vienna' },
+    '🇵🇱 Poland': { 'CET (Warsaw)': 'Europe/Warsaw' },
+    '🇸🇪 Sweden': { 'CET (Stockholm)': 'Europe/Stockholm' },
+    '🇬🇷 Greece': { 'EET (Athens)': 'Europe/Athens' },
+    '🇹🇷 Turkey': { 'TRT (Istanbul)': 'Europe/Istanbul' },
+    '🇷🇺 Russia': {
+      'MSK (Moscow)': 'Europe/Moscow',
+      'YEKT (Yekaterinburg)': 'Asia/Yekaterinburg',
+      'NOVT (Novosibirsk)': 'Asia/Novosibirsk',
+      'VLAT (Vladivostok)': 'Asia/Vladivostok'
+    }
+  },
+  'Asia': {
+    '🇯🇵 Japan': { 'JST (Tokyo)': 'Asia/Tokyo' },
+    '🇰🇷 South Korea': { 'KST (Seoul)': 'Asia/Seoul' },
+    '🇨🇳 China': { 'CST (Beijing)': 'Asia/Shanghai' },
+    '🇭🇰 Hong Kong': { 'HKT (Hong Kong)': 'Asia/Hong_Kong' },
+    '🇹🇼 Taiwan': { 'CST (Taipei)': 'Asia/Taipei' },
+    '🇸🇬 Singapore': { 'SGT (Singapore)': 'Asia/Singapore' },
+    '🇹🇭 Thailand': { 'ICT (Bangkok)': 'Asia/Bangkok' },
+    '🇻🇳 Vietnam': { 'ICT (Ho Chi Minh)': 'Asia/Ho_Chi_Minh' },
+    '🇵🇭 Philippines': { 'PST (Manila)': 'Asia/Manila' },
+    '🇮🇩 Indonesia': {
+      'WIB (Jakarta)': 'Asia/Jakarta',
+      'WITA (Bali)': 'Asia/Makassar'
+    },
+    '🇮🇳 India': { 'IST (New Delhi)': 'Asia/Kolkata' },
+    '🇦🇪 UAE': { 'GST (Dubai)': 'Asia/Dubai' },
+    '🇸🇦 Saudi Arabia': { 'AST (Riyadh)': 'Asia/Riyadh' }
+  },
+  'Oceania': {
+    '🇦🇺 Australia': {
+      'AEDT (Sydney)': 'Australia/Sydney',
+      'AEST (Brisbane)': 'Australia/Brisbane',
+      'ACDT (Adelaide)': 'Australia/Adelaide',
+      'AWST (Perth)': 'Australia/Perth',
+      'ACST (Darwin)': 'Australia/Darwin'
+    },
+    '🇳🇿 New Zealand': { 'NZDT (Auckland)': 'Pacific/Auckland' },
+    '🇫🇯 Fiji': { 'FJT (Suva)': 'Pacific/Fiji' }
+  },
+  'Africa': {
+    '🇿🇦 South Africa': { 'SAST (Johannesburg)': 'Africa/Johannesburg' },
+    '🇪🇬 Egypt': { 'EET (Cairo)': 'Africa/Cairo' },
+    '🇳🇬 Nigeria': { 'WAT (Lagos)': 'Africa/Lagos' },
+    '🇰🇪 Kenya': { 'EAT (Nairobi)': 'Africa/Nairobi' },
+    '🇲🇦 Morocco': { 'WET (Casablanca)': 'Africa/Casablanca' }
+  }
+};
+
+function getTimezoneAbbr(timezoneLabel) {
+  const match = timezoneLabel.match(/^([A-Z]+)/);
+  return match ? match[1] : timezoneLabel;
 }
 
 export async function handleRegisterMain(interaction, userId) {
@@ -19,39 +126,59 @@ export async function handleRegisterMain(interaction, userId) {
   console.log('[REGISTRATION] Starting registration for user:', userId);
   console.log('[REGISTRATION] State:', JSON.stringify(state, null, 2));
   
-  // Check if user already has timezone (for alts)
+  // Check if adding alt and user already has timezone
   const existingTimezone = await db.getUserTimezone(userId);
   const isAlt = state.characterType === 'alt';
   
   console.log('[REGISTRATION] Is Alt:', isAlt, '| Existing timezone:', existingTimezone);
   
   if (isAlt && existingTimezone) {
-    // Skip timezone for alts, go straight to class selection
+    // Skip region/country/timezone for alts - go straight to class
     console.log('[REGISTRATION] Skipping timezone for alt, going to class selection');
+    
+    let timezoneAbbr = '';
+    // Find timezone abbreviation from existing timezone
+    outer: for (const region of Object.keys(REGIONS)) {
+      for (const country of Object.keys(REGIONS[region])) {
+        for (const [label, tz] of Object.entries(REGIONS[region][country])) {
+          if (tz === existingTimezone) {
+            timezoneAbbr = getTimezoneAbbr(label);
+            break outer;
+          }
+        }
+      }
+    }
     
     stateManager.setRegistrationState(userId, {
       ...state,
-      step: 'class',
       timezone: existingTimezone,
+      timezoneAbbr,
       characterType: 'alt'
     });
     
-    const embed = createRegEmbed(1, 4, '⚔️ Select Your Class', 'Choose your class:');
-
-    const classOptions = config.classes.map(cls => ({
-      label: cls.name,
-      value: cls.name,
-      description: `${cls.role} - ${cls.description}`,
-      emoji: cls.role === 'Tank' ? '🛡️' : cls.role === 'DPS' ? '⚔️' : '💚'
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { 
+      timeZone: existingTimezone, 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    const embed = createRegEmbed(1, 4, '🎭 Choose Your Class', `**Timezone:** ${timezoneAbbr} • ${timeString}`);
+    
+    const classOptions = Object.keys(gameData.classes).map(className => ({
+      label: className,
+      value: className,
+      emoji: gameData.classes[className].emoji
     }));
-
+    
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId(`select_class_${userId}`)
-      .setPlaceholder('⚔️ Choose your class')
+      .setPlaceholder('🎭 Pick your class')
       .addOptions(classOptions);
-
+    
     const row = new ActionRowBuilder().addComponents(selectMenu);
-
+    
     if (interaction.replied || interaction.deferred) {
       await interaction.editReply({ embeds: [embed], components: [row] });
     } else {
@@ -61,234 +188,219 @@ export async function handleRegisterMain(interaction, userId) {
   }
   
   // Main character registration - start with region
-  if (!state.step) {
-    stateManager.setRegistrationState(userId, { 
-      step: 'region',
-      characterType: state.characterType || 'main'
-    });
-  }
+  const embed = createRegEmbed(1, 7, '🌍 Choose Your Region', 'Where are you playing from?');
 
-  const embed = createRegEmbed(1, 7, '🌍 Select Your Region', 'Choose your region to continue:');
-
-  const regions = [
-    { label: '🌎 North America', value: 'North America', emoji: '🌎' },
-    { label: '🌍 Europe', value: 'Europe', emoji: '🌍' },
-    { label: '🌏 Asia', value: 'Asia', emoji: '🌏' },
-    { label: '🦘 Oceania', value: 'Oceania', emoji: '🦘' },
-    { label: '🦁 Africa', value: 'Africa', emoji: '🦁' },
-    { label: '🌎 South America', value: 'South America', emoji: '🌎' }
-  ];
+  const regionOptions = Object.keys(REGIONS).map(region => ({
+    label: region,
+    value: region,
+    emoji: '🌍'
+  }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_region_${userId}`)
-    .setPlaceholder('🌍 Choose your region')
-    .addOptions(regions);
+    .setPlaceholder('🌍 Pick your region')
+    .addOptions(regionOptions);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
 
-  if (interaction.replied || interaction.deferred) {
-    await interaction.editReply({ embeds: [embed], components: [row] });
-  } else {
-    await interaction.update({ embeds: [embed], components: [row] });
-  }
+  await interaction.update({ embeds: [embed], components: [row] });
 }
 
 export async function handleRegionSelect(interaction, userId) {
   const region = interaction.values[0];
-  const state = stateManager.getRegistrationState(userId);
-  
-  console.log('[REGISTRATION] Region selected:', region);
-  console.log('[REGISTRATION] Current state:', JSON.stringify(state, null, 2));
-  
-  state.region = region;
-  state.step = 'country';
-  stateManager.setRegistrationState(userId, state);
+  const state = stateManager.getRegistrationState(userId) || {};
+  stateManager.setRegistrationState(userId, { ...state, region });
 
-  const embed = createRegEmbed(2, 7, '🗺️ Select Your Country', 'Choose your country:');
+  const embed = createRegEmbed(2, 7, '🏳️ Choose Your Country', `**Region:** ${region}`);
 
-  const countryOptions = getCountriesByRegion(region);
+  const countries = Object.keys(REGIONS[region]);
+  const countryOptions = countries.map(country => ({
+    label: country,
+    value: country
+  }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_country_${userId}`)
-    .setPlaceholder('🗺️ Choose your country')
+    .setPlaceholder('🏳️ Pick your country')
     .addOptions(countryOptions);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
+
   await interaction.update({ embeds: [embed], components: [row] });
 }
 
 export async function handleCountrySelect(interaction, userId) {
-  const country = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
-  
-  console.log('[REGISTRATION] Country selected:', country);
-  
-  state.country = country;
-  state.step = 'timezone';
-  stateManager.setRegistrationState(userId, state);
+  const country = interaction.values[0];
+  stateManager.setRegistrationState(userId, { ...state, country });
 
-  const embed = createRegEmbed(3, 7, '🕐 Select Your Timezone', 'Choose your timezone:');
+  const embed = createRegEmbed(3, 7, '🕐 Choose Your Timezone', `**Country:** ${country}`);
 
-  const timezoneOptions = getTimezonesByCountry(country, state.region);
+  const timezones = REGIONS[state.region][country];
+  const timezoneOptions = Object.keys(timezones).map(tzLabel => ({
+    label: tzLabel,
+    value: timezones[tzLabel]
+  }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_timezone_${userId}`)
-    .setPlaceholder('🕐 Choose your timezone')
+    .setPlaceholder('🕐 Pick your timezone')
     .addOptions(timezoneOptions);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
+
   await interaction.update({ embeds: [embed], components: [row] });
 }
 
 export async function handleTimezoneSelect(interaction, userId) {
-  const timezone = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
+  const timezone = interaction.values[0];
   
-  console.log('[REGISTRATION] Timezone selected:', timezone);
+  let timezoneAbbr = '';
+  const timezones = REGIONS[state.region][state.country];
+  for (const [label, tz] of Object.entries(timezones)) {
+    if (tz === timezone) {
+      timezoneAbbr = getTimezoneAbbr(label);
+      break;
+    }
+  }
   
-  state.timezone = timezone;
-  state.step = 'class';
-  stateManager.setRegistrationState(userId, state);
-
   await db.setUserTimezone(userId, timezone);
-  logger.success(`Set timezone for user ${userId}: ${timezone}`);
+  stateManager.setRegistrationState(userId, { ...state, timezone, timezoneAbbr });
 
-  const embed = createRegEmbed(4, 7, '⚔️ Select Your Class', 'Choose your main class:');
+  const now = new Date();
+  const timeString = now.toLocaleTimeString('en-US', { 
+    timeZone: timezone, 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true 
+  });
 
-  const classOptions = config.classes.map(cls => ({
-    label: cls.name,
-    value: cls.name,
-    description: `${cls.role} - ${cls.description}`,
-    emoji: cls.role === 'Tank' ? '🛡️' : cls.role === 'DPS' ? '⚔️' : '💚'
+  const embed = createRegEmbed(4, 7, '🎭 Choose Your Class', `**Timezone:** ${timezoneAbbr} • ${timeString}`);
+
+  const classOptions = Object.keys(gameData.classes).map(className => ({
+    label: className,
+    value: className,
+    emoji: gameData.classes[className].emoji
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_class_${userId}`)
-    .setPlaceholder('⚔️ Choose your class')
+    .setPlaceholder('🎭 Pick your class')
     .addOptions(classOptions);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
+
   await interaction.update({ embeds: [embed], components: [row] });
 }
 
 export async function handleClassSelect(interaction, userId) {
   const className = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
-  
-  console.log('[REGISTRATION] Class selected:', className);
-  
-  state.class = className;
-  state.step = 'subclass';
-  stateManager.setRegistrationState(userId, state);
+  stateManager.setRegistrationState(userId, { ...state, class: className });
 
+  const subclasses = gameData.classes[className].subclasses;
+  const classRole = gameData.classes[className].role;
+  
+  // Determine step numbers based on whether it's an alt
   const isAlt = state.characterType === 'alt';
   const stepNum = isAlt ? 2 : 5;
   const totalSteps = isAlt ? 4 : 7;
+  
+  const embed = createRegEmbed(stepNum, totalSteps, '📋 Choose Your Subclass', `**Class:** ${className}`);
 
-  const embed = createRegEmbed(stepNum, totalSteps, '🎭 Select Your Subclass', `Choose your ${className} subclass:`);
-
-  const selectedClass = config.classes.find(c => c.name === className);
-  const subclassOptions = selectedClass.subclasses.map(sub => ({
-    label: sub,
-    value: sub,
-    emoji: selectedClass.role === 'Tank' ? '🛡️' : selectedClass.role === 'DPS' ? '⚔️' : '💚'
-  }));
+  const subclassOptions = subclasses.map(subclassName => {
+    const roleEmoji = classRole === 'Tank' ? '🛡️' : classRole === 'DPS' ? '⚔️' : '💚';
+    return {
+      label: subclassName,
+      value: subclassName,
+      emoji: roleEmoji
+    };
+  });
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_subclass_${userId}`)
-    .setPlaceholder('🎭 Choose your subclass')
+    .setPlaceholder('📋 Pick your subclass')
     .addOptions(subclassOptions);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
+
   await interaction.update({ embeds: [embed], components: [row] });
 }
 
 export async function handleSubclassSelect(interaction, userId) {
-  const subclass = interaction.values[0];
+  const subclassName = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
+  stateManager.setRegistrationState(userId, { ...state, subclass: subclassName });
   
-  console.log('[REGISTRATION] Subclass selected:', subclass);
-  
-  state.subclass = subclass;
-  state.step = 'abilityScore';
-  stateManager.setRegistrationState(userId, state);
-
+  // Determine step numbers based on whether it's an alt
   const isAlt = state.characterType === 'alt';
   const stepNum = isAlt ? 3 : 6;
   const totalSteps = isAlt ? 4 : 7;
+  
+  const embed = createRegEmbed(stepNum, totalSteps, '💪 Choose Your Score', `**Subclass:** ${subclassName}`);
 
-  const embed = createRegEmbed(stepNum, totalSteps, '💪 Select Your Ability Score', 'Choose your current ability score range:');
-
-  const scoreOptions = [
-    { label: '≤10k', value: '10000', description: '≤10k power level' },
-    { label: '11-12k', value: '11500', description: '11-12k power level' },
-    { label: '13-15k', value: '14000', description: '13-15k power level' },
-    { label: '16-18k', value: '17000', description: '16-18k power level' },
-    { label: '19-21k', value: '20000', description: '19-21k power level' },
-    { label: '22-24k', value: '23000', description: '22-24k power level' },
-    { label: '25-27k', value: '26000', description: '25-27k power level' },
-    { label: '28-29k', value: '28500', description: '28-29k power level' },
-    { label: '30-32k', value: '31000', description: '30-32k power level' },
-    { label: '32-34k', value: '33000', description: '32-34k power level' },
-    { label: '35-37k', value: '36000', description: '35-37k power level' },
-    { label: '38-40k', value: '39000', description: '38-40k power level' },
-    { label: '41-43k', value: '42000', description: '41-43k power level' },
-    { label: '44-46k', value: '45000', description: '44-46k power level' },
-    { label: '47-49k', value: '48000', description: '47-49k power level' },
-    { label: '50-52k', value: '51000', description: '50-52k power level' },
-    { label: '53-55k', value: '54000', description: '53-55k power level' },
-    { label: '56k+', value: '57000', description: '56k+ power level' }
-  ];
+  const scoreOptions = gameData.abilityScores.map(score => ({
+    label: score.label,
+    value: score.value
+  }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_ability_score_${userId}`)
-    .setPlaceholder('💪 Choose your score')
+    .setPlaceholder('💪 Pick your score')
     .addOptions(scoreOptions);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
+
   await interaction.update({ embeds: [embed], components: [row] });
 }
 
 export async function handleAbilityScoreSelect(interaction, userId) {
-  const score = interaction.values[0];
+  const abilityScore = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
-  
-  console.log('[REGISTRATION] Score selected:', score);
-  
-  state.abilityScore = score;
-  state.step = 'guild';
-  stateManager.setRegistrationState(userId, state);
+  stateManager.setRegistrationState(userId, { ...state, abilityScore });
 
+  // Determine step numbers based on whether it's an alt
   const isAlt = state.characterType === 'alt';
   const stepNum = isAlt ? 4 : 7;
   const totalSteps = isAlt ? 4 : 7;
 
-  const embed = createRegEmbed(stepNum, totalSteps, '🏰 Select Your Guild', 'Choose your guild:');
+  const scoreLabel = gameData.abilityScores.find(s => s.value === abilityScore)?.label || abilityScore;
+  const embed = createRegEmbed(stepNum, totalSteps, '🏰 Choose Your Guild', `**Score:** ${scoreLabel}`);
 
   const guildOptions = config.guilds.map(guild => ({
     label: guild.name,
-    value: guild.name,
-    description: `Join ${guild.name}`
+    value: guild.name
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_guild_${userId}`)
-    .setPlaceholder('🏰 Choose your guild')
+    .setPlaceholder('🏰 Pick your guild')
     .addOptions(guildOptions);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
+
   await interaction.update({ embeds: [embed], components: [row] });
+}
+
+function formatAbilityScore(score) {
+  const num = parseInt(score);
+  const scoreRanges = {
+    10000: '≤10k', 11000: '10-12k', 13000: '12-14k', 15000: '14-16k',
+    17000: '16-18k', 19000: '18-20k', 21000: '20-22k', 23000: '22-24k',
+    25000: '24-26k', 27000: '26-28k', 29000: '28-30k', 31000: '30-32k',
+    33000: '32-34k', 35000: '34-36k', 37000: '36-38k', 39000: '38-40k',
+    41000: '40-42k', 43000: '42-44k', 45000: '44-46k', 47000: '46-48k',
+    49000: '48-50k', 51000: '50-52k', 53000: '52-54k', 55000: '54-56k',
+    57000: '56k+'
+  };
+  return scoreRanges[num] || num.toLocaleString();
 }
 
 export async function handleGuildSelect(interaction, userId) {
   const guild = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
-  
-  console.log('[REGISTRATION] Guild selected:', guild);
-  
-  state.guild = guild;
-  state.step = 'ign';
-  stateManager.setRegistrationState(userId, state);
+  stateManager.setRegistrationState(userId, { ...state, guild });
 
   const modal = new ModalBuilder()
     .setCustomId(`ign_modal_${userId}`)
@@ -298,7 +410,7 @@ export async function handleGuildSelect(interaction, userId) {
     .setCustomId('ign')
     .setLabel('In-Game Name (IGN)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Enter your character name')
+    .setPlaceholder('Your character name')
     .setRequired(true)
     .setMaxLength(50);
 
@@ -358,112 +470,6 @@ export async function handleIGNModal(interaction, userId) {
       ephemeral: true
     });
   }
-}
-
-function getCountriesByRegion(region) {
-  const countries = {
-    'North America': [
-      { label: '🇺🇸 United States', value: '🇺🇸 United States' },
-      { label: '🇨🇦 Canada', value: '🇨🇦 Canada' },
-      { label: '🇲🇽 Mexico', value: '🇲🇽 Mexico' }
-    ],
-    'Europe': [
-      { label: '🇬🇧 United Kingdom', value: '🇬🇧 United Kingdom' },
-      { label: '🇫🇷 France', value: '🇫🇷 France' },
-      { label: '🇩🇪 Germany', value: '🇩🇪 Germany' },
-      { label: '🇪🇸 Spain', value: '🇪🇸 Spain' },
-      { label: '🇮🇹 Italy', value: '🇮🇹 Italy' }
-    ],
-    'Asia': [
-      { label: '🇯🇵 Japan', value: '🇯🇵 Japan' },
-      { label: '🇰🇷 South Korea', value: '🇰🇷 South Korea' },
-      { label: '🇨🇳 China', value: '🇨🇳 China' },
-      { label: '🇮🇳 India', value: '🇮🇳 India' }
-    ],
-    'Oceania': [
-      { label: '🇦🇺 Australia', value: '🇦🇺 Australia' },
-      { label: '🇳🇿 New Zealand', value: '🇳🇿 New Zealand' }
-    ],
-    'Africa': [
-      { label: '🇿🇦 South Africa', value: '🇿🇦 South Africa' }
-    ],
-    'South America': [
-      { label: '🇧🇷 Brazil', value: '🇧🇷 Brazil' },
-      { label: '🇦🇷 Argentina', value: '🇦🇷 Argentina' }
-    ]
-  };
-  
-  return countries[region] || [];
-}
-
-function getTimezonesByCountry(country, region) {
-  const timezones = {
-    '🇺🇸 United States': [
-      { label: 'EST (Eastern)', value: 'America/New_York', description: 'New York, Miami, Boston' },
-      { label: 'CST (Central)', value: 'America/Chicago', description: 'Chicago, Dallas, Houston' },
-      { label: 'MST (Mountain)', value: 'America/Denver', description: 'Denver, Phoenix' },
-      { label: 'PST (Pacific)', value: 'America/Los_Angeles', description: 'LA, Seattle, SF' },
-      { label: 'AKST (Alaska)', value: 'America/Anchorage', description: 'Anchorage' },
-      { label: 'HST (Hawaii)', value: 'Pacific/Honolulu', description: 'Honolulu' }
-    ],
-    '🇨🇦 Canada': [
-      { label: 'NST', value: 'America/St_Johns', description: "St. John's" },
-      { label: 'AST', value: 'America/Halifax', description: 'Halifax' },
-      { label: 'EST', value: 'America/Toronto', description: 'Toronto, Ottawa, Montreal' },
-      { label: 'CST', value: 'America/Winnipeg', description: 'Winnipeg' },
-      { label: 'MST', value: 'America/Edmonton', description: 'Edmonton, Calgary' },
-      { label: 'PST', value: 'America/Vancouver', description: 'Vancouver' }
-    ],
-    '🇲🇽 Mexico': [
-      { label: 'CST', value: 'America/Mexico_City', description: 'Mexico City' }
-    ],
-    '🇬🇧 United Kingdom': [
-      { label: 'GMT', value: 'Europe/London', description: 'London' }
-    ],
-    '🇫🇷 France': [
-      { label: 'CET', value: 'Europe/Paris', description: 'Paris' }
-    ],
-    '🇩🇪 Germany': [
-      { label: 'CET', value: 'Europe/Berlin', description: 'Berlin' }
-    ],
-    '🇪🇸 Spain': [
-      { label: 'CET', value: 'Europe/Madrid', description: 'Madrid' }
-    ],
-    '🇮🇹 Italy': [
-      { label: 'CET', value: 'Europe/Rome', description: 'Rome' }
-    ],
-    '🇯🇵 Japan': [
-      { label: 'JST', value: 'Asia/Tokyo', description: 'Tokyo' }
-    ],
-    '🇰🇷 South Korea': [
-      { label: 'KST', value: 'Asia/Seoul', description: 'Seoul' }
-    ],
-    '🇨🇳 China': [
-      { label: 'CST', value: 'Asia/Shanghai', description: 'Beijing, Shanghai' }
-    ],
-    '🇮🇳 India': [
-      { label: 'IST', value: 'Asia/Kolkata', description: 'Mumbai, Delhi' }
-    ],
-    '🇦🇺 Australia': [
-      { label: 'AEDT', value: 'Australia/Sydney', description: 'Sydney' },
-      { label: 'AEST', value: 'Australia/Brisbane', description: 'Brisbane' },
-      { label: 'AWST', value: 'Australia/Perth', description: 'Perth' }
-    ],
-    '🇳🇿 New Zealand': [
-      { label: 'NZDT', value: 'Pacific/Auckland', description: 'Auckland' }
-    ],
-    '🇿🇦 South Africa': [
-      { label: 'SAST', value: 'Africa/Johannesburg', description: 'Johannesburg' }
-    ],
-    '🇧🇷 Brazil': [
-      { label: 'BRT', value: 'America/Sao_Paulo', description: 'São Paulo' }
-    ],
-    '🇦🇷 Argentina': [
-      { label: 'ART', value: 'America/Argentina/Buenos_Aires', description: 'Buenos Aires' }
-    ]
-  };
-  
-  return timezones[country] || [{ label: 'UTC', value: 'UTC', description: 'UTC' }];
 }
 
 export default {
