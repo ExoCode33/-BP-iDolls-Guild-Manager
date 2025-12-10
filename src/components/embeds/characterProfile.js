@@ -36,15 +36,9 @@ export async function buildCharacterProfileEmbed(user, characters) {
     let subSection = '```ansi\n';
     subclasses.forEach((sub, i) => {
       const subRoleEmoji = sub.role === 'Tank' ? '🛡️' : sub.role === 'DPS' ? '⚔️' : '💚';
-      subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-      subSection += `\u001b[1;36m${i + 1}.\u001b[0m\n`;
-      subSection += `\u001b[1;34m🎭 Class:\u001b[0m ${sub.class}\n`;
-      subSection += `\u001b[1;34m📊 Subclass:\u001b[0m ${sub.subclass}\n`;
-      subSection += `\u001b[1;34m${subRoleEmoji} Role:\u001b[0m ${sub.role}\n`;
-      subSection += `\u001b[1;34m💪 Ability Score:\u001b[0m ${formatAbilityScore(sub.ability_score)}\n`;
-      if (sub.parent_ign) subSection += `\u001b[0;33m└─ Parent: ${sub.parent_ign}\u001b[0m\n`;
+      subSection += `\u001b[1;36m${i + 1}.\u001b[0m ${sub.class} - ${sub.subclass} - ${sub.role} ${subRoleEmoji}\n`;
+      if (sub.parent_ign) subSection += `   \u001b[0;33m└─ ${sub.parent_ign}\u001b[0m\n`;
     });
-    subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     subSection += '```';
     embed.addFields({ name: `📊 Subclasses (${subclasses.length}/3)`, value: subSection, inline: false });
   }
@@ -53,16 +47,8 @@ export async function buildCharacterProfileEmbed(user, characters) {
     let altSection = '```ansi\n';
     alts.forEach((alt, i) => {
       const altRoleEmoji = alt.role === 'Tank' ? '🛡️' : alt.role === 'DPS' ? '⚔️' : '💚';
-      altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-      altSection += `\u001b[1;36m${i + 1}.\u001b[0m\n`;
-      altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}\n`;
-      altSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
-      altSection += `\u001b[1;34m🎭 Class:\u001b[0m ${alt.class}\n`;
-      altSection += `\u001b[1;34m📊 Subclass:\u001b[0m ${alt.subclass}\n`;
-      altSection += `\u001b[1;34m${altRoleEmoji} Role:\u001b[0m ${alt.role}\n`;
-      altSection += `\u001b[1;34m💪 Ability Score:\u001b[0m ${formatAbilityScore(alt.ability_score)}\n`;
+      altSection += `\u001b[1;36m${i + 1}.\u001b[0m ${alt.ign} - ${alt.class} - ${alt.subclass} - ${alt.role} ${altRoleEmoji}\n`;
     });
-    altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     altSection += '```';
     embed.addFields({ name: `🎭 Alt Characters (${alts.length})`, value: altSection, inline: false });
   }
@@ -77,3 +63,16 @@ export async function buildCharacterProfileEmbed(user, characters) {
   embed.setTimestamp();
   return embed;
 }
+```
+
+**Now displays as:**
+
+**Subclasses:**
+```
+1. Verdant Oracle - Smite - Support 💚
+   └─ Em
+```
+
+**Alts:**
+```
+1. Smol - Heavy Guardian - Earthfort - Tank 🛡️
