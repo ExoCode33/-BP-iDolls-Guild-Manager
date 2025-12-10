@@ -302,10 +302,11 @@ export async function handleClassSelect(interaction, userId) {
   const subclasses = gameData.classes[className].subclasses;
   const classRole = gameData.classes[className].role;
   
-  // Determine step numbers based on whether it's an alt
+  // Determine step numbers based on whether it's an alt or subclass
   const isAlt = state.characterType === 'alt';
-  const stepNum = isAlt ? 2 : 5;
-  const totalSteps = isAlt ? 4 : 7;
+  const isSubclass = state.type === 'subclass';
+  const stepNum = isSubclass ? 1 : (isAlt ? 2 : 5);
+  const totalSteps = isSubclass ? 2 : (isAlt ? 4 : 7);
   
   const embed = createRegEmbed(stepNum, totalSteps, '📋 Choose Your Subclass', `**Class:** ${className}`);
 
@@ -333,10 +334,11 @@ export async function handleSubclassSelect(interaction, userId) {
   const state = stateManager.getRegistrationState(userId);
   stateManager.setRegistrationState(userId, { ...state, subclass: subclassName });
   
-  // Determine step numbers based on whether it's an alt
+  // Determine step numbers based on whether it's an alt or subclass
   const isAlt = state.characterType === 'alt';
-  const stepNum = isAlt ? 3 : 6;
-  const totalSteps = isAlt ? 4 : 7;
+  const isSubclass = state.type === 'subclass';
+  const stepNum = isSubclass ? 2 : (isAlt ? 3 : 6);
+  const totalSteps = isSubclass ? 2 : (isAlt ? 4 : 7);
   
   const embed = createRegEmbed(stepNum, totalSteps, '💪 Choose Your Score', `**Subclass:** ${subclassName}`);
 
@@ -360,12 +362,66 @@ export async function handleAbilityScoreSelect(interaction, userId) {
   const state = stateManager.getRegistrationState(userId);
   stateManager.setRegistrationState(userId, { ...state, abilityScore });
 
-  // Determine step numbers based on whether it's an alt
+  // Check if this is a subclass registration
+  const isSubclass = state.type === 'subclass';
+  
+  if (isSubclass) {
+    // For subclasses, skip guild selection and complete registration
+    try {
+      // Get parent character to inherit guild and IGN
+      const parentChar = await db.getCharacterById(state.parentId);
+      
+      if (!parentChar) {
+        throw new Error('Parent character not found');
+      }
+
+      const characterData = {
+        userId,
+        ign: parentChar.ign, // Inherit parent's IGN
+        guild: parentChar.guild, // Inherit parent's guild
+        class: state.class,
+        subclass: state.subclass,
+        abilityScore: state.abilityScore,
+        characterType: state.characterType,
+        parentCharacterId: state.parentId
+      };
+
+      console.log('[REGISTRATION] Creating subclass with data:', JSON.stringify(characterData, null, 2));
+
+      await db.createCharacter(characterData);
+      stateManager.clearRegistrationState(userId);
+
+      const characters = await db.getAllCharactersWithSubclasses(userId);
+      const mainChar = characters.find(c => c.character_type === 'main');
+      const alts = characters.filter(c => c.character_type === 'alt');
+      const subs = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
+
+      const profileEmbed = await buildCharacterProfileEmbed(interaction.user, characters, interaction);
+      const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, userId);
+
+      await interaction.update({ 
+        embeds: [profileEmbed], 
+        components: buttons
+      });
+
+      logger.logAction(interaction.user.tag, `registered ${state.characterType} subclass`, `${state.class} - ${state.subclass}`);
+    } catch (error) {
+      console.error('[REGISTRATION ERROR]', error);
+      logger.error(`Subclass registration error: ${error.message}`, error);
+      await interaction.update({
+        content: '❌ Something went wrong. Please try again!',
+        components: []
+      });
+    }
+    return;
+  }
+
+  // Regular character flow continues with guild selection
+  const scoreLabel = gameData.abilityScores.find(s => s.value === abilityScore)?.label || abilityScore;
   const isAlt = state.characterType === 'alt';
   const stepNum = isAlt ? 4 : 7;
   const totalSteps = isAlt ? 4 : 7;
-
-  const scoreLabel = gameData.abilityScores.find(s => s.value === abilityScore)?.label || abilityScore;
+  
   const embed = createRegEmbed(stepNum, totalSteps, '🏰 Choose Your Guild', `**Score:** ${scoreLabel}`);
 
   const guildOptions = config.guilds.map(guild => ({
