@@ -112,10 +112,31 @@ export async function handleIGNModal(interaction, userId) {
     const allChars = await db.getAllCharacters();
     await sheetsService.syncAllCharacters(allChars);
 
-    const embed = new EmbedBuilder().setColor('#00FF00').setTitle('✅ Registration Complete!').setDescription(`**IGN:** ${ign}\n**Class:** ${state.class}\n**Subclass:** ${state.subclass}\n**Guild:** ${state.guild}`).setFooter({ text: 'Character saved!' }).setTimestamp();
+    const embed = new EmbedBuilder().setColor('#00FF00').setTitle('✅ Registration Complete!').setDescription(`**IGN:** ${ign}\n**Class:** ${state.class}\n**Subclass:** ${state.subclass}\n**Guild:** ${state.guild}`).setFooter({ text: 'Returning to profile...' }).setTimestamp();
     await interaction.editReply({ embeds: [embed], components: [] });
     stateManager.clearRegistrationState(userId);
     logger.success(`Character registered for user ${userId}`);
+    logger.logAction(userId, 'Registered character', `${ign} - ${state.class}`);
+
+    setTimeout(async () => {
+      try {
+        const { buildCharacterProfileEmbed } = await import('../components/embeds/characterProfile.js');
+        const { buildCharacterButtons } = await import('../components/buttons/characterButtons.js');
+        
+        const characters = await db.getAllCharactersWithSubclasses(userId);
+        const mainChar = characters.find(c => c.character_type === 'main');
+        const alts = characters.filter(c => c.character_type === 'alt');
+        const subs = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
+        
+        const targetUser = await interaction.client.users.fetch(userId);
+        const embed = await buildCharacterProfileEmbed(targetUser, characters);
+        const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, userId);
+        
+        await interaction.followUp({ embeds: [embed], components: buttons, ephemeral: true });
+      } catch (error) {
+        logger.error(`Failed to return to profile: ${error.message}`);
+      }
+    }, 2000);
   } catch (error) {
     logger.error(`Registration error: ${error.message}`);
     await interaction.editReply({ content: '❌ An error occurred.', ephemeral: true });
