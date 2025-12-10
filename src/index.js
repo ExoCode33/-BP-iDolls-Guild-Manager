@@ -36,12 +36,8 @@ client.once(Events.ClientReady, async () => {
     logger.setClient(client, config.channels.log);
   }
   
-  // Bot startup logging
-  console.log('\x1b[33m[BOT STARTED]\x1b[0m ' + new Date().toLocaleTimeString());
-  console.log('\x1b[33m[BOT STARTED]\x1b[0m Logged in as: \x1b[36m' + client.user.tag + '\x1b[0m');
-  console.log('\x1b[33m[BOT STARTED]\x1b[0m Server: \x1b[36mport ' + (process.env.PORT || 3000) + '\x1b[0m');
-  console.log('\x1b[33m[BOT STARTED]\x1b[0m Commands: \x1b[36m' + client.commands.size + ' commands\x1b[0m');
-  console.log('\x1b[33m[BOT STARTED]\x1b[0m Activated Handlers: \x1b[36mcharacter, registration, update, subclass, remove\x1b[0m');
+  // Log startup to console and Discord
+  await logger.logStartup(client.user.tag, process.env.PORT || 3000, client.commands.size);
   
   try {
     await db.initializeDatabase();
@@ -71,8 +67,8 @@ client.on(Events.InteractionCreate, async interaction => {
         return;
       }
       
-      // Log command usage
-      console.log('\x1b[35m[COMMAND]\x1b[0m ' + new Date().toLocaleTimeString() + ' - /' + interaction.commandName + ' by \x1b[36m' + interaction.user.tag + '\x1b[0m');
+      // Log command usage to console and Discord
+      await logger.logCommand(interaction.commandName, interaction.user.tag, interaction.user.id);
       
       await command.execute(interaction);
     }
