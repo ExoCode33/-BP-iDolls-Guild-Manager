@@ -349,7 +349,7 @@ export async function handleIGNModal(interaction, userId) {
       class: state.class,
       subclass: state.subclass,
       abilityScore: state.abilityScore,
-      characterType: 'main'
+      characterType: state.characterType || 'main'
     };
 
     await db.createCharacter(characterData);
