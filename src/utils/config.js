@@ -44,7 +44,10 @@ const config = {
     autoSyncInterval: parseInt(process.env.AUTO_SYNC_INTERVAL) || 3600000
   },
   ephemeral: {
-    messages: process.env.EPHEMERAL_MESSAGES === 'true'
+    registerChar: process.env.REGISTER_CHAR_EPHEMERAL !== 'false',
+    editChar: process.env.EDIT_CHAR_EPHEMERAL !== 'false',
+    viewChar: process.env.VIEW_CHAR_EPHEMERAL === 'true',
+    admin: process.env.ADMIN_EPHEMERAL !== 'false'
   },
   logging: {
     toChannel: process.env.LOG_TO_CHANNEL === 'true'
