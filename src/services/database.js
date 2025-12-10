@@ -30,6 +30,7 @@ class Database {
           id SERIAL PRIMARY KEY,
           user_id VARCHAR(255) NOT NULL,
           ign VARCHAR(255) NOT NULL,
+          uid VARCHAR(50),
           guild VARCHAR(255),
           class VARCHAR(255) NOT NULL,
           subclass VARCHAR(255) NOT NULL,
@@ -58,14 +59,14 @@ class Database {
 
   // Character Operations
   async createCharacter(data) {
-    const { userId, ign, guild, class: className, subclass, abilityScore, characterType, parentCharacterId = null } = data;
+    const { userId, ign, uid, guild, class: className, subclass, abilityScore, characterType, parentCharacterId = null } = data;
     
     try {
       const result = await this.query(
-        `INSERT INTO characters (user_id, ign, guild, class, subclass, ability_score, character_type, parent_character_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO characters (user_id, ign, uid, guild, class, subclass, ability_score, character_type, parent_character_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
-        [userId, ign, guild, className, subclass, abilityScore, characterType, parentCharacterId]
+        [userId, ign, uid, guild, className, subclass, abilityScore, characterType, parentCharacterId]
       );
       
       logger.success(`Character created: ${ign} (${className})`);
@@ -181,6 +182,7 @@ class Database {
       
       // Merge with new data, keeping existing values if not provided
       const ign = data.ign !== undefined ? data.ign : current.ign;
+      const uid = data.uid !== undefined ? data.uid : current.uid;
       const guild = data.guild !== undefined ? data.guild : current.guild;
       const className = data.class !== undefined ? data.class : current.class;
       const subclass = data.subclass !== undefined ? data.subclass : current.subclass;
@@ -188,10 +190,10 @@ class Database {
       
       const result = await this.query(
         `UPDATE characters 
-         SET ign = $1, guild = $2, class = $3, subclass = $4, ability_score = $5, updated_at = NOW()
-         WHERE id = $6
+         SET ign = $1, uid = $2, guild = $3, class = $4, subclass = $5, ability_score = $6, updated_at = NOW()
+         WHERE id = $7
          RETURNING *`,
-        [ign, guild, className, subclass, abilityScore, characterId]
+        [ign, uid, guild, className, subclass, abilityScore, characterId]
       );
       
       logger.success(`Character updated: ID ${characterId}`);
