@@ -46,7 +46,7 @@ async function handleEdit(interaction) {
   const embed = await buildCharacterProfileEmbed(targetUser, characters);
   const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, targetUser.id);
   await interaction.reply({ embeds: [embed], components: buttons, ephemeral: true });
-  logger.log(`Admin ${interaction.user.id} editing ${targetUser.id}`);
+  logger.logAction(interaction.user.username, `editing ${targetUser.username}`);
 }
 
 async function handleStats(interaction) {
