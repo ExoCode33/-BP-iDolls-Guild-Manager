@@ -2,11 +2,61 @@ class Logger {
   constructor() {
     this.client = null;
     this.logChannelId = null;
+    this.clearOnStart = false;
   }
 
-  setClient(client, logChannelId) {
+  async setClient(client, logChannelId, clearOnStart = false) {
     this.client = client;
     this.logChannelId = logChannelId;
+    this.clearOnStart = clearOnStart;
+    
+    // Clear log channel if enabled
+    if (this.clearOnStart && this.client && this.logChannelId) {
+      await this.clearLogChannel();
+    }
+  }
+
+  async clearLogChannel() {
+    try {
+      const channel = await this.client.channels.fetch(this.logChannelId);
+      if (!channel) return;
+
+      console.log('[LOGGER] Clearing log channel...');
+      
+      // Fetch and delete messages in batches
+      let deleted = 0;
+      let fetched;
+      
+      do {
+        fetched = await channel.messages.fetch({ limit: 100 });
+        if (fetched.size > 0) {
+          // Discord bulk delete only works for messages less than 14 days old
+          const recentMessages = fetched.filter(msg => Date.now() - msg.createdTimestamp < 14 * 24 * 60 * 60 * 1000);
+          const oldMessages = fetched.filter(msg => Date.now() - msg.createdTimestamp >= 14 * 24 * 60 * 60 * 1000);
+          
+          // Bulk delete recent messages
+          if (recentMessages.size > 1) {
+            await channel.bulkDelete(recentMessages, true);
+            deleted += recentMessages.size;
+          } else if (recentMessages.size === 1) {
+            await recentMessages.first().delete();
+            deleted += 1;
+          }
+          
+          // Delete old messages one by one
+          for (const msg of oldMessages.values()) {
+            await msg.delete();
+            deleted += 1;
+            // Small delay to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+      } while (fetched.size >= 2);
+      
+      console.log(`[LOGGER] Cleared ${deleted} messages from log channel`);
+    } catch (error) {
+      console.error(`[LOGGER] Failed to clear log channel: ${error.message}`);
+    }
   }
 
   async sendToChannel(message) {
