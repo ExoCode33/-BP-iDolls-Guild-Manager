@@ -11,7 +11,7 @@ export async function buildCharacterProfileEmbed(user, characters) {
 
   const embed = new EmbedBuilder()
     .setColor('#C026D3')
-    .setDescription(`# **Join ${guildName}**\n**${user.username}'s Profile**`);
+    .setDescription(`\`\`\`ansi\n\u001b[1;35mJoin ${guildName}\u001b[0m\n\`\`\`\n**${user.username}'s Profile**`);
 
   if (!mainChar) {
     embed.setDescription('```ansi\n\u001b[0;31mNo main character registered\u001b[0m\n```');
