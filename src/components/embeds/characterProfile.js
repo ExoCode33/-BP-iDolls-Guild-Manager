@@ -2,8 +2,8 @@ import { EmbedBuilder } from 'discord.js';
 import { formatAbilityScore } from '../../utils/gameData.js';
 import db from '../../services/database.js';
 
-// Timezone to abbreviation mapping
-const TIMEZONE_ABBR = {
+// Timezone abbreviation mapping
+const TZ_ABBR = {
   'America/New_York': 'EST', 'America/Chicago': 'CST', 'America/Denver': 'MST',
   'America/Los_Angeles': 'PST', 'America/Anchorage': 'AKST', 'Pacific/Honolulu': 'HST',
   'America/Toronto': 'EST', 'America/Winnipeg': 'CST', 'America/Edmonton': 'MST',
@@ -32,16 +32,14 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
   const alts = characters.filter(c => c.character_type === 'alt');
   const subclasses = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
 
-  // Get nickname if interaction is available
+  // Get nickname if available
   let displayName = user.username;
   if (interaction && interaction.guild) {
     try {
       const member = await interaction.guild.members.fetch(user.id);
-      if (member.nickname) {
-        displayName = member.nickname;
-      }
+      if (member.nickname) displayName = member.nickname;
     } catch (error) {
-      displayName = user.username;
+      // Fallback to username
     }
   }
 
@@ -102,27 +100,14 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
     embed.addFields({ name: `🎭 Alts (${alts.length})`, value: altSection, inline: false });
   }
 
-  // Get timezone and show abbreviation
   const timezone = await db.getUserTimezone(user.id);
   if (timezone) {
-    const abbr = TIMEZONE_ABBR[timezone] || timezone;
+    const abbr = TZ_ABBR[timezone] || timezone; // Use abbreviation
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-US', { 
-      timeZone: timezone, 
-      month: 'short', 
-      day: 'numeric' 
-    });
-    const timeStr = now.toLocaleTimeString('en-US', { 
-      timeZone: timezone, 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-    embed.setFooter({ text: `🌍 ${abbr} • ${dateStr} ${timeStr}` });
+    const timeString = now.toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: true });
+    embed.setFooter({ text: `🌍 ${abbr} • ${timeString}` });
   }
 
   embed.setTimestamp();
   return embed;
 }
-
-export default { buildCharacterProfileEmbed };
