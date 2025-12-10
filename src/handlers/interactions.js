@@ -344,6 +344,9 @@ export async function handleModalSubmit(interaction) {
     else if (customId.startsWith('edit_ign_modal_')) {
       await editing.handleEditIGNModal(interaction, userId);
     }
+    else if (customId.startsWith('edit_uid_modal_')) {
+      await editing.handleEditUIDModal(interaction, userId);
+    }
     
     console.log('=== MODAL SUCCESS ===');
   } catch (error) {
