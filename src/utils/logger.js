@@ -22,17 +22,19 @@ class Logger {
     }
   }
 
-  getFormattedTimestamp() {
+  getUTCTimestamp() {
     const now = new Date();
-    const month = now.toLocaleString('en-US', { month: 'short' });
-    const day = now.getDate();
-    const year = now.getFullYear();
-    const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-    return `${month} ${day}, ${year} at ${time}`;
+    const month = now.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+    const day = now.getUTCDate();
+    const year = now.getUTCFullYear();
+    const hours = String(now.getUTCHours()).padStart(2, '0');
+    const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+    return `${month} ${day}, ${year} at ${hours}:${minutes}:${seconds} UTC`;
   }
 
   async logStartup(clientTag, port, commandCount) {
-    const timestamp = this.getFormattedTimestamp();
+    const timestamp = this.getUTCTimestamp();
     const messages = [
       `\`\`\`ansi\n\u001b[0;32m[SYSTEM]\u001b[0m ${timestamp} - Bot initialized\n\`\`\``,
       `\`\`\`ansi\n\u001b[0;32m[SYSTEM]\u001b[0m ${timestamp} - Logged in as: \u001b[0;36m${clientTag}\u001b[0m\n\`\`\``,
@@ -53,7 +55,7 @@ class Logger {
   }
 
   async logCommand(commandName, userTag, userId) {
-    const timestamp = this.getFormattedTimestamp();
+    const timestamp = this.getUTCTimestamp();
     const message = `\`\`\`ansi
 \u001b[0;35m[COMMAND]\u001b[0m ${timestamp} - /${commandName} by \u001b[0;36m${userTag}\u001b[0m
 \`\`\``;
@@ -64,7 +66,7 @@ class Logger {
   }
 
   log(message) {
-    const timestamp = this.getFormattedTimestamp();
+    const timestamp = this.getUTCTimestamp();
     const logMessage = `\`\`\`ansi
 \u001b[0;34m[LOG]\u001b[0m ${timestamp} - ${message}
 \`\`\``;
@@ -73,7 +75,7 @@ class Logger {
   }
 
   error(message) {
-    const timestamp = this.getFormattedTimestamp();
+    const timestamp = this.getUTCTimestamp();
     const errorMessage = `\`\`\`ansi
 \u001b[0;31m[ERROR]\u001b[0m ${timestamp} - ${message}
 \`\`\``;
@@ -82,7 +84,7 @@ class Logger {
   }
 
   warn(message) {
-    const timestamp = this.getFormattedTimestamp();
+    const timestamp = this.getUTCTimestamp();
     const warnMessage = `\`\`\`ansi
 \u001b[0;33m[WARN]\u001b[0m ${timestamp} - ${message}
 \`\`\``;
@@ -91,7 +93,7 @@ class Logger {
   }
 
   success(message) {
-    const timestamp = this.getFormattedTimestamp();
+    const timestamp = this.getUTCTimestamp();
     const successMessage = `\`\`\`ansi
 \u001b[0;32m[SUCCESS]\u001b[0m ${timestamp} - ${message}
 \`\`\``;
@@ -104,13 +106,7 @@ class Logger {
   }
 
   async logAction(username, action, details = '') {
-    const timestamp = this.getFormattedTimestamp();
+    const timestamp = this.getUTCTimestamp();
     const actionMessage = `\`\`\`ansi
 \u001b[0;34m[LOG]\u001b[0m ${timestamp} - User \u001b[0;36m${username}\u001b[0m ${action}${details ? ` - ${details}` : ''}
-\`\`\``;
-    console.log(`[ACTION] ${new Date().toISOString()} - ${username} - ${action}${details ? ` - ${details}` : ''}`);
-    await this.sendToChannel(actionMessage);
-  }
-}
-
-export default new Logger();
+\`\`\
