@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS characters (
   id SERIAL PRIMARY KEY,
   user_id VARCHAR(20) NOT NULL,
   ign VARCHAR(255) NOT NULL,
-  uid VARCHAR(50),
+  uid VARCHAR(50) NOT NULL,
   class VARCHAR(100) NOT NULL,
   subclass VARCHAR(100) NOT NULL,
   ability_score VARCHAR(50) NOT NULL,
