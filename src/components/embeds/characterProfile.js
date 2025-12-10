@@ -69,7 +69,8 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
 
   let mainSection = '```ansi\n';
   mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-  mainSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${mainChar.ign}   \u001b[1;34m🆔 UID:\u001b[0m ${mainChar.uid}\n`;
+  mainSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${mainChar.ign}\n`;
+  mainSection += `\u001b[1;34m🆔 UID:\u001b[0m ${mainChar.uid}\n`;
   mainSection += `\n`;
   mainSection += `\u001b[1;34m🎭 Class:\u001b[0m ${mainChar.class}\n`;
   mainSection += `\u001b[1;34m📋 Subclass:\u001b[0m ${mainChar.subclass} ${roleEmoji}\n`;
@@ -87,8 +88,7 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
       const subRoleEmoji = sub.role === 'Tank' ? '🛡️' : sub.role === 'DPS' ? '⚔️' : '💚';
       if (i > 0) subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
       else subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-      subSection += `\u001b[1;34m🎭 Class:\u001b[0m ${sub.class}\n`;
-      subSection += `\u001b[1;34m📋 Subclass:\u001b[0m ${sub.subclass} ${subRoleEmoji}\n`;
+      subSection += `\u001b[1;34m🎭 Class:\u001b[0m ${sub.class}-${sub.subclass} ${subRoleEmoji}\n`;
       subSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(sub.ability_score)}\n`;
     });
     subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
@@ -102,12 +102,9 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
       const altRoleEmoji = alt.role === 'Tank' ? '🛡️' : alt.role === 'DPS' ? '⚔️' : '💚';
       if (i > 0) altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
       else altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-      altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}   \u001b[1;34m🆔 UID:\u001b[0m ${alt.uid}\n`;
-      altSection += `\n`;
-      altSection += `\u001b[1;34m🎭 Class:\u001b[0m ${alt.class}\n`;
-      altSection += `\u001b[1;34m📋 Subclass:\u001b[0m ${alt.subclass} ${altRoleEmoji}\n`;
+      altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}  \u001b[1;34m🆔 UID:\u001b[0m ${alt.uid}\n`;
+      altSection += `\u001b[1;34m🎭 Class:\u001b[0m ${alt.class}-${alt.subclass} ${altRoleEmoji}\n`;
       altSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(alt.ability_score)}\n`;
-      altSection += `\n`;
       altSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
     });
     altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
