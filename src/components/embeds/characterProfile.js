@@ -70,7 +70,7 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
 
   const embed = new EmbedBuilder()
     .setColor('#EC4899')
-    .setDescription(`# __**Join ${guildName} - ${displayName}'s Profile**__${timezoneText}`);
+    .setDescription(`# __**Join ${guildName} - ${displayName}'s Profile ${CLASS_EMOJIS[mainChar.class] || ''}**__${timezoneText}`);
 
   if (!mainChar) {
     embed.setDescription('```ansi\n\u001b[0;31mNo main character registered\u001b[0m\n```');
