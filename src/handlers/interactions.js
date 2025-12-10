@@ -22,6 +22,10 @@ export async function handleButtonInteraction(interaction) {
       console.log('-> Calling editing.handleEditMain');
       await editing.handleEditMain(interaction, userId);
     }
+    else if (customId.startsWith('add_character_')) {
+      console.log('-> Calling editing.handleAddCharacterButton');
+      await editing.handleAddCharacterButton(interaction, userId);
+    }
     else if (customId.startsWith('add_alt_')) {
       console.log('-> Calling editing.handleAddAlt');
       await editing.handleAddAlt(interaction, userId);
@@ -42,6 +46,10 @@ export async function handleButtonInteraction(interaction) {
       console.log('-> Calling editing.handleRemoveSubclass');
       await editing.handleRemoveSubclass(interaction, userId);
     }
+    else if (customId.startsWith('remove_character_')) {
+      console.log('-> Calling editing.handleRemoveMain (from remove_character)');
+      await editing.handleRemoveMain(interaction, userId);
+    }
     else if (customId.startsWith('confirm_remove_')) {
       console.log('-> Calling editing.handleConfirmRemove');
       await editing.handleConfirmRemove(interaction, userId);
@@ -60,7 +68,8 @@ export async function handleButtonInteraction(interaction) {
     }
     else {
       console.log('-> Unknown button:', customId);
-      console.log('-> Available handlers: register_main_, edit_main_, edit_character_, add_alt_, add_subclass_, remove_main_, remove_alt_, remove_subclass_, confirm_remove_, cancel_remove_, back_to_profile_, back_to_edit_menu_');
+      console.log('-> Trying to refresh profile as fallback');
+      await handleBackToProfile(interaction, userId);
     }
     
     console.log('=== BUTTON SUCCESS ===');
@@ -123,6 +132,15 @@ export async function handleSelectMenuInteraction(interaction) {
     else if (customId.startsWith('select_guild_')) {
       console.log('-> Calling registration.handleGuildSelect');
       await registration.handleGuildSelect(interaction, userId);
+    }
+    else if (customId.startsWith('add_character_type_')) {
+      console.log('-> Handling add_character_type selection');
+      const selected = interaction.values[0];
+      if (selected === 'add_alt') {
+        await editing.handleAddAlt(interaction, userId);
+      } else if (selected === 'add_subclass') {
+        await editing.handleAddSubclass(interaction, userId);
+      }
     }
     
     // Editing handlers
