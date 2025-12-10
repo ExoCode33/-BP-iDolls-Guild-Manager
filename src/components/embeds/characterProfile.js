@@ -41,9 +41,24 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
 
   const guildName = mainChar?.guild || 'heal';
 
+  // Get timezone info
+  let timezoneText = '';
+  const timezone = await db.getUserTimezone(user.id);
+  if (timezone) {
+    const abbr = TZ_ABBR[timezone] || timezone;
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { 
+      timeZone: timezone, 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    timezoneText = `\n🌍 ${abbr} • ${timeString}`;
+  }
+
   const embed = new EmbedBuilder()
     .setColor('#EC4899')
-    .setDescription(`# **Join ${guildName} - ${displayName}'s Profile**`);
+    .setDescription(`# __**Join ${guildName} - ${displayName}'s Profile**__${timezoneText}`);
 
   if (!mainChar) {
     embed.setDescription('```ansi\n\u001b[0;31mNo main character registered\u001b[0m\n```');
@@ -95,14 +110,6 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
     altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     altSection += '```';
     embed.addFields({ name: `🎭 Alts (${alts.length})`, value: altSection, inline: false });
-  }
-
-  const timezone = await db.getUserTimezone(user.id);
-  if (timezone) {
-    const abbr = TZ_ABBR[timezone] || timezone;
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: true });
-    embed.setFooter({ text: `🌍 ${abbr} • ${timeString}` });
   }
 
   embed.setTimestamp();
