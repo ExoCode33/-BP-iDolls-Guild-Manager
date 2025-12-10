@@ -22,8 +22,10 @@ export async function handleButtonInteraction(interaction) {
     else if (customId.startsWith('back_to_profile_')) await handleBackToProfile(interaction, userId);
     else if (customId.startsWith('back_to_edit_menu_')) await editing.handleBackToEditMenu(interaction, userId);
   } catch (error) {
-    logger.error(`Button error: ${error.message}`);
-    if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: '❌ Error occurred.', ephemeral: true });
+    await logger.logInteractionError(`Button: ${customId}`, userId, error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: '❌ Something went wrong!', ephemeral: true });
+    }
   }
 }
 
@@ -52,8 +54,10 @@ export async function handleSelectMenuInteraction(interaction) {
     else if (customId.startsWith('select_subclass_to_remove_')) await handleSelectSubclassToRemove(interaction, userId);
     else if (customId.startsWith('select_alt_to_swap_')) await editing.handleAltSwapSelect(interaction, userId);
   } catch (error) {
-    logger.error(`Select menu error: ${error.message}`);
-    if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: '❌ Error occurred.', ephemeral: true });
+    await logger.logInteractionError(`SelectMenu: ${customId}`, userId, error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: '❌ Something went wrong!', ephemeral: true });
+    }
   }
 }
 
@@ -65,8 +69,10 @@ export async function handleModalSubmit(interaction) {
     if (customId.startsWith('ign_modal_')) await registration.handleIGNModal(interaction, userId);
     else if (customId.startsWith('edit_ign_modal_')) await editing.handleEditIGNModal(interaction, userId);
   } catch (error) {
-    logger.error(`Modal error: ${error.message}`);
-    if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: '❌ Error occurred.', ephemeral: true });
+    await logger.logInteractionError(`Modal: ${customId}`, userId, error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: '❌ Something went wrong!', ephemeral: true });
+    }
   }
 }
 
