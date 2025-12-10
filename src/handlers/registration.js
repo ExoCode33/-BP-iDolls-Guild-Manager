@@ -425,7 +425,7 @@ export async function handleAbilityScoreSelect(interaction, userId) {
         guild: parentChar.guild, // Inherit parent's guild
         class: state.class,
         subclass: state.subclass,
-        abilityScore: state.abilityScore,
+        abilityScore: abilityScore, // Use the variable directly, not from state
         characterType: state.characterType,
         parentCharacterId: state.parentId
       };
