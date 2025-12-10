@@ -21,9 +21,33 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
     }
   }
 
+  // Get timezone and current time
+  const timezone = await db.getUserTimezone(user.id);
+  let timezoneDisplay = '';
+  if (timezone) {
+    try {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('en-US', { 
+        timeZone: timezone, 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      const dateString = now.toLocaleDateString('en-US', {
+        timeZone: timezone,
+        month: 'short',
+        day: 'numeric'
+      });
+      timezoneDisplay = `🌍 ${timezone} • ${dateString} ${timeString}`;
+    } catch (error) {
+      // If timezone is invalid, just show the timezone name
+      timezoneDisplay = `🌍 ${timezone}`;
+    }
+  }
+
   const embed = new EmbedBuilder()
     .setColor('#EC4899')
-    .setDescription(`# **Join ${guildName} - ${displayName}'s Profile**`);
+    .setDescription(`# **Join ${guildName} - ${displayName}'s Profile**${timezoneDisplay ? `\n${timezoneDisplay}` : ''}`);
 
   if (!mainChar) {
     embed.setDescription('```ansi\n\u001b[0;31mNo main character registered\u001b[0m\n```');
@@ -57,7 +81,7 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
     });
     subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     subSection += '```';
-    embed.addFields({ name: '📊 Subclass', value: subSection, inline: false });
+    embed.addFields({ name: `🔄 Subclasses (${subclasses.length})`, value: subSection, inline: false });
   }
 
   if (alts.length > 0) {
@@ -73,13 +97,6 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
     altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     altSection += '```';
     embed.addFields({ name: `🎭 Alts (${alts.length})`, value: altSection, inline: false });
-  }
-
-  const timezone = await db.getUserTimezone(user.id);
-  if (timezone) {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: true });
-    embed.setFooter({ text: `🌍 ${timezone} • ${timeString}` });
   }
 
   embed.setTimestamp();
