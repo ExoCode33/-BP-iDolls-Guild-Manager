@@ -70,6 +70,9 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
   let mainSection = '```ansi\n';
   mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
   mainSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${mainChar.ign}\n`;
+  if (mainChar.uid) {
+    mainSection += `\u001b[1;34m🆔 UID:\u001b[0m ${mainChar.uid}\n`;
+  }
   mainSection += `\n`;
   mainSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${mainChar.guild || 'None'}\n`;
   mainSection += `\u001b[1;34m🎭 Class:\u001b[0m ${mainChar.class}\n`;
@@ -102,7 +105,13 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
       const altRoleEmoji = alt.role === 'Tank' ? '🛡️' : alt.role === 'DPS' ? '⚔️' : '💚';
       if (i > 0) altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
       else altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-      altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}   \u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
+      altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}`;
+      if (alt.uid) {
+        altSection += `   \u001b[1;34m🆔 UID:\u001b[0m ${alt.uid}\n`;
+      } else {
+        altSection += '\n';
+      }
+      altSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
       altSection += `\u001b[1;34m🎭 Class:\u001b[0m ${alt.class} - ${alt.subclass} ${altRoleEmoji}\n`;
       altSection += `\n`;
       altSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(alt.ability_score)}\n`;
