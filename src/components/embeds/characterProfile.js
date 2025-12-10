@@ -2,6 +2,18 @@ import { EmbedBuilder } from 'discord.js';
 import { formatAbilityScore } from '../../utils/gameData.js';
 import db from '../../services/database.js';
 
+// Custom class emojis
+const CLASS_EMOJIS = {
+  'Beat Performer': '<:BeatPerformer:1448443528463253524>',
+  'Frost Mage': '<:FrostMage:1448443527401832579>',
+  'Heavy Guardian': '<:HeavyGuardian:1448443526055592018>',
+  'Marksman': '<:Marksman:1448443525103358205>',
+  'Shield Knight': '<:ShieldKnight:1448443524038131863>',
+  'Stormblade': '<:StormBlade:1448443523161653410>',
+  'Verdant Oracle': '<:VerdantOracle:1448443522196701234>',
+  'Wind Knight': '<:WindKnight:1448443521118900234>'
+};
+
 const TZ_ABBR = {
   'America/New_York': 'EST', 'America/Chicago': 'CST', 'America/Denver': 'MST',
   'America/Los_Angeles': 'PST', 'America/Anchorage': 'AKST', 'Pacific/Honolulu': 'HST',
@@ -65,22 +77,29 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
     return embed;
   }
 
+  // Set thumbnail to main character's class icon
+  const classEmojiId = CLASS_EMOJIS[mainChar.class]?.match(/:(\d+)>/)?.[1];
+  if (classEmojiId) {
+    embed.setThumbnail(`https://cdn.discordapp.com/emojis/${classEmojiId}.png`);
+  }
+
   const roleEmoji = mainChar.role === 'Tank' ? '🛡️' : mainChar.role === 'DPS' ? '⚔️' : '💚';
 
   let mainSection = '```ansi\n';
   mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-  mainSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${mainChar.ign}\n`;
-  mainSection += `\u001b[1;34m🆔 UID:\u001b[0m ${mainChar.uid}\n`;
+  mainSection += `\u001b[1;34m🎮 IGN:     \u001b[0m ${mainChar.ign}\n`;
+  mainSection += `\u001b[1;34m🆔 UID:     \u001b[0m ${mainChar.uid}\n`;
   mainSection += `\n`;
-  mainSection += `\u001b[1;34m🎭 Class:\u001b[0m ${mainChar.class}\n`;
+  mainSection += `\u001b[1;34m🎭 Class:   \u001b[0m ${mainChar.class}\n`;
   mainSection += `\u001b[1;34m📋 Subclass:\u001b[0m ${mainChar.subclass} ${roleEmoji}\n`;
-  mainSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(mainChar.ability_score)}\n`;
+  mainSection += `\u001b[1;34m💪 Score:   \u001b[0m ${formatAbilityScore(mainChar.ability_score)}\n`;
   mainSection += `\n`;
-  mainSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${mainChar.guild || 'None'}\n`;
+  mainSection += `\u001b[1;34m🏰 Guild:   \u001b[0m ${mainChar.guild || 'None'}\n`;
   mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
   mainSection += '```';
 
-  embed.addFields({ name: '⭐ Main', value: mainSection, inline: false });
+  const mainFieldName = `${CLASS_EMOJIS[mainChar.class] || '⭐'} Main`;
+  embed.addFields({ name: mainFieldName, value: mainSection, inline: false });
 
   if (subclasses.length > 0) {
     let subSection = '```ansi\n';
@@ -93,7 +112,10 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
     });
     subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     subSection += '```';
-    embed.addFields({ name: '📊 Subclass', value: subSection, inline: false });
+    
+    // Use first subclass's class emoji for the field name
+    const subFieldEmoji = CLASS_EMOJIS[subclasses[0].class] || '📊';
+    embed.addFields({ name: `${subFieldEmoji} Subclass${subclasses.length > 1 ? 'es' : ''}`, value: subSection, inline: false });
   }
 
   if (alts.length > 0) {
@@ -102,14 +124,17 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
       const altRoleEmoji = alt.role === 'Tank' ? '🛡️' : alt.role === 'DPS' ? '⚔️' : '💚';
       if (i > 0) altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
       else altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-      altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}  \u001b[1;34m🆔 UID:\u001b[0m ${alt.uid}\n`;
+      altSection += `\u001b[1;34m🎮 IGN:  \u001b[0m ${alt.ign}  \u001b[1;34m🆔 UID:\u001b[0m ${alt.uid}\n`;
       altSection += `\u001b[1;34m🎭 Class:\u001b[0m ${alt.class}-${alt.subclass} ${altRoleEmoji}\n`;
       altSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(alt.ability_score)}\n`;
       altSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
     });
     altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     altSection += '```';
-    embed.addFields({ name: `🎭 Alts (${alts.length})`, value: altSection, inline: false });
+    
+    // Use first alt's class emoji for the field name
+    const altFieldEmoji = CLASS_EMOJIS[alts[0].class] || '🎭';
+    embed.addFields({ name: `${altFieldEmoji} Alts (${alts.length})`, value: altSection, inline: false });
   }
 
   embed.setTimestamp();
