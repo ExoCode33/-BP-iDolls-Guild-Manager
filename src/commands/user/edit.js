@@ -19,7 +19,7 @@ export default {
       const buttons = buildCharacterButtons(mainChar, alts.length, subclasses.length, userId);
       
       await interaction.editReply({ embeds: [embed], components: buttons });
-      logger.log(`User ${userId} opened edit`);
+      logger.logAction(interaction.user.username, 'opened edit');
     } catch (error) {
       logger.error(`Edit error: ${error.message}`);
       if (!interaction.replied && !interaction.deferred) {
