@@ -20,14 +20,14 @@ export async function buildCharacterProfileEmbed(user, characters) {
   const roleEmoji = mainChar.role === 'Tank' ? '🛡️' : mainChar.role === 'DPS' ? '⚔️' : '💚';
 
   let mainSection = '```ansi\n';
-  mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+  mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
   mainSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${mainChar.ign}\n`;
   mainSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${mainChar.guild || 'None'}\n`;
   mainSection += `\u001b[1;34m🎭 Class:\u001b[0m ${mainChar.class}\n`;
   mainSection += `\u001b[1;34m📊 Subclass:\u001b[0m ${mainChar.subclass}\n`;
   mainSection += `\u001b[1;34m${roleEmoji} Role:\u001b[0m ${mainChar.role}\n`;
   mainSection += `\u001b[1;34m💪 Ability Score:\u001b[0m ${formatAbilityScore(mainChar.ability_score)}\n`;
-  mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+  mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
   mainSection += '```';
 
   embed.addFields({ name: '⭐ Main Character', value: mainSection, inline: false });
@@ -35,12 +35,12 @@ export async function buildCharacterProfileEmbed(user, characters) {
   if (subclasses.length > 0) {
     let subSection = '```ansi\n';
     subclasses.forEach((sub, i) => {
-      subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+      subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
       subSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${sub.ign}\n`;
       subSection += `\u001b[1;34m🎭 Class:\u001b[0m ${sub.class}-${sub.subclass}-${sub.role}\n`;
       subSection += `\u001b[1;34m💪 Ability Score:\u001b[0m ${formatAbilityScore(sub.ability_score)}\n`;
     });
-    subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+    subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     subSection += '```';
     embed.addFields({ name: `📊 Subclasses (${subclasses.length}/3)`, value: subSection, inline: false });
   }
@@ -48,12 +48,12 @@ export async function buildCharacterProfileEmbed(user, characters) {
   if (alts.length > 0) {
     let altSection = '```ansi\n';
     alts.forEach((alt, i) => {
-      altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+      altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
       altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}  \u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
       altSection += `\u001b[1;34m🎭 Class:\u001b[0m ${alt.class}-${alt.subclass}-${alt.role}\n`;
       altSection += `\u001b[1;34m💪 Ability Score:\u001b[0m ${formatAbilityScore(alt.ability_score)}\n`;
     });
-    altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
+    altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     altSection += '```';
     embed.addFields({ name: `🎭 Alt Characters (${alts.length})`, value: altSection, inline: false });
   }
