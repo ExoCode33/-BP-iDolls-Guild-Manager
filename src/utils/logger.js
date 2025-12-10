@@ -9,21 +9,14 @@ class Logger {
     this.logChannelId = logChannelId;
   }
 
-  async sendToChannel(message, color = null) {
+  async sendToChannel(message) {
     if (!this.client || !this.logChannelId) return;
     
     try {
       const channel = await this.client.channels.fetch(this.logChannelId);
       if (!channel) return;
 
-      const { EmbedBuilder } = await import('discord.js');
-      const embed = new EmbedBuilder()
-        .setDescription(message)
-        .setTimestamp();
-
-      if (color) embed.setColor(color);
-
-      await channel.send({ embeds: [embed] });
+      await channel.send(message);
     } catch (error) {
       console.error(`Failed to log to channel: ${error.message}`);
     }
@@ -58,22 +51,35 @@ class Logger {
   }
 
   log(message) {
+    const logMessage = `\`\`\`ansi
+\u001b[0;34m[LOG]\u001b[0m ${new Date().toLocaleTimeString()} - ${message}
+\`\`\``;
     console.log(`[LOG] ${new Date().toISOString()} - ${message}`);
+    this.sendToChannel(logMessage);
   }
 
   error(message) {
+    const errorMessage = `\`\`\`ansi
+\u001b[0;31m[ERROR]\u001b[0m ${new Date().toLocaleTimeString()} - ${message}
+\`\`\``;
     console.error(`[ERROR] ${new Date().toISOString()} - ${message}`);
-    this.sendToChannel(`❌ **Error:** ${message}`, '#FF0000');
+    this.sendToChannel(errorMessage);
   }
 
   warn(message) {
+    const warnMessage = `\`\`\`ansi
+\u001b[0;33m[WARN]\u001b[0m ${new Date().toLocaleTimeString()} - ${message}
+\`\`\``;
     console.warn(`[WARN] ${new Date().toISOString()} - ${message}`);
-    this.sendToChannel(`⚠️ **Warning:** ${message}`, '#FFA500');
+    this.sendToChannel(warnMessage);
   }
 
   success(message) {
+    const successMessage = `\`\`\`ansi
+\u001b[0;32m[SUCCESS]\u001b[0m ${new Date().toLocaleTimeString()} - ${message}
+\`\`\``;
     console.log(`[SUCCESS] ${new Date().toISOString()} - ${message}`);
-    this.sendToChannel(`✅ **Success:** ${message}`, '#00FF00');
+    this.sendToChannel(successMessage);
   }
 
   debug(message) {
@@ -81,9 +87,11 @@ class Logger {
   }
 
   logAction(userId, action, details = '') {
-    const message = `👤 <@${userId}> - ${action}${details ? ` - ${details}` : ''}`;
-    console.log(`[ACTION] ${new Date().toISOString()} - ${message}`);
-    this.sendToChannel(message, '#5865F2');
+    const actionMessage = `\`\`\`ansi
+\u001b[0;35m[ACTION]\u001b[0m ${new Date().toLocaleTimeString()} - User: \u001b[0;36m${userId}\u001b[0m - ${action}${details ? ` - ${details}` : ''}
+\`\`\``;
+    console.log(`[ACTION] ${new Date().toISOString()} - ${userId} - ${action}${details ? ` - ${details}` : ''}`);
+    this.sendToChannel(actionMessage);
   }
 }
 
