@@ -10,8 +10,8 @@ export async function buildCharacterProfileEmbed(user, characters) {
   const guildName = mainChar?.guild || 'heal';
 
   const embed = new EmbedBuilder()
-    .setColor('#A855F7')
-    .setDescription(`\`\`\`ansi\n\u001b[1;35m██ ██████   ███████  ██ ███    ██ \n     ██ ██    ██ ██ ████   ██ \n     ██ ██    ██ ██ ██ ██  ██ \n██   ██ ██    ██ ██ ██  ██ ██ \n ████   ██████  ██ ██   ████ \n                               \n██   ██ ███████  █████  ██     \n██   ██ ██      ██   ██ ██     \n███████ █████   ███████ ██     \n██   ██ ██      ██   ██ ██     \n██   ██ ███████ ██   ██ ███████\u001b[0m\n\`\`\`\n**${user.username}'s Profile**`);
+    .setColor('#D946EF')
+    .setDescription(`\`\`\`ansi\n\u001b[1;35m\u001b[4mJOIN ${guildName.toUpperCase()}\u001b[0m\n\`\`\`\n**${user.username}'s Profile**`);
 
   if (!mainChar) {
     embed.setDescription('```ansi\n\u001b[0;31mNo main character registered\u001b[0m\n```');
