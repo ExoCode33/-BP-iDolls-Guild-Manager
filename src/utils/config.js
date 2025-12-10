@@ -16,12 +16,12 @@ const config = {
     privateKey: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
   },
   guilds: [
-    { name: 'Visitor', roleId: process.env.VISITOR_ROLE_ID }, // Added visitor as guild
     { name: process.env.GUILD_1_NAME, roleId: process.env.GUILD_1_ROLE_ID },
     { name: process.env.GUILD_2_NAME, roleId: process.env.GUILD_2_ROLE_ID },
     { name: process.env.GUILD_3_NAME, roleId: process.env.GUILD_3_ROLE_ID },
     { name: process.env.GUILD_4_NAME, roleId: process.env.GUILD_4_ROLE_ID },
-    { name: process.env.GUILD_5_NAME, roleId: process.env.GUILD_5_ROLE_ID }
+    { name: process.env.GUILD_5_NAME, roleId: process.env.GUILD_5_ROLE_ID },
+    { name: 'Visitor', roleId: process.env.VISITOR_ROLE_ID } // Visitor at the end
   ].filter(g => g.name && g.roleId),
   roles: {
     visitor: process.env.VISITOR_ROLE_ID,
