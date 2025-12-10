@@ -80,7 +80,7 @@ async function handleEdit(interaction) {
     const alts = characters.filter(c => c.character_type === 'alt');
     const subs = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
     
-    const embed = await buildCharacterProfileEmbed(targetUser, characters);
+    const embed = await buildCharacterProfileEmbed(targetUser, characters, interaction);
     const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, targetUser.id);
     
     await interaction.editReply({ embeds: [embed], components: buttons });
