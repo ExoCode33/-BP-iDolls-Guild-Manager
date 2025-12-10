@@ -31,9 +31,9 @@ async function loadCommands() {
 }
 
 client.once(Events.ClientReady, async () => {
-  // Initialize logger with Discord client
+  // Initialize logger with Discord client and clear option
   if (config.channels.log && config.logging.toChannel) {
-    logger.setClient(client, config.channels.log);
+    await logger.setClient(client, config.channels.log, config.logging.clearOnStart);
   }
   
   // Log startup to console and Discord
