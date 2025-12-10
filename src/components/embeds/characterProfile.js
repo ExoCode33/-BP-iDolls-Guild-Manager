@@ -12,7 +12,7 @@ export async function buildCharacterProfileEmbed(user, characters) {
   const embed = new EmbedBuilder()
     .setColor('#EC4899')
     .setThumbnail(user.displayAvatarURL({ dynamic: true }))
-    .setDescription(`\`\`\`ansi\n\u001b[0;35mJOIN ${guildName.toUpperCase()}\u001b[0m\n\`\`\`**${user.username}'s Profile**`);
+    .setDescription(`# **JOIN ${guildName.toUpperCase()}**\n**${user.username}'s Profile**`);
 
   if (!mainChar) {
     embed.setDescription('```ansi\n\u001b[0;31mNo main character registered\u001b[0m\n```');
