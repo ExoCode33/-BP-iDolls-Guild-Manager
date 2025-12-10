@@ -81,6 +81,12 @@ export async function handleSelectMenuInteraction(interaction) {
     else if (customId.startsWith('remove_character_select_')) {
       await handleRemoveCharacterSelect(interaction, userId);
     }
+    else if (customId.startsWith('edit_main_option_')) {
+      await handleEditMainOption(interaction, userId);
+    }
+    else if (customId.startsWith('select_alt_to_swap_')) {
+      await handleAltSwapSelect(interaction, userId);
+    }
   } catch (error) {
     logger.error(`Select menu error: ${error.message}`);
     if (!interaction.replied && !interaction.deferred) {
@@ -174,7 +180,7 @@ async function handleRemoveCharacterButton(interaction, userId) {
     .setTitle('🗑️ Remove Character')
     .setDescription('⚠️ Choose which character to remove:')
     .addFields(
-      { name: '⚠️ Warning', value: 'Removing your main character will delete ALL alts and subclasses!', inline: false }
+      { name: '⚠️ Note', value: 'Removing main ONLY removes main. Alts stay!', inline: false }
     )
     .setTimestamp();
 
@@ -205,6 +211,25 @@ async function handleEditCharacterSelect(interaction, userId) {
   }
 }
 
+async function handleEditMainOption(interaction, userId) {
+  const selected = interaction.values[0];
+  
+  if (selected === 'swap') {
+    await editing.handleSwapMainWithAlt(interaction, userId);
+  } else {
+    // Handle other edit options (IGN, class, etc.) - to be implemented
+    await interaction.reply({
+      content: `✏️ Editing ${selected} coming soon!`,
+      ephemeral: true
+    });
+  }
+}
+
+async function handleAltSwapSelect(interaction, userId) {
+  const altId = interaction.values[0];
+  await editing.handleConfirmSwap(interaction, userId, altId);
+}
+
 async function handleRemoveCharacterSelect(interaction, userId) {
   const selected = interaction.values[0];
   const [type, id] = selected.split('_');
@@ -214,7 +239,7 @@ async function handleRemoveCharacterSelect(interaction, userId) {
   
   if (type === 'main') {
     const mainChar = await db.getMainCharacter(userId);
-    stateManager.setRemovalState(userId, { type: 'main', character: mainChar });
+    stateManager.setRemovalState(userId, { type: 'main', character: mainChar, characterId: mainChar.id });
     await editing.handleRemoveMain(interaction, userId);
   } else if (type === 'alt') {
     stateManager.setRemovalState(userId, { type: 'alt', characterId });
