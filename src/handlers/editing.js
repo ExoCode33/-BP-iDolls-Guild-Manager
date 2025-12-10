@@ -400,7 +400,7 @@ export async function handleEditOption(interaction, userId, option) {
         .setStyle(TextInputStyle.Short)
         .setPlaceholder(character.uid || 'Enter UID')
         .setValue(character.uid || '')
-        .setRequired(false)
+        .setRequired(true)
         .setMaxLength(50);
 
       const row = new ActionRowBuilder().addComponents(uidInput);
@@ -523,7 +523,7 @@ export async function handleEditUIDModal(interaction, userId) {
   const state = stateManager.getUpdateState(userId);
   if (!state) return;
 
-  const newUID = interaction.fields.getTextInputValue('uid') || null;
+  const newUID = interaction.fields.getTextInputValue('uid');
 
   try {
     await db.updateCharacter(state.characterId, { uid: newUID });
@@ -540,7 +540,7 @@ export async function handleEditUIDModal(interaction, userId) {
     await interaction.update({ embeds: [embed], components: buttons });
     stateManager.clearUpdateState(userId);
 
-    logger.logAction(interaction.user.tag, 'updated UID', `${newUID || 'removed'}`);
+    logger.logAction(interaction.user.tag, 'updated UID', `${newUID}`);
   } catch (error) {
     logger.error(`Edit UID error: ${error.message}`);
     await interaction.reply({ content: '❌ Failed to update UID!', ephemeral: true });
