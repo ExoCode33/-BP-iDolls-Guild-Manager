@@ -1,372 +1,390 @@
-import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder } from 'discord.js';
-import { gameData, getClassEmoji, getSubclassesForClass, getRoleFromClass } from '../utils/gameData.js';
-import db from '../services/database.js';
-import sheetsService from '../services/sheets.js';
-import stateManager from '../utils/stateManager.js';
+import { 
+  ActionRowBuilder, 
+  StringSelectMenuBuilder, 
+  ModalBuilder, 
+  TextInputBuilder, 
+  TextInputStyle,
+  EmbedBuilder 
+} from 'discord.js';
 import logger from '../utils/logger.js';
+import db from '../services/database.js';
+import { buildCharacterProfileEmbed } from '../components/embeds/characterProfile.js';
+import { buildCharacterButtons } from '../components/buttons/characterButtons.js';
+import { classes, getSubclassesByClass, getAbilityScores } from '../utils/gameData.js';
 import config from '../utils/config.js';
 
-export async function startRegistrationFlow(interaction, userId) {
-  const state = stateManager.getRegistrationState(userId);
-  if (!state) {
-    stateManager.setRegistrationState(userId, { 
-      step: 'class', 
-      type: 'main', 
-      characterType: 'main' 
-    });
+const stateManager = (await import('../utils/stateManager.js')).default;
+
+// Region → Countries → Timezones mapping
+const REGIONS = {
+  'North America': {
+    '🇺🇸 United States': {
+      'Eastern Time': 'America/New_York',
+      'Central Time': 'America/Chicago',
+      'Mountain Time': 'America/Denver',
+      'Pacific Time': 'America/Los_Angeles',
+      'Alaska Time': 'America/Anchorage',
+      'Hawaii Time': 'Pacific/Honolulu'
+    },
+    '🇨🇦 Canada': {
+      'Eastern Time': 'America/Toronto',
+      'Central Time': 'America/Winnipeg',
+      'Mountain Time': 'America/Edmonton',
+      'Pacific Time': 'America/Vancouver',
+      'Atlantic Time': 'America/Halifax'
+    },
+    '🇲🇽 Mexico': {
+      'Central Time': 'America/Mexico_City',
+      'Mountain Time': 'America/Chihuahua',
+      'Pacific Time': 'America/Tijuana'
+    }
+  },
+  'South America': {
+    '🇧🇷 Brazil': {
+      'Brasília Time': 'America/Sao_Paulo',
+      'Amazon Time': 'America/Manaus'
+    },
+    '🇦🇷 Argentina': { 'Buenos Aires': 'America/Buenos_Aires' },
+    '🇨🇱 Chile': { 'Santiago': 'America/Santiago' },
+    '🇨🇴 Colombia': { 'Bogotá': 'America/Bogota' },
+    '🇵🇪 Peru': { 'Lima': 'America/Lima' }
+  },
+  'Europe': {
+    '🇬🇧 United Kingdom': { 'London': 'Europe/London' },
+    '🇫🇷 France': { 'Paris': 'Europe/Paris' },
+    '🇩🇪 Germany': { 'Berlin': 'Europe/Berlin' },
+    '🇮🇹 Italy': { 'Rome': 'Europe/Rome' },
+    '🇪🇸 Spain': { 'Madrid': 'Europe/Madrid' },
+    '🇳🇱 Netherlands': { 'Amsterdam': 'Europe/Amsterdam' },
+    '🇧🇪 Belgium': { 'Brussels': 'Europe/Brussels' },
+    '🇦🇹 Austria': { 'Vienna': 'Europe/Vienna' },
+    '🇵🇱 Poland': { 'Warsaw': 'Europe/Warsaw' },
+    '🇸🇪 Sweden': { 'Stockholm': 'Europe/Stockholm' },
+    '🇬🇷 Greece': { 'Athens': 'Europe/Athens' },
+    '🇹🇷 Turkey': { 'Istanbul': 'Europe/Istanbul' },
+    '🇷🇺 Russia': {
+      'Moscow': 'Europe/Moscow',
+      'St Petersburg': 'Europe/Moscow',
+      'Yekaterinburg': 'Asia/Yekaterinburg',
+      'Novosibirsk': 'Asia/Novosibirsk',
+      'Vladivostok': 'Asia/Vladivostok'
+    }
+  },
+  'Asia': {
+    '🇯🇵 Japan': { 'Tokyo': 'Asia/Tokyo' },
+    '🇰🇷 South Korea': { 'Seoul': 'Asia/Seoul' },
+    '🇨🇳 China': { 'Beijing/Shanghai': 'Asia/Shanghai' },
+    '🇭🇰 Hong Kong': { 'Hong Kong': 'Asia/Hong_Kong' },
+    '🇹🇼 Taiwan': { 'Taipei': 'Asia/Taipei' },
+    '🇸🇬 Singapore': { 'Singapore': 'Asia/Singapore' },
+    '🇹🇭 Thailand': { 'Bangkok': 'Asia/Bangkok' },
+    '🇻🇳 Vietnam': { 'Ho Chi Minh': 'Asia/Ho_Chi_Minh' },
+    '🇵🇭 Philippines': { 'Manila': 'Asia/Manila' },
+    '🇮🇩 Indonesia': {
+      'Jakarta': 'Asia/Jakarta',
+      'Bali': 'Asia/Makassar'
+    },
+    '🇮🇳 India': { 'New Delhi/Mumbai': 'Asia/Kolkata' },
+    '🇦🇪 UAE': { 'Dubai': 'Asia/Dubai' },
+    '🇸🇦 Saudi Arabia': { 'Riyadh': 'Asia/Riyadh' }
+  },
+  'Oceania': {
+    '🇦🇺 Australia': {
+      'Sydney/Melbourne': 'Australia/Sydney',
+      'Brisbane': 'Australia/Brisbane',
+      'Adelaide': 'Australia/Adelaide',
+      'Perth': 'Australia/Perth',
+      'Darwin': 'Australia/Darwin'
+    },
+    '🇳🇿 New Zealand': { 'Auckland': 'Pacific/Auckland' },
+    '🇫🇯 Fiji': { 'Suva': 'Pacific/Fiji' }
+  },
+  'Africa': {
+    '🇿🇦 South Africa': { 'Johannesburg': 'Africa/Johannesburg' },
+    '🇪🇬 Egypt': { 'Cairo': 'Africa/Cairo' },
+    '🇳🇬 Nigeria': { 'Lagos': 'Africa/Lagos' },
+    '🇰🇪 Kenya': { 'Nairobi': 'Africa/Nairobi' },
+    '🇲🇦 Morocco': { 'Casablanca': 'Africa/Casablanca' }
   }
-  await showClassSelection(interaction, userId);
-}
+};
 
-async function showClassSelection(interaction, userId) {
-  const classes = Object.keys(gameData.classes);
-  const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_class_${userId}`)
-    .setPlaceholder('🎭 Choose your class')
-    .addOptions(classes.map(className => ({ 
-      label: className, 
-      value: className, 
-      emoji: getClassEmoji(className), 
-      description: `${gameData.classes[className].role}` 
-    })));
-
-  const row = new ActionRowBuilder().addComponents(selectMenu);
-  
-  const state = stateManager.getRegistrationState(userId);
-  const isSubclass = state?.type === 'subclass';
-  const stepTitle = isSubclass ? '📊 Add Subclass - Step 1' : '📝 Character Registration - Step 1';
-  
+export async function handleRegisterMain(interaction, userId) {
   const embed = new EmbedBuilder()
-    .setColor('#6640D9')
-    .setTitle(stepTitle)
-    .setDescription('Select your class:')
+    .setColor('#EC4899')
+    .setTitle('🎮 Register Main Character - Step 1/6')
+    .setDescription('**Select your region:**\n\nThis will help us show the correct time on your profile.')
     .setTimestamp();
 
-  const ephemeral = state?.type === 'subclass' ? config.ephemeral.editChar : config.ephemeral.registerChar;
+  const regionOptions = Object.keys(REGIONS).map(region => ({
+    label: region,
+    value: region,
+    description: `Select ${region}`
+  }));
 
-  if (interaction.deferred || interaction.replied) {
-    await interaction.editReply({ embeds: [embed], components: [row] });
-  } else {
-    await interaction.reply({ embeds: [embed], components: [row], ephemeral });
-  }
-}
-
-export async function handleClassSelect(interaction, userId) {
-  const selectedClass = interaction.values[0];
-  const state = stateManager.getRegistrationState(userId);
-  if (!state) {
-    return await interaction.reply({ 
-      content: '❌ Session expired.', 
-      ephemeral: true 
-    });
-  }
-
-  state.class = selectedClass;
-  state.role = getRoleFromClass(selectedClass);
-  state.step = 'subclass';
-  stateManager.setRegistrationState(userId, state);
-
-  const subclasses = getSubclassesForClass(selectedClass);
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_subclass_${userId}`)
-    .setPlaceholder('📊 Choose your subclass')
-    .addOptions(subclasses.map(subclass => ({ 
-      label: subclass, 
-      value: subclass 
-    })));
-    
+    .setCustomId(`select_region_${userId}`)
+    .setPlaceholder('🌍 Choose your region')
+    .addOptions(regionOptions);
+
   const row = new ActionRowBuilder().addComponents(selectMenu);
-  
-  const isSubclass = state.type === 'subclass';
-  const stepTitle = isSubclass ? '📊 Add Subclass - Step 2' : '📝 Character Registration - Step 2';
-  
-  const embed = new EmbedBuilder()
-    .setColor('#6640D9')
-    .setTitle(stepTitle)
-    .setDescription(`**Class:** ${selectedClass}\n\nSelect your subclass:`)
-    .setTimestamp();
-    
+
   await interaction.update({ embeds: [embed], components: [row] });
 }
 
-export async function handleSubclassSelect(interaction, userId) {
-  const selectedSubclass = interaction.values[0];
-  const state = stateManager.getRegistrationState(userId);
-  if (!state) {
-    return await interaction.reply({ 
-      content: '❌ Session expired.', 
-      ephemeral: true 
-    });
-  }
+export async function handleRegionSelect(interaction, userId) {
+  const region = interaction.values[0];
+  stateManager.setRegistrationState(userId, { region });
 
-  state.subclass = selectedSubclass;
-  
-  const isSubclass = state.type === 'subclass';
-  
-  if (isSubclass) {
-    state.step = 'ability_score';
-    stateManager.setRegistrationState(userId, state);
+  const embed = new EmbedBuilder()
+    .setColor('#EC4899')
+    .setTitle('🎮 Register Main Character - Step 2/6')
+    .setDescription(`**Region:** ${region}\n\n**Select your country:**`)
+    .setTimestamp();
 
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(`select_ability_score_${userId}`)
-      .setPlaceholder('💪 Choose your ability score range')
-      .addOptions(gameData.abilityScores.map(score => ({ 
-        label: score.label, 
-        value: score.value 
-      })));
-      
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-    
-    const embed = new EmbedBuilder()
-      .setColor('#6640D9')
-      .setTitle('📊 Add Subclass - Step 3')
-      .setDescription(`**Class:** ${state.class}\n**Subclass:** ${selectedSubclass}\n\nSelect your ability score:`)
-      .setTimestamp();
-      
-    await interaction.update({ embeds: [embed], components: [row] });
-  } else {
-    state.step = 'ability_score';
-    stateManager.setRegistrationState(userId, state);
+  const countries = Object.keys(REGIONS[region]);
+  const countryOptions = countries.map(country => ({
+    label: country,
+    value: country,
+    description: `Select ${country.replace(/🇦-🇿 /g, '')}`
+  }));
 
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(`select_ability_score_${userId}`)
-      .setPlaceholder('💪 Choose your ability score range')
-      .addOptions(gameData.abilityScores.map(score => ({ 
-        label: score.label, 
-        value: score.value 
-      })));
-      
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-    
-    const embed = new EmbedBuilder()
-      .setColor('#6640D9')
-      .setTitle('📝 Character Registration - Step 3')
-      .setDescription(`**Class:** ${state.class}\n**Subclass:** ${selectedSubclass}\n\nSelect your ability score:`)
-      .setTimestamp();
-      
-    await interaction.update({ embeds: [embed], components: [row] });
-  }
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_country_${userId}`)
+    .setPlaceholder('🏳️ Choose your country')
+    .addOptions(countryOptions);
+
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+
+  await interaction.update({ embeds: [embed], components: [row] });
 }
 
-export async function handleAbilityScoreSelect(interaction, userId) {
-  const selectedScore = interaction.values[0];
+export async function handleCountrySelect(interaction, userId) {
   const state = stateManager.getRegistrationState(userId);
-  if (!state) {
-    return await interaction.reply({ 
-      content: '❌ Session expired.', 
-      ephemeral: true 
-    });
-  }
+  const country = interaction.values[0];
+  stateManager.setRegistrationState(userId, { ...state, country });
 
-  state.abilityScore = selectedScore;
-  
-  const isSubclass = state.type === 'subclass';
-  
-  if (isSubclass) {
-    await completeSubclassRegistration(interaction, userId, state);
-  } else {
-    state.step = 'guild';
-    stateManager.setRegistrationState(userId, state);
+  const embed = new EmbedBuilder()
+    .setColor('#EC4899')
+    .setTitle('🎮 Register Main Character - Step 3/6')
+    .setDescription(`**Region:** ${state.region}\n**Country:** ${country}\n\n**Select your timezone:**`)
+    .setTimestamp();
 
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(`select_guild_${userId}`)
-      .setPlaceholder('🏰 Choose your guild')
-      .addOptions(config.guilds.map(guild => ({ 
-        label: guild.name, 
-        value: guild.name 
-      })));
-      
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-    
-    const embed = new EmbedBuilder()
-      .setColor('#6640D9')
-      .setTitle('📝 Character Registration - Step 4')
-      .setDescription(`**Class:** ${state.class}\n**Subclass:** ${state.subclass}\n**Ability Score:** ${selectedScore}\n\nSelect your guild:`)
-      .setTimestamp();
-      
-    await interaction.update({ embeds: [embed], components: [row] });
-  }
+  const timezones = REGIONS[state.region][country];
+  const timezoneOptions = Object.keys(timezones).map(tzName => ({
+    label: tzName,
+    value: timezones[tzName],
+    description: timezones[tzName]
+  }));
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_timezone_${userId}`)
+    .setPlaceholder('🕐 Choose your timezone')
+    .addOptions(timezoneOptions);
+
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+
+  await interaction.update({ embeds: [embed], components: [row] });
 }
 
-async function completeSubclassRegistration(interaction, userId, state) {
-  await interaction.deferUpdate();
+export async function handleTimezoneSelect(interaction, userId) {
+  const state = stateManager.getRegistrationState(userId);
+  const timezone = interaction.values[0];
+  
+  // Save timezone to database immediately
+  await db.setUserTimezone(userId, timezone);
+  
+  stateManager.setRegistrationState(userId, { ...state, timezone });
 
-  try {
-    const parentChar = await db.getCharacterById(state.parentId);
-    
-    const characterData = {
-      userId,
-      ign: parentChar.ign,
-      class: state.class,
-      subclass: state.subclass,
-      abilityScore: state.abilityScore,
-      guild: parentChar.guild,
-      role: state.role,
-      characterType: state.characterType,
-      parentCharacterId: state.parentId
-    };
+  // Now show current time and proceed to guild selection
+  const now = new Date();
+  const timeString = now.toLocaleTimeString('en-US', { 
+    timeZone: timezone, 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true 
+  });
 
-    await db.createCharacter(characterData);
-    const allChars = await db.getAllCharacters();
-    await sheetsService.syncAllCharacters(allChars);
+  const embed = new EmbedBuilder()
+    .setColor('#EC4899')
+    .setTitle('🎮 Register Main Character - Step 4/6')
+    .setDescription(`**Timezone set!** 🌍\n\nYour current time: **${timeString}**\n\n**Now select your guild:**`)
+    .setTimestamp();
 
-    const embed = new EmbedBuilder()
-      .setColor('#00FF00')
-      .setTitle('✅ Subclass Added!')
-      .setDescription(`**Class:** ${state.class}\n**Subclass:** ${state.subclass}\n**Ability Score:** ${state.abilityScore}\n**Parent:** ${parentChar.ign}`)
-      .setFooter({ text: 'Returning to profile...' })
-      .setTimestamp();
-      
-    await interaction.editReply({ embeds: [embed], components: [] });
-    stateManager.clearRegistrationState(userId);
-    logger.success(`Subclass added for user ${userId}`);
-    logger.logAction(interaction.user.username, 'Added subclass', `${state.class} (${state.subclass})`);
+  const guildOptions = config.guilds.map(guild => ({
+    label: guild.name,
+    value: guild.name,
+    description: `Join ${guild.name}`
+  }));
 
-    setTimeout(async () => {
-      try {
-        const { buildCharacterProfileEmbed } = await import('../components/embeds/characterProfile.js');
-        const { buildCharacterButtons } = await import('../components/buttons/characterButtons.js');
-        
-        const characters = await db.getAllCharactersWithSubclasses(userId);
-        const mainChar = characters.find(c => c.character_type === 'main');
-        const alts = characters.filter(c => c.character_type === 'alt');
-        const subs = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
-        
-        const targetUser = await interaction.client.users.fetch(userId);
-        const embed = await buildCharacterProfileEmbed(targetUser, characters);
-        const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, userId);
-        
-        await interaction.followUp({ 
-          embeds: [embed], 
-          components: buttons, 
-          ephemeral: config.ephemeral.editChar 
-        });
-      } catch (error) {
-        logger.error(`Failed to return to profile: ${error.message}`);
-      }
-    }, 2000);
-  } catch (error) {
-    logger.error(`Subclass registration error: ${error.message}`);
-    await interaction.editReply({ content: '❌ An error occurred.', ephemeral: true });
-  }
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_guild_${userId}`)
+    .setPlaceholder('🏰 Choose your guild')
+    .addOptions(guildOptions);
+
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+
+  await interaction.update({ embeds: [embed], components: [row] });
 }
 
 export async function handleGuildSelect(interaction, userId) {
-  const selectedGuild = interaction.values[0];
+  const guild = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
-  if (!state) {
-    return await interaction.reply({ 
-      content: '❌ Session expired.', 
-      ephemeral: true 
-    });
-  }
-
-  state.guild = selectedGuild;
-  state.step = 'ign';
-  stateManager.setRegistrationState(userId, state);
+  stateManager.setRegistrationState(userId, { ...state, guild });
 
   const modal = new ModalBuilder()
     .setCustomId(`ign_modal_${userId}`)
-    .setTitle('Enter In-Game Name');
-    
+    .setTitle('Enter Your IGN');
+
   const ignInput = new TextInputBuilder()
-    .setCustomId('ign_input')
+    .setCustomId('ign')
     .setLabel('In-Game Name (IGN)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Enter your IGN')
+    .setPlaceholder('Enter your in-game name')
     .setRequired(true)
     .setMaxLength(50);
-    
+
   const row = new ActionRowBuilder().addComponents(ignInput);
   modal.addComponents(row);
-  
+
   await interaction.showModal(modal);
 }
 
 export async function handleIGNModal(interaction, userId) {
-  const ign = interaction.fields.getTextInputValue('ign_input');
+  const ign = interaction.fields.getTextInputValue('ign');
   const state = stateManager.getRegistrationState(userId);
-  if (!state) {
-    return await interaction.reply({ 
-      content: '❌ Session expired.', 
-      ephemeral: true 
-    });
-  }
+  stateManager.setRegistrationState(userId, { ...state, ign });
 
-  await interaction.deferReply({ ephemeral: config.ephemeral.registerChar });
+  const embed = new EmbedBuilder()
+    .setColor('#EC4899')
+    .setTitle('🎮 Register Main Character - Step 5/6')
+    .setDescription(`**IGN:** ${ign}\n**Guild:** ${state.guild}\n**Timezone:** ${state.timezone}\n\n**Select your class:**`)
+    .setTimestamp();
+
+  const classOptions = classes.map(cls => ({
+    label: cls.name,
+    value: cls.name,
+    description: cls.role,
+    emoji: cls.emoji
+  }));
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_class_${userId}`)
+    .setPlaceholder('🎭 Choose your class')
+    .addOptions(classOptions);
+
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+
+  await interaction.reply({ embeds: [embed], components: [row], ephemeral: config.ephemeral.registerChar });
+}
+
+export async function handleClassSelect(interaction, userId) {
+  const className = interaction.values[0];
+  const state = stateManager.getRegistrationState(userId);
+  stateManager.setRegistrationState(userId, { ...state, class: className });
+
+  const subclasses = getSubclassesByClass(className);
+  
+  const embed = new EmbedBuilder()
+    .setColor('#EC4899')
+    .setTitle('🎮 Register Main Character - Step 5/6')
+    .setDescription(`**Class:** ${className}\n\n**Select your subclass:**`)
+    .setTimestamp();
+
+  const subclassOptions = subclasses.map(sub => ({
+    label: sub.name,
+    value: sub.name,
+    description: sub.role,
+    emoji: sub.roleEmoji
+  }));
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_subclass_${userId}`)
+    .setPlaceholder('📋 Choose your subclass')
+    .addOptions(subclassOptions);
+
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+
+  await interaction.update({ embeds: [embed], components: [row] });
+}
+
+export async function handleSubclassSelect(interaction, userId) {
+  const subclassName = interaction.values[0];
+  const state = stateManager.getRegistrationState(userId);
+  stateManager.setRegistrationState(userId, { ...state, subclass: subclassName });
+
+  const abilityScores = getAbilityScores();
+  
+  const embed = new EmbedBuilder()
+    .setColor('#EC4899')
+    .setTitle('🎮 Register Main Character - Step 6/6')
+    .setDescription(`**Subclass:** ${subclassName}\n\n**Select your ability score:**`)
+    .setTimestamp();
+
+  const scoreOptions = abilityScores.map(score => ({
+    label: score.label,
+    value: score.value
+  }));
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_ability_score_${userId}`)
+    .setPlaceholder('💪 Choose your score')
+    .addOptions(scoreOptions);
+
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+
+  await interaction.update({ embeds: [embed], components: [row] });
+}
+
+export async function handleAbilityScoreSelect(interaction, userId) {
+  const abilityScore = interaction.values[0];
+  const state = stateManager.getRegistrationState(userId);
 
   try {
     const characterData = {
-      userId, 
-      ign,
+      userId,
+      ign: state.ign,
+      guild: state.guild,
       class: state.class,
       subclass: state.subclass,
-      abilityScore: state.abilityScore,
-      guild: state.guild,
-      role: state.role,
-      characterType: state.characterType || 'main',
-      parentCharacterId: state.parentId || null
+      abilityScore,
+      characterType: 'main'
     };
 
     await db.createCharacter(characterData);
-    const allChars = await db.getAllCharacters();
-    await sheetsService.syncAllCharacters(allChars);
-
-    const embed = new EmbedBuilder()
-      .setColor('#00FF00')
-      .setTitle('✅ Registration Complete!')
-      .setDescription(`**IGN:** ${ign}\n**Class:** ${state.class}\n**Subclass:** ${state.subclass}\n**Guild:** ${state.guild}`)
-      .setFooter({ text: 'Returning to profile...' })
-      .setTimestamp();
-      
-    await interaction.editReply({ embeds: [embed], components: [] });
     stateManager.clearRegistrationState(userId);
-    logger.success(`Character registered for user ${userId}`);
-    logger.logAction(interaction.user.username, 'Registered character', `${ign} - ${state.class}`);
 
-    setTimeout(async () => {
-      try {
-        const { buildCharacterProfileEmbed } = await import('../components/embeds/characterProfile.js');
-        const { buildCharacterButtons } = await import('../components/buttons/characterButtons.js');
-        
-        const characters = await db.getAllCharactersWithSubclasses(userId);
-        const mainChar = characters.find(c => c.character_type === 'main');
-        const alts = characters.filter(c => c.character_type === 'alt');
-        const subs = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
-        
-        const targetUser = await interaction.client.users.fetch(userId);
-        const embed = await buildCharacterProfileEmbed(targetUser, characters);
-        const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, userId);
-        
-        const ephemeral = state.characterType === 'alt' ? config.ephemeral.editChar : config.ephemeral.registerChar;
-        
-        await interaction.followUp({ 
-          embeds: [embed], 
-          components: buttons, 
-          ephemeral 
-        });
-      } catch (error) {
-        logger.error(`Failed to return to profile: ${error.message}`);
-      }
-    }, 2000);
+    const characters = await db.getAllCharactersWithSubclasses(userId);
+    const mainChar = characters.find(c => c.character_type === 'main');
+    const alts = characters.filter(c => c.character_type === 'alt');
+    const subs = characters.filter(c => c.character_type === 'main_subclass' || c.character_type === 'alt_subclass');
+
+    const embed = await buildCharacterProfileEmbed(interaction.user, characters, interaction);
+    const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, userId);
+
+    await interaction.update({ 
+      embeds: [embed], 
+      components: buttons
+    });
+
+    logger.logAction(interaction.user.tag, 'registered main character', `${state.ign} - ${state.class}`);
   } catch (error) {
     logger.error(`Registration error: ${error.message}`);
-    await interaction.editReply({ content: '❌ An error occurred.', ephemeral: true });
+    await interaction.update({
+      content: '❌ Error during registration. Please try again.',
+      embeds: [],
+      components: []
+    });
   }
 }
 
-export async function handleRegisterMain(interaction, userId) {
-  const mainChar = await db.getMainCharacter(userId);
-  if (mainChar) {
-    return await interaction.reply({ 
-      content: '⚠️ You already have a main character! Use `/edit-character` to manage it.', 
-      ephemeral: config.ephemeral.registerChar 
-    });
-  }
-  stateManager.setRegistrationState(userId, { 
-    step: 'class', 
-    type: 'main', 
-    characterType: 'main' 
-  });
-  await startRegistrationFlow(interaction, userId);
-}
+export default {
+  handleRegisterMain,
+  handleRegionSelect,
+  handleCountrySelect,
+  handleTimezoneSelect,
+  handleGuildSelect,
+  handleIGNModal,
+  handleClassSelect,
+  handleSubclassSelect,
+  handleAbilityScoreSelect
+};
