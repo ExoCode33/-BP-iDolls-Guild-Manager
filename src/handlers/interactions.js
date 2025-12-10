@@ -4,6 +4,7 @@ import * as editing from './editing.js';
 import { buildCharacterProfileEmbed } from '../components/embeds/characterProfile.js';
 import { buildCharacterButtons } from '../components/buttons/characterButtons.js';
 import db from '../services/database.js';
+import { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } from 'discord.js';
 
 export async function handleButtonInteraction(interaction) {
   const customId = interaction.customId;
@@ -23,8 +24,8 @@ export async function handleButtonInteraction(interaction) {
       await editing.handleEditMain(interaction, userId);
     }
     else if (customId.startsWith('add_character_')) {
-      console.log('-> Calling editing.handleAddCharacterButton');
-      await editing.handleAddCharacterButton(interaction, userId);
+      console.log('-> Showing add character menu');
+      await handleAddCharacterMenu(interaction, userId);
     }
     else if (customId.startsWith('add_alt_')) {
       console.log('-> Calling editing.handleAddAlt');
@@ -34,7 +35,7 @@ export async function handleButtonInteraction(interaction) {
       console.log('-> Calling editing.handleAddSubclass');
       await editing.handleAddSubclass(interaction, userId);
     }
-    else if (customId.startsWith('remove_main_')) {
+    else if (customId.startsWith('remove_main_') || customId.startsWith('remove_character_')) {
       console.log('-> Calling editing.handleRemoveMain');
       await editing.handleRemoveMain(interaction, userId);
     }
@@ -45,10 +46,6 @@ export async function handleButtonInteraction(interaction) {
     else if (customId.startsWith('remove_subclass_')) {
       console.log('-> Calling editing.handleRemoveSubclass');
       await editing.handleRemoveSubclass(interaction, userId);
-    }
-    else if (customId.startsWith('remove_character_')) {
-      console.log('-> Calling editing.handleRemoveMain (from remove_character)');
-      await editing.handleRemoveMain(interaction, userId);
     }
     else if (customId.startsWith('confirm_remove_')) {
       console.log('-> Calling editing.handleConfirmRemove');
@@ -68,7 +65,7 @@ export async function handleButtonInteraction(interaction) {
     }
     else {
       console.log('-> Unknown button:', customId);
-      console.log('-> Trying to refresh profile as fallback');
+      console.log('-> Refreshing profile as fallback');
       await handleBackToProfile(interaction, userId);
     }
     
@@ -77,8 +74,6 @@ export async function handleButtonInteraction(interaction) {
     console.error('=== BUTTON ERROR ===');
     console.error('Error:', error.message);
     console.error('Stack:', error.stack);
-    console.error('Interaction replied?', interaction.replied);
-    console.error('Interaction deferred?', interaction.deferred);
     
     await logger.logInteractionError(`Button: ${customId}`, userId, error, interaction);
     
@@ -94,47 +89,95 @@ export async function handleButtonInteraction(interaction) {
   }
 }
 
+async function handleAddCharacterMenu(interaction, userId) {
+  const mainChar = await db.getMainCharacter(userId);
+  
+  if (!mainChar) {
+    await registration.handleRegisterMain(interaction, userId);
+    return;
+  }
+
+  const characters = await db.getAllCharactersWithSubclasses(userId);
+  const alts = characters.filter(c => c.character_type === 'alt');
+  const mainSubclasses = characters.filter(c => c.character_type === 'main_subclass');
+  
+  const options = [];
+  
+  if (alts.length < 3) {
+    options.push({
+      label: 'Alt Character',
+      value: 'add_alt',
+      description: `Add an alternate character (${alts.length}/3)`,
+      emoji: '🎭'
+    });
+  }
+  
+  if (mainSubclasses.length < 3) {
+    options.push({
+      label: 'Subclass',
+      value: 'add_subclass',
+      description: `Add a subclass for your main (${mainSubclasses.length}/3)`,
+      emoji: '📊'
+    });
+  }
+  
+  if (options.length === 0) {
+    await interaction.update({
+      content: '❌ You have reached the maximum (3 alts and 3 subclasses).',
+      components: []
+    });
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setColor('#EC4899')
+    .setDescription(`# **Add Character**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nWhat would you like to add?`);
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`add_character_type_${userId}`)
+    .setPlaceholder('Choose what to add')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  await interaction.update({
+    embeds: [embed],
+    components: [row]
+  });
+}
+
 export async function handleSelectMenuInteraction(interaction) {
   const customId = interaction.customId;
   const userId = customId.split('_').pop();
 
   console.log('=== SELECT MENU INTERACTION ===');
   console.log('Custom ID:', customId);
-  console.log('User ID:', userId);
   console.log('Selected:', interaction.values);
 
   try {
     // Registration handlers
     if (customId.startsWith('select_region_')) {
-      console.log('-> Calling registration.handleRegionSelect');
       await registration.handleRegionSelect(interaction, userId);
     }
     else if (customId.startsWith('select_country_')) {
-      console.log('-> Calling registration.handleCountrySelect');
       await registration.handleCountrySelect(interaction, userId);
     }
     else if (customId.startsWith('select_timezone_')) {
-      console.log('-> Calling registration.handleTimezoneSelect');
       await registration.handleTimezoneSelect(interaction, userId);
     }
     else if (customId.startsWith('select_class_')) {
-      console.log('-> Calling registration.handleClassSelect');
       await registration.handleClassSelect(interaction, userId);
     }
     else if (customId.startsWith('select_subclass_')) {
-      console.log('-> Calling registration.handleSubclassSelect');
       await registration.handleSubclassSelect(interaction, userId);
     }
     else if (customId.startsWith('select_ability_score_')) {
-      console.log('-> Calling registration.handleAbilityScoreSelect');
       await registration.handleAbilityScoreSelect(interaction, userId);
     }
     else if (customId.startsWith('select_guild_')) {
-      console.log('-> Calling registration.handleGuildSelect');
       await registration.handleGuildSelect(interaction, userId);
     }
     else if (customId.startsWith('add_character_type_')) {
-      console.log('-> Handling add_character_type selection');
       const selected = interaction.values[0];
       if (selected === 'add_alt') {
         await editing.handleAddAlt(interaction, userId);
@@ -145,43 +188,31 @@ export async function handleSelectMenuInteraction(interaction) {
     
     // Editing handlers
     else if (customId.startsWith('edit_main_option_')) {
-      console.log('-> Calling handleEditMainOption');
       await handleEditMainOption(interaction, userId);
     }
     else if (customId.startsWith('edit_class_select_')) {
-      console.log('-> Calling editing.handleEditClassSelect');
       await editing.handleEditClassSelect(interaction, userId);
     }
     else if (customId.startsWith('edit_subclass_select_')) {
-      console.log('-> Calling editing.handleEditSubclassSelect');
       await editing.handleEditSubclassSelect(interaction, userId);
     }
     else if (customId.startsWith('edit_score_select_')) {
-      console.log('-> Calling editing.handleEditScoreSelect');
       await editing.handleEditScoreSelect(interaction, userId);
     }
     else if (customId.startsWith('edit_guild_select_')) {
-      console.log('-> Calling editing.handleEditGuildSelect');
       await editing.handleEditGuildSelect(interaction, userId);
     }
     else if (customId.startsWith('select_parent_for_subclass_')) {
-      console.log('-> Calling editing.handleSelectParentForSubclass');
       await editing.handleSelectParentForSubclass(interaction, userId);
     }
     else if (customId.startsWith('select_alt_to_remove_')) {
-      console.log('-> Calling handleSelectAltToRemove');
       await handleSelectAltToRemove(interaction, userId);
     }
     else if (customId.startsWith('select_subclass_to_remove_')) {
-      console.log('-> Calling handleSelectSubclassToRemove');
       await handleSelectSubclassToRemove(interaction, userId);
     }
     else if (customId.startsWith('select_alt_to_swap_')) {
-      console.log('-> Calling editing.handleAltSwapSelect');
       await editing.handleAltSwapSelect(interaction, userId);
-    }
-    else {
-      console.log('-> Unknown select menu:', customId);
     }
     
     console.log('=== SELECT MENU SUCCESS ===');
@@ -208,19 +239,13 @@ export async function handleModalSubmit(interaction) {
 
   console.log('=== MODAL SUBMIT ===');
   console.log('Custom ID:', customId);
-  console.log('User ID:', userId);
 
   try {
     if (customId.startsWith('ign_modal_')) {
-      console.log('-> Calling registration.handleIGNModal');
       await registration.handleIGNModal(interaction, userId);
     }
     else if (customId.startsWith('edit_ign_modal_')) {
-      console.log('-> Calling editing.handleEditIGNModal');
       await editing.handleEditIGNModal(interaction, userId);
-    }
-    else {
-      console.log('-> Unknown modal:', customId);
     }
     
     console.log('=== MODAL SUCCESS ===');
@@ -242,7 +267,6 @@ export async function handleModalSubmit(interaction) {
 }
 
 async function handleBackToProfile(interaction, userId) {
-  console.log('  -> handleBackToProfile called');
   const characters = await db.getAllCharactersWithSubclasses(userId);
   const mainChar = characters.find(c => c.character_type === 'main');
   const alts = characters.filter(c => c.character_type === 'alt');
@@ -251,19 +275,14 @@ async function handleBackToProfile(interaction, userId) {
   const embed = await buildCharacterProfileEmbed(targetUser, characters, interaction);
   const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, userId);
   await interaction.update({ embeds: [embed], components: buttons });
-  console.log('  -> handleBackToProfile done');
 }
 
 async function handleEditMainOption(interaction, userId) {
-  console.log('  -> handleEditMainOption called');
   const option = interaction.values[0];
-  console.log('  -> Selected option:', option);
   await editing.handleEditMainOption(interaction, userId, option);
-  console.log('  -> handleEditMainOption done');
 }
 
 async function handleSelectAltToRemove(interaction, userId) {
-  console.log('  -> handleSelectAltToRemove called');
   const characterId = parseInt(interaction.values[0]);
   const stateManager = (await import('../utils/stateManager.js')).default;
   const state = stateManager.getRemovalState(userId);
@@ -272,11 +291,9 @@ async function handleSelectAltToRemove(interaction, userId) {
     stateManager.setRemovalState(userId, state);
   }
   await editing.handleConfirmRemove(interaction, userId);
-  console.log('  -> handleSelectAltToRemove done');
 }
 
 async function handleSelectSubclassToRemove(interaction, userId) {
-  console.log('  -> handleSelectSubclassToRemove called');
   const characterId = parseInt(interaction.values[0]);
   const stateManager = (await import('../utils/stateManager.js')).default;
   const state = stateManager.getRemovalState(userId);
@@ -285,7 +302,6 @@ async function handleSelectSubclassToRemove(interaction, userId) {
     stateManager.setRemovalState(userId, state);
   }
   await editing.handleConfirmRemove(interaction, userId);
-  console.log('  -> handleSelectSubclassToRemove done');
 }
 
 export default { handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit };
