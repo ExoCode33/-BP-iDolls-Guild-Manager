@@ -69,8 +69,7 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
 
   let mainSection = '```ansi\n';
   mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-  mainSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${mainChar.ign}\n`;
-  mainSection += `\u001b[1;34m🆔 UID:\u001b[0m ${mainChar.uid}\n`;
+  mainSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${mainChar.ign}   \u001b[1;34m🆔 UID:\u001b[0m ${mainChar.uid}\n`;
   mainSection += `\n`;
   mainSection += `\u001b[1;34m🎭 Class:\u001b[0m ${mainChar.class}\n`;
   mainSection += `\u001b[1;34m📋 Subclass:\u001b[0m ${mainChar.subclass} ${roleEmoji}\n`;
@@ -90,7 +89,6 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
       else subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
       subSection += `\u001b[1;34m🎭 Class:\u001b[0m ${sub.class}\n`;
       subSection += `\u001b[1;34m📋 Subclass:\u001b[0m ${sub.subclass} ${subRoleEmoji}\n`;
-      subSection += `\n`;
       subSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatAbilityScore(sub.ability_score)}\n`;
     });
     subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
