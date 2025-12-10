@@ -63,16 +63,3 @@ export async function buildCharacterProfileEmbed(user, characters) {
   embed.setTimestamp();
   return embed;
 }
-```
-
-**Now displays as:**
-
-**Subclasses:**
-```
-1. Verdant Oracle - Smite - Support 💚
-   └─ Em
-```
-
-**Alts:**
-```
-1. Smol - Heavy Guardian - Earthfort - Tank 🛡️
