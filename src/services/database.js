@@ -25,12 +25,13 @@ class Database {
 
   async initializeDatabase() {
     try {
+      // Create characters table
       await this.query(`
         CREATE TABLE IF NOT EXISTS characters (
           id SERIAL PRIMARY KEY,
           user_id VARCHAR(255) NOT NULL,
           ign VARCHAR(255) NOT NULL,
-          uid VARCHAR(50),
+          uid VARCHAR(50) NOT NULL,
           guild VARCHAR(255),
           class VARCHAR(255) NOT NULL,
           subclass VARCHAR(255) NOT NULL,
@@ -42,6 +43,7 @@ class Database {
         )
       `);
 
+      // Create user_timezones table
       await this.query(`
         CREATE TABLE IF NOT EXISTS user_timezones (
           user_id VARCHAR(255) PRIMARY KEY,
@@ -50,7 +52,20 @@ class Database {
         )
       `);
 
-      logger.success('Database initialized');
+      // Create indexes
+      await this.query(`
+        CREATE INDEX IF NOT EXISTS idx_user_id ON characters(user_id)
+      `);
+
+      await this.query(`
+        CREATE INDEX IF NOT EXISTS idx_character_type ON characters(character_type)
+      `);
+
+      await this.query(`
+        CREATE INDEX IF NOT EXISTS idx_parent_character_id ON characters(parent_character_id)
+      `);
+
+      logger.success('Database tables initialized successfully');
     } catch (error) {
       logger.error(`Database initialization error: ${error.message}`);
       throw error;
