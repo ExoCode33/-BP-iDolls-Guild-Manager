@@ -23,33 +23,63 @@ class Logger {
 
       console.log('[LOGGER] Clearing log channel...');
       
-      // Fetch and delete messages in batches
       let deleted = 0;
       let fetched;
       
       do {
-        fetched = await channel.messages.fetch({ limit: 100 });
-        if (fetched.size > 0) {
+        try {
+          fetched = await channel.messages.fetch({ limit: 100 });
+          if (fetched.size === 0) break;
+          
           // Discord bulk delete only works for messages less than 14 days old
           const recentMessages = fetched.filter(msg => Date.now() - msg.createdTimestamp < 14 * 24 * 60 * 60 * 1000);
           const oldMessages = fetched.filter(msg => Date.now() - msg.createdTimestamp >= 14 * 24 * 60 * 60 * 1000);
           
           // Bulk delete recent messages
           if (recentMessages.size > 1) {
-            await channel.bulkDelete(recentMessages, true);
-            deleted += recentMessages.size;
+            try {
+              await channel.bulkDelete(recentMessages, true);
+              deleted += recentMessages.size;
+            } catch (bulkError) {
+              // If bulk delete fails, delete individually
+              for (const msg of recentMessages.values()) {
+                try {
+                  await msg.delete();
+                  deleted += 1;
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (deleteError) {
+                  // Skip messages that can't be deleted
+                  console.error(`[LOGGER] Could not delete message: ${deleteError.message}`);
+                }
+              }
+            }
           } else if (recentMessages.size === 1) {
-            await recentMessages.first().delete();
-            deleted += 1;
+            try {
+              await recentMessages.first().delete();
+              deleted += 1;
+            } catch (deleteError) {
+              console.error(`[LOGGER] Could not delete message: ${deleteError.message}`);
+            }
           }
           
           // Delete old messages one by one
           for (const msg of oldMessages.values()) {
-            await msg.delete();
-            deleted += 1;
-            // Small delay to avoid rate limits
-            await new Promise(resolve => setTimeout(resolve, 100));
+            try {
+              await msg.delete();
+              deleted += 1;
+              await new Promise(resolve => setTimeout(resolve, 100));
+            } catch (deleteError) {
+              // Skip messages that can't be deleted
+              console.error(`[LOGGER] Could not delete old message: ${deleteError.message}`);
+            }
           }
+          
+          // If no messages were deleted, break to avoid infinite loop
+          if (recentMessages.size === 0 && oldMessages.size === 0) break;
+          
+        } catch (fetchError) {
+          console.error(`[LOGGER] Error fetching messages: ${fetchError.message}`);
+          break;
         }
       } while (fetched.size >= 2);
       
