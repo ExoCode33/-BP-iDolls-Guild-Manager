@@ -32,10 +32,21 @@ async function loadCommands() {
 }
 
 client.once(Events.ClientReady, async () => {
-  // 🔥 INITIALIZE LOGGER FIRST - before anything else tries to log
+  // ✅ Initialize database FIRST
+  try {
+    await db.initializeDatabase();
+    console.log('[STARTUP] Database initialized');
+  } catch (error) {
+    console.error(`[STARTUP ERROR] Database init failed: ${error.message}`);
+  }
+  
+  // 🔥 LOAD LOGGER SETTINGS FROM DATABASE
+  await logger.loadSettingsFromDatabase(db);
+  
+  // 🔥 INITIALIZE LOGGER with database settings
   await logger.setClient(
     client,
-    config.channels.log,
+    logger.logChannelId, // Use channel from database
     config.logging.clearOnStart
   );
   
@@ -46,13 +57,7 @@ client.once(Events.ClientReady, async () => {
     client.commands.size
   );
   
-  // ✅ Initialize database
-  try {
-    await db.initializeDatabase();
-    logger.success('Database ready');
-  } catch (error) {
-    logger.error(`Database init failed: ${error.message}`);
-  }
+  logger.success('Database ready');
   
   // ✅ Initialize Google Sheets service
   try {
