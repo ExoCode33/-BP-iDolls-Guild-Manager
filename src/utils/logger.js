@@ -5,6 +5,7 @@ import { EmbedBuilder } from 'discord.js';
  * 
  * Features:
  * - Detailed Railway (console) logs with colored ANSI
+ * - Discord logs with ANSI colors (NO EMBEDS - single line format)
  * - Configurable Discord logs with multiple levels
  * - Role ping support for errors and warnings (separate control)
  * - Full coverage of all bot operations
@@ -59,19 +60,6 @@ class Logger {
       BG_BLUE: '\x1b[44m',
       BG_MAGENTA: '\x1b[45m',
       BG_CYAN: '\x1b[46m'
-    };
-    
-    // Discord embed colors
-    this.EMBED_COLORS = {
-      ERROR: 0xFF0000,      // Red
-      WARNING: 0xFFA500,    // Orange
-      SUCCESS: 0x00FF00,    // Green
-      INFO: 0x3B82F6,       // Blue
-      COMMAND: 0xA855F7,    // Purple
-      DATABASE: 0x06B6D4,   // Cyan
-      SHEETS: 0xFCD34D,     // Yellow
-      NICKNAME: 0xEC4899,   // Pink
-      SYSTEM: 0x10B981      // Emerald
     };
     
     // Stats tracking
@@ -140,6 +128,17 @@ class Logger {
   }
 
   /**
+   * Get short timestamp for Discord
+   */
+  getShortTimestamp() {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
+  /**
    * Format user as "username (userId)"
    */
   formatUser(username, userId) {
@@ -147,39 +146,37 @@ class Logger {
   }
 
   /**
-   * Send message to Discord log channel
+   * Send ANSI colored message to Discord (in code block)
    */
-  async sendToDiscord(content, embed = null) {
+  async sendToDiscord(ansiMessage, pingRole = null) {
     if (!this.client || !this.logChannelId) return;
     
     try {
       const channel = await this.client.channels.fetch(this.logChannelId);
       if (!channel) return;
 
-      if (embed) {
-        await channel.send({ content: content || null, embeds: [embed] });
-      } else {
-        await channel.send(content);
-      }
+      const content = pingRole ? `<@&${pingRole}>` : '';
+      const message = `${content}\n\`\`\`ansi\n${ansiMessage}\n\`\`\``;
+      
+      await channel.send(message);
     } catch (error) {
       console.error(this.COLORS.RED + `[LOG ERROR] Failed to send to Discord: ${error.message}` + this.COLORS.RESET);
     }
   }
 
   /**
-   * Create a standard embed
+   * Format uptime duration
    */
-  createEmbed(color, title, description, fields = []) {
-    const embed = new EmbedBuilder()
-      .setColor(color)
-      .setDescription(`**${title}**\n${description}`)
-      .setTimestamp();
+  formatUptime(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
     
-    if (fields.length > 0) {
-      embed.addFields(fields);
-    }
-    
-    return embed;
+    if (days > 0) return `${days}d ${hours % 24}h ${minutes % 60}m`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+    return `${seconds}s`;
   }
 
   // ============================================================================
@@ -211,23 +208,11 @@ class Logger {
     console.log(this.COLORS.GREEN + '└─ ' + this.COLORS.RESET + 'Warn Ping: ' + (this.warnPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
     console.log(this.COLORS.GREEN + '═'.repeat(80) + this.COLORS.RESET);
     
-    // Discord log (if INFO or higher)
+    // Discord log (if INFO or higher) - ANSI colored single line
     if (this.shouldLogToDiscord('INFO')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.SYSTEM,
-        '🚀 System Startup',
-        `Bot successfully initialized and ready`,
-        [
-          { name: 'Bot Tag', value: clientTag, inline: true },
-          { name: 'Commands', value: commandCount.toString(), inline: true },
-          { name: 'Port', value: port.toString(), inline: true },
-          { name: 'Environment', value: `Node ${nodeVersion}\n${platform}`, inline: true },
-          { name: 'Log Level', value: this.discordLogLevel, inline: true },
-          { name: 'Memory', value: `${memory}MB`, inline: true }
-        ]
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.GREEN}[${time}] 🚀 SYSTEM STARTUP${this.COLORS.RESET} - Bot: ${this.COLORS.CYAN}${clientTag}${this.COLORS.RESET} | Commands: ${this.COLORS.CYAN}${commandCount}${this.COLORS.RESET} | Log Level: ${this.COLORS.YELLOW}${this.discordLogLevel}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -253,34 +238,10 @@ class Logger {
     
     // Discord log (if INFO or higher)
     if (this.shouldLogToDiscord('INFO')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.WARNING,
-        '🛑 System Shutdown',
-        reason,
-        [
-          { name: 'Uptime', value: uptimeStr, inline: true },
-          { name: 'Commands Processed', value: this.stats.commands.toString(), inline: true },
-          { name: 'Interactions', value: this.stats.interactions.toString(), inline: true }
-        ]
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.YELLOW}[${time}] 🛑 SYSTEM SHUTDOWN${this.COLORS.RESET} - Reason: ${this.COLORS.CYAN}${reason}${this.COLORS.RESET} | Uptime: ${this.COLORS.CYAN}${uptimeStr}${this.COLORS.RESET} | Errors: ${this.COLORS.RED}${this.stats.errors}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
-  }
-
-  /**
-   * Format uptime duration
-   */
-  formatUptime(ms) {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (days > 0) return `${days}d ${hours % 24}h ${minutes % 60}m`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-    return `${seconds}s`;
   }
 
   // ============================================================================
@@ -318,30 +279,12 @@ class Logger {
     }
     console.log(this.COLORS.MAGENTA + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Executed' + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher)
+    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
-      let description = `User: ${user}\nCommand: \`/${commandName}\``;
-      
-      if (options.subcommand) {
-        description += `\nSubcommand: \`${options.subcommand}\``;
-      }
-      
-      const fields = [];
-      if (options.guild) {
-        fields.push({ name: 'Guild', value: options.guild, inline: true });
-      }
-      if (options.channel) {
-        fields.push({ name: 'Channel', value: options.channel, inline: true });
-      }
-      
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.COMMAND,
-        '⚡ Command Executed',
-        description,
-        fields
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const subCmd = options.subcommand ? ` ${options.subcommand}` : '';
+      const ansiMsg = `${this.COLORS.MAGENTA}[${time}] ⚡ CMD${this.COLORS.RESET} /${this.COLORS.CYAN}${commandName}${subCmd}${this.COLORS.RESET} by ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -367,16 +310,12 @@ class Logger {
     }
     console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Handled' + this.COLORS.RESET);
     
-    // Discord log (if DEBUG or higher)
+    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.INFO,
-        '🔘 Button Interaction',
-        `User: ${user}\nButton: \`${customId}\``,
-        details.action ? [{ name: 'Action', value: details.action }] : []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const action = details.action ? ` [${details.action}]` : '';
+      const ansiMsg = `${this.COLORS.BLUE}[${time}] 🔘 BUTTON${this.COLORS.RESET} ${this.COLORS.CYAN}${customId}${this.COLORS.RESET}${action} by ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -396,16 +335,11 @@ class Logger {
     console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Selected: ' + this.COLORS.MAGENTA + selected + this.COLORS.RESET);
     console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Handled' + this.COLORS.RESET);
     
-    // Discord log (if DEBUG or higher)
+    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.INFO,
-        '📋 Select Menu Interaction',
-        `User: ${user}\nMenu: \`${customId}\`\nSelected: \`${selected}\``,
-        []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.BLUE}[${time}] 📋 MENU${this.COLORS.RESET} ${this.COLORS.CYAN}${customId}${this.COLORS.RESET} → ${this.COLORS.MAGENTA}${selected}${this.COLORS.RESET} by ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -430,16 +364,11 @@ class Logger {
     }
     console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Handled' + this.COLORS.RESET);
     
-    // Discord log (if DEBUG or higher)
+    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.INFO,
-        '📝 Modal Submission',
-        `User: ${user}\nModal: \`${customId}\``,
-        []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.BLUE}[${time}] 📝 MODAL${this.COLORS.RESET} ${this.COLORS.CYAN}${customId}${this.COLORS.RESET} by ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -468,22 +397,11 @@ class Logger {
     console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Guild: ' + this.COLORS.MAGENTA + (characterData.guild || 'None') + this.COLORS.RESET);
     console.log(this.COLORS.GREEN + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Registered' + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher)
+    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.SUCCESS,
-        '📝 Character Registration',
-        `User: ${user}\nType: **${characterType}**`,
-        [
-          { name: 'IGN', value: characterData.ign, inline: true },
-          { name: 'UID', value: characterData.uid, inline: true },
-          { name: 'Class', value: `${characterData.class}\n${characterData.subclass}`, inline: true },
-          { name: 'Score', value: characterData.abilityScore, inline: true },
-          { name: 'Guild', value: characterData.guild || 'None', inline: true }
-        ]
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.GREEN}[${time}] 📝 REGISTER${this.COLORS.RESET} ${this.COLORS.YELLOW}${characterType}${this.COLORS.RESET} | ${this.COLORS.MAGENTA}${characterData.ign}${this.COLORS.RESET} (${characterData.uid}) | ${characterData.class}/${characterData.subclass} | ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -508,19 +426,11 @@ class Logger {
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'New: ' + this.COLORS.GREEN + newValue + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Updated' + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher)
+    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.WARNING,
-        '✏️ Character Edit',
-        `User: ${user}\nType: **${characterType}**\nField: **${field}**`,
-        [
-          { name: 'Old Value', value: oldValue || 'None', inline: true },
-          { name: 'New Value', value: newValue || 'None', inline: true }
-        ]
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.YELLOW}[${time}] ✏️ EDIT${this.COLORS.RESET} ${this.COLORS.YELLOW}${characterType}${this.COLORS.RESET} | ${this.COLORS.MAGENTA}${field}${this.COLORS.RESET}: ${this.COLORS.RED}${oldValue}${this.COLORS.RESET} → ${this.COLORS.GREEN}${newValue}${this.COLORS.RESET} | ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -541,19 +451,11 @@ class Logger {
     console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'Class: ' + this.COLORS.MAGENTA + characterData.class + this.COLORS.RESET);
     console.log(this.COLORS.RED + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.RED + '✓ Deleted' + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher)
+    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.ERROR,
-        '🗑️ Character Deletion',
-        `User: ${user}\nType: **${characterType}**`,
-        [
-          { name: 'IGN', value: characterData.ign, inline: true },
-          { name: 'Class', value: characterData.class, inline: true }
-        ]
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.RED}[${time}] 🗑️ DELETE${this.COLORS.RESET} ${this.COLORS.YELLOW}${characterType}${this.COLORS.RESET} | ${this.COLORS.MAGENTA}${characterData.ign}${this.COLORS.RESET} (${characterData.class}) | ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -572,16 +474,11 @@ class Logger {
     console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Target: ' + this.COLORS.CYAN + target + this.COLORS.RESET);
     console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Viewed' + this.COLORS.RESET);
     
-    // Discord log (if ALL level only)
+    // Discord log (if ALL level only) - ANSI single line
     if (this.shouldLogToDiscord('ALL')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.INFO,
-        '👁️ Profile View',
-        `Viewer: ${viewer}\nTarget: ${target}`,
-        []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.BLUE}[${time}] 👁️ VIEW${this.COLORS.RESET} ${this.COLORS.CYAN}${viewerUsername}${this.COLORS.RESET} viewed ${this.COLORS.CYAN}${targetUsername}${this.COLORS.RESET}'s profile`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -606,16 +503,12 @@ class Logger {
     }
     console.log(this.COLORS.CYAN + '└─ ' + this.COLORS.RESET + 'Status: ' + (success ? this.COLORS.GREEN + '✓ Success' : this.COLORS.RED + '✗ Failed') + this.COLORS.RESET);
     
-    // Discord log (if DEBUG or higher)
+    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
-      const embed = this.createEmbed(
-        success ? this.EMBED_COLORS.DATABASE : this.EMBED_COLORS.ERROR,
-        '💾 Database Query',
-        `Operation: **${operation}**\nTable: \`${table}\`\nDuration: ${duration}ms`,
-        details ? [{ name: 'Details', value: details }] : []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const status = success ? this.COLORS.GREEN + '✓' : this.COLORS.RED + '✗';
+      const ansiMsg = `${this.COLORS.CYAN}[${time}] 💾 DB${this.COLORS.RESET} ${this.COLORS.MAGENTA}${operation}${this.COLORS.RESET} on ${this.COLORS.MAGENTA}${table}${this.COLORS.RESET} (${duration}ms) ${status}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -634,16 +527,12 @@ class Logger {
     }
     console.log(this.COLORS.CYAN + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     
-    // Discord log (if INFO or higher)
+    // Discord log (if INFO or higher) - ANSI single line
     if (this.shouldLogToDiscord('INFO')) {
-      const embed = this.createEmbed(
-        status === 'connected' ? this.EMBED_COLORS.SUCCESS : this.EMBED_COLORS.ERROR,
-        '💾 Database Connection',
-        `Status: **${status.toUpperCase()}**${details ? `\n${details}` : ''}`,
-        []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const statusColor = status === 'connected' ? this.COLORS.GREEN : this.COLORS.RED;
+      const ansiMsg = `${this.COLORS.CYAN}[${time}] 💾 DB CONNECTION${this.COLORS.RESET} ${statusColor}${status.toUpperCase()}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -668,16 +557,12 @@ class Logger {
     }
     console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Status: ' + (success ? this.COLORS.GREEN + '✓ Success' : this.COLORS.RED + '✗ Failed') + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher)
+    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
-      const embed = this.createEmbed(
-        success ? this.EMBED_COLORS.SHEETS : this.EMBED_COLORS.ERROR,
-        '📊 Sheets Sync',
-        `Type: **${type}**\nCount: ${count}\nDuration: ${duration}ms`,
-        details ? [{ name: 'Details', value: details }] : []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const status = success ? this.COLORS.GREEN + '✓' : this.COLORS.RED + '✗';
+      const ansiMsg = `${this.COLORS.YELLOW}[${time}] 📊 SHEETS SYNC${this.COLORS.RESET} ${this.COLORS.MAGENTA}${type}${this.COLORS.RESET} | ${count} rows (${duration}ms) ${status}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -694,17 +579,12 @@ class Logger {
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Retry After: ' + this.COLORS.RED + retryAfter + 'ms' + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.YELLOW + '⚠ Rate Limited' + this.COLORS.RESET);
     
-    // Discord log (if WARN_ERROR or higher)
+    // Discord log (if WARN_ERROR or higher) - ANSI single line with role ping
     if (this.shouldLogToDiscord('WARN_ERROR')) {
-      const content = this.warnPingEnabled && this.warnPingRoleId ? `<@&${this.warnPingRoleId}>` : null;
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.WARNING,
-        '⚠️ Sheets Rate Limit',
-        `Request: **${requestType}**\nRetry After: ${retryAfter}ms`,
-        []
-      );
-      
-      await this.sendToDiscord(content, embed);
+      const time = this.getShortTimestamp();
+      const roleId = this.warnPingEnabled ? this.warnPingRoleId : null;
+      const ansiMsg = `${this.COLORS.YELLOW}[${time}] ⚠️ SHEETS RATE LIMIT${this.COLORS.RESET} ${this.COLORS.MAGENTA}${requestType}${this.COLORS.RESET} | Retry: ${this.COLORS.RED}${retryAfter}ms${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg, roleId);
     }
   }
 
@@ -734,26 +614,11 @@ class Logger {
     
     console.log(this.COLORS.MAGENTA + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Complete' + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher)
+    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
-      let description = `Total: ${totalUsers}\nUpdated: ${updated}\nFailed: ${failed}`;
-      
-      const fields = [];
-      if (failedUsers.length > 0 && failedUsers.length <= 5) {
-        fields.push({
-          name: 'Failed Users',
-          value: failedUsers.map(u => `${u.userId}: ${u.reason}`).join('\n')
-        });
-      }
-      
-      const embed = this.createEmbed(
-        failed > 0 ? this.EMBED_COLORS.WARNING : this.EMBED_COLORS.NICKNAME,
-        '🏷️ Nickname Sync',
-        description,
-        fields
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.MAGENTA}[${time}] 🏷️ NICKNAME SYNC${this.COLORS.RESET} Total: ${this.COLORS.CYAN}${totalUsers}${this.COLORS.RESET} | Updated: ${this.COLORS.GREEN}${updated}${this.COLORS.RESET} | Failed: ${this.COLORS.RED}${failed}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -775,16 +640,12 @@ class Logger {
     }
     console.log(this.COLORS.MAGENTA + '└─ ' + this.COLORS.RESET + 'Status: ' + (success ? this.COLORS.GREEN + '✓ Updated' : this.COLORS.RED + '✗ Failed') + this.COLORS.RESET);
     
-    // Discord log (if DEBUG or higher)
+    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
-      const embed = this.createEmbed(
-        success ? this.EMBED_COLORS.NICKNAME : this.EMBED_COLORS.ERROR,
-        '🏷️ Nickname Update',
-        `User: ${user}\nOld: ${oldNickname || 'None'}\nNew: ${newNickname}${reason ? `\nReason: ${reason}` : ''}`,
-        []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const status = success ? this.COLORS.GREEN + '✓' : this.COLORS.RED + '✗';
+      const ansiMsg = `${this.COLORS.MAGENTA}[${time}] 🏷️ NICKNAME${this.COLORS.RESET} ${this.COLORS.CYAN}${username}${this.COLORS.RESET}: ${this.COLORS.RED}${oldNickname || 'None'}${this.COLORS.RESET} → ${this.COLORS.GREEN}${newNickname}${this.COLORS.RESET} ${status}${this.COLORS.RESET}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -835,35 +696,17 @@ class Logger {
     }
     console.log(this.COLORS.RED + '═'.repeat(80) + this.COLORS.RESET);
     
-    // Discord log (if ERROR_ONLY or higher)
+    // Discord log (if ERROR_ONLY or higher) - ANSI single/multi line with role ping
     if (this.shouldLogToDiscord('ERROR_ONLY')) {
-      const content = this.errorPingEnabled && this.errorPingRoleId ? `<@&${this.errorPingRoleId}>` : null;
+      const time = this.getShortTimestamp();
+      const roleId = this.errorPingEnabled ? this.errorPingRoleId : null;
+      let ansiMsg = `${this.COLORS.RED}[${time}] ❌ ERROR${this.COLORS.RESET} [${this.COLORS.YELLOW}${category}${this.COLORS.RESET}] ${this.COLORS.WHITE}${message}${this.COLORS.RESET}`;
       
-      let description = `**Category:** ${category}\n**Message:** ${message}`;
-      
-      const fields = [];
       if (error) {
-        fields.push({
-          name: 'Error Details',
-          value: `**Type:** ${error.name}\n**Message:** ${error.message}${error.code ? `\n**Code:** ${error.code}` : ''}`
-        });
+        ansiMsg += `\n${this.COLORS.RED}└─${this.COLORS.RESET} ${error.name}: ${error.message}${error.code ? ` (${error.code})` : ''}`;
       }
       
-      if (Object.keys(context).length > 0) {
-        const contextStr = Object.entries(context)
-          .map(([k, v]) => `**${k}:** ${JSON.stringify(v)}`)
-          .join('\n');
-        fields.push({ name: 'Context', value: contextStr });
-      }
-      
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.ERROR,
-        '❌ Error',
-        description,
-        fields
-      );
-      
-      await this.sendToDiscord(content, embed);
+      await this.sendToDiscord(ansiMsg, roleId);
     }
   }
 
@@ -884,18 +727,12 @@ class Logger {
     }
     console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     
-    // Discord log (if WARN_ERROR or higher)
+    // Discord log (if WARN_ERROR or higher) - ANSI single line with role ping
     if (this.shouldLogToDiscord('WARN_ERROR')) {
-      const content = this.warnPingEnabled && this.warnPingRoleId ? `<@&${this.warnPingRoleId}>` : null;
-      
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.WARNING,
-        '⚠️ Warning',
-        `**Category:** ${category}\n**Message:** ${message}${details ? `\n**Details:** ${details}` : ''}`,
-        []
-      );
-      
-      await this.sendToDiscord(content, embed);
+      const time = this.getShortTimestamp();
+      const roleId = this.warnPingEnabled ? this.warnPingRoleId : null;
+      const ansiMsg = `${this.COLORS.YELLOW}[${time}] ⚠️ WARNING${this.COLORS.RESET} [${this.COLORS.MAGENTA}${category}${this.COLORS.RESET}] ${this.COLORS.WHITE}${message}${this.COLORS.RESET}${details ? ` | ${details}` : ''}`;
+      await this.sendToDiscord(ansiMsg, roleId);
     }
   }
 
@@ -918,16 +755,11 @@ class Logger {
     }
     console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     
-    // Discord log (if INFO or higher)
+    // Discord log (if INFO or higher) - ANSI single line
     if (this.shouldLogToDiscord('INFO')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.INFO,
-        'ℹ️ Info',
-        message + (details ? `\n${details}` : ''),
-        []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.BLUE}[${time}] ℹ️ INFO${this.COLORS.RESET} ${this.COLORS.WHITE}${message}${this.COLORS.RESET}${details ? ` | ${details}` : ''}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -946,16 +778,11 @@ class Logger {
     }
     console.log(this.COLORS.GREEN + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     
-    // Discord log (if INFO or higher)
+    // Discord log (if INFO or higher) - ANSI single line
     if (this.shouldLogToDiscord('INFO')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.SUCCESS,
-        '✅ Success',
-        message + (details ? `\n${details}` : ''),
-        []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const ansiMsg = `${this.COLORS.GREEN}[${time}] ✅ SUCCESS${this.COLORS.RESET} ${this.COLORS.WHITE}${message}${this.COLORS.RESET}${details ? ` | ${details}` : ''}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
@@ -978,16 +805,12 @@ class Logger {
       console.log(this.COLORS.CYAN + '└─ ' + this.COLORS.RESET + 'No data');
     }
     
-    // Discord log (if DEBUG or higher)
+    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
-      const embed = this.createEmbed(
-        this.EMBED_COLORS.INFO,
-        '🐛 Debug',
-        message + (data ? `\n\`\`\`json\n${JSON.stringify(data, null, 2).substring(0, 1000)}\n\`\`\`` : ''),
-        []
-      );
-      
-      await this.sendToDiscord(null, embed);
+      const time = this.getShortTimestamp();
+      const dataStr = data ? ` | ${JSON.stringify(data).substring(0, 100)}` : '';
+      const ansiMsg = `${this.COLORS.CYAN}[${time}] 🐛 DEBUG${this.COLORS.RESET} ${this.COLORS.WHITE}${message}${this.COLORS.RESET}${dataStr}`;
+      await this.sendToDiscord(ansiMsg);
     }
   }
 
