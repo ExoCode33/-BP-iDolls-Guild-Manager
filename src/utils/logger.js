@@ -128,6 +128,46 @@ class Logger {
   }
 
   /**
+   * Load settings from database
+   */
+  async loadSettingsFromDatabase(db) {
+    try {
+      const settings = await db.getAllBotSettings();
+      
+      // Update logger settings
+      if (settings.log_level) {
+        this.discordLogLevel = settings.log_level;
+      }
+      if (settings.debug_mode !== undefined) {
+        this.debugMode = settings.debug_mode;
+      }
+      if (settings.error_ping_enabled !== undefined) {
+        this.errorPingEnabled = settings.error_ping_enabled;
+      }
+      if (settings.error_ping_role_id) {
+        this.errorPingRoleId = settings.error_ping_role_id;
+      }
+      if (settings.warn_ping_enabled !== undefined) {
+        this.warnPingEnabled = settings.warn_ping_enabled;
+      }
+      if (settings.warn_ping_role_id) {
+        this.warnPingRoleId = settings.warn_ping_role_id;
+      }
+      if (settings.log_channel_id) {
+        this.logChannelId = settings.log_channel_id;
+      }
+      
+      console.log(this.COLORS.CYAN + '[LOGGER] Settings loaded from database' + this.COLORS.RESET);
+      console.log(this.COLORS.CYAN + '├─ Level: ' + this.COLORS.YELLOW + this.discordLogLevel + this.COLORS.RESET);
+      console.log(this.COLORS.CYAN + '├─ Channel: ' + this.COLORS.YELLOW + (this.logChannelId || 'None') + this.COLORS.RESET);
+      console.log(this.COLORS.CYAN + '├─ Error Ping: ' + (this.errorPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
+      console.log(this.COLORS.CYAN + '└─ Warn Ping: ' + (this.warnPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
+    } catch (error) {
+      console.error(this.COLORS.RED + `[LOGGER ERROR] Failed to load settings from database: ${error.message}` + this.COLORS.RESET);
+    }
+  }
+
+  /**
    * Get current log level value
    */
   getCurrentLogLevel() {
