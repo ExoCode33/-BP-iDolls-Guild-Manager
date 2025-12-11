@@ -204,8 +204,13 @@ class Logger {
         return;
       }
 
-      const content = pingRole ? `<@&${pingRole}>` : '';
-      const message = `${content}\n\`\`\`ansi\n${ansiMessage}\n\`\`\``;
+      // Put ping INSIDE the ANSI block for cleaner appearance
+      let fullMessage = ansiMessage;
+      if (pingRole) {
+        fullMessage = `${this.COLORS.RED}[@${this.COLORS.RESET}<@&${pingRole}>${this.COLORS.RED}]${this.COLORS.RESET} ${ansiMessage}`;
+      }
+      
+      const message = `\`\`\`ansi\n${fullMessage}\n\`\`\``;
       
       await channel.send(message);
     } catch (error) {
