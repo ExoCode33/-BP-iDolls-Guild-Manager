@@ -9,6 +9,7 @@ import db from './services/database.js';
 import sheetsService from './services/sheets.js';
 import * as interactionHandlers from './handlers/interactions.js';
 import { syncAllNicknames } from './utils/nicknameSync.js';
+import { handleGuildMemberUpdate } from './handlers/nicknameWatcher.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -141,6 +142,15 @@ client.on(Events.InteractionCreate, async interaction => {
   } catch (error) {
     logger.error(`Interaction error: ${error.message}`);
     if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: '❌ Error occurred.', ephemeral: true });
+  }
+});
+
+// ✅ Real-time nickname enforcement when members update their profile
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+  try {
+    await handleGuildMemberUpdate(oldMember, newMember);
+  } catch (error) {
+    logger.error(`GuildMemberUpdate error: ${error.message}`);
   }
 });
 
