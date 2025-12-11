@@ -8,6 +8,7 @@ import logger from './utils/logger.js';
 import db from './services/database.js';
 import sheetsService from './services/sheets.js';
 import * as interactionHandlers from './handlers/interactions.js';
+import { syncAllNicknames } from './utils/nicknameSync.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -47,7 +48,7 @@ client.once(Events.ClientReady, async () => {
     logger.error(`Database init failed: ${error.message}`);
   }
   
-  // ✅ NEW: Initialize Google Sheets service
+  // ✅ Initialize Google Sheets service
   try {
     const sheetsInitialized = await sheetsService.initialize();
     if (sheetsInitialized) {
@@ -104,6 +105,16 @@ client.once(Events.ClientReady, async () => {
     }
   }, config.sync.autoSyncInterval);
   logger.log('Auto-sync scheduled');
+  
+  // ✅ NEW: Setup nickname sync interval
+  setInterval(async () => {
+    try {
+      await syncAllNicknames(client, config.discord.guildId, db);
+    } catch (error) {
+      logger.error(`Nickname sync failed: ${error.message}`);
+    }
+  }, config.sync.nicknameSyncInterval);
+  logger.log(`Nickname sync scheduled (every ${config.sync.nicknameSyncInterval/1000}s)`);
 });
 
 client.on(Events.InteractionCreate, async interaction => {
