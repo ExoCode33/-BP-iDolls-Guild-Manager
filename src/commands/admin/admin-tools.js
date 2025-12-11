@@ -136,7 +136,7 @@ async function handleSync(interaction) {
 async function handleLoggerConfig(interaction) {
   try {
     const embed = new EmbedBuilder()
-      .setColor('#6640D9')
+      .setColor('#EC4899')
       .setTitle('⚙️ Logger Configuration')
       .setDescription('Choose a setting to configure:')
       .addFields(
@@ -244,7 +244,7 @@ async function handleLoggerStatus(interaction) {
     }
     
     const embed = new EmbedBuilder()
-      .setColor('#6640D9')
+      .setColor('#EC4899')
       .setTitle('📊 Logger Status')
       .setDescription('Current logger configuration:')
       .addFields(
