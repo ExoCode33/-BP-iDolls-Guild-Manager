@@ -1,5 +1,5 @@
-import pkg from 'discord.js';
-const { SlashCommandBuilder, EmbedBuilder } = pkg;
+import discord from 'discord.js';
+const { SlashCommandBuilder, EmbedBuilder } = discord;
 import db from '../../services/database.js';
 import logger from '../../utils/logger.js';
 import config from '../../utils/config.js';
