@@ -106,15 +106,19 @@ client.once(Events.ClientReady, async () => {
   }, config.sync.autoSyncInterval);
   logger.log('Auto-sync scheduled');
   
-  // ✅ NEW: Setup nickname sync interval
-  setInterval(async () => {
-    try {
-      await syncAllNicknames(client, config.discord.guildId, db);
-    } catch (error) {
-      logger.error(`Nickname sync failed: ${error.message}`);
-    }
-  }, config.sync.nicknameSyncInterval);
-  logger.log(`Nickname sync scheduled (every ${config.sync.nicknameSyncInterval/1000}s)`);
+  // ✅ NEW: Setup nickname sync interval (if enabled)
+  if (config.sync.nicknameSyncEnabled) {
+    setInterval(async () => {
+      try {
+        await syncAllNicknames(client, config.discord.guildId, db);
+      } catch (error) {
+        logger.error(`Nickname sync failed: ${error.message}`);
+      }
+    }, config.sync.nicknameSyncInterval);
+    logger.log(`Nickname sync ENABLED - scheduled every ${config.sync.nicknameSyncInterval/1000}s`);
+  } else {
+    logger.log('Nickname sync DISABLED');
+  }
 });
 
 client.on(Events.InteractionCreate, async interaction => {
