@@ -53,13 +53,46 @@ async function handleSync(interaction) {
   await interaction.deferReply({ ephemeral: config.ephemeral.admin });
   
   try {
-    const allChars = await db.getAllCharacters();
-    await sheetsService.syncAllCharacters(allChars);
+    // ✅ Get all characters with subclasses for all users
+    const allChars = await db.getAllUsersWithCharacters();
+    
+    // ✅ Enrich with Discord usernames
+    const enrichedChars = await Promise.all(
+      allChars.map(async (char) => {
+        let discordName = char.user_id; // Fallback to user ID
+        
+        try {
+          const user = await interaction.client.users.fetch(char.user_id);
+          discordName = user.username;
+          
+          // Try to get server nickname if in guild
+          if (interaction.guild) {
+            try {
+              const member = await interaction.guild.members.fetch(char.user_id);
+              if (member.nickname) {
+                discordName = member.nickname;
+              }
+            } catch (error) {
+              // User not in guild, use username
+            }
+          }
+        } catch (error) {
+          // User not found, use user ID as fallback
+        }
+        
+        return {
+          ...char,
+          discord_name: discordName
+        };
+      })
+    );
+    
+    await sheetsService.syncAllCharacters(enrichedChars);
     
     const embed = new EmbedBuilder()
       .setColor('#00FF00')
       .setTitle('✅ Sync Complete')
-      .setDescription(`Synced ${allChars.length} characters.`)
+      .setDescription(`Synced ${enrichedChars.length} characters.`)
       .setTimestamp();
       
     await interaction.editReply({ embeds: [embed] });
