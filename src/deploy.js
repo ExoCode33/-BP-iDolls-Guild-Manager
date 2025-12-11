@@ -1,4 +1,5 @@
-import { REST, Routes } from 'discord.js';
+import pkg from 'discord.js';
+const { REST, Routes } = pkg;
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readdirSync } from 'fs';
