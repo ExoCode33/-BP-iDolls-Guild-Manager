@@ -42,7 +42,8 @@ const config = {
     windKnight: process.env.ICON_WIND_KNIGHT
   },
   sync: {
-    autoSyncInterval: parseInt(process.env.AUTO_SYNC_INTERVAL) || 3600000
+    autoSyncInterval: parseInt(process.env.AUTO_SYNC_INTERVAL) || 3600000, // 1 hour default
+    nicknameSyncInterval: parseInt(process.env.NICKNAME_SYNC_INTERVAL) || 300000 // 5 minutes default
   },
   ephemeral: {
     registerChar: process.env.REGISTER_CHAR_EPHEMERAL !== 'false',
