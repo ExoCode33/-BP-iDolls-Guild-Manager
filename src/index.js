@@ -32,13 +32,19 @@ async function loadCommands() {
 }
 
 client.once(Events.ClientReady, async () => {
-  // Initialize logger with Discord client and clear option
-  if (config.channels.log && config.logging.toChannel) {
-    await logger.setClient(client, config.channels.log, config.logging.clearOnStart);
-  }
+  // 🔥 INITIALIZE LOGGER FIRST - before anything else tries to log
+  await logger.setClient(
+    client,
+    config.channels.log,
+    config.logging.clearOnStart
+  );
   
-  // Log startup to console and Discord
-  await logger.logStartup(client.user.tag, process.env.PORT || 3000, client.commands.size);
+  // Log startup - logger is ready and will flush any queued messages
+  await logger.logStartup(
+    client.user.tag,
+    process.env.PORT || 3000,
+    client.commands.size
+  );
   
   // ✅ Initialize database
   try {
@@ -106,7 +112,7 @@ client.once(Events.ClientReady, async () => {
   }, config.sync.autoSyncInterval);
   logger.log('Auto-sync scheduled');
   
-  // ✅ NEW: Setup nickname sync interval (if enabled)
+  // ✅ Setup nickname sync interval (if enabled)
   if (config.sync.nicknameSyncEnabled) {
     setInterval(async () => {
       try {
