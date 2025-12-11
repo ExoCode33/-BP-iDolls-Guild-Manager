@@ -91,8 +91,7 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
   mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
   mainSection += '```';
 
-  const mainFieldName = `${getClassEmoji(mainChar.class, interaction?.guild) || '⭐'} Main`;
-  embed.addFields({ name: mainFieldName, value: mainSection, inline: false });
+  embed.addFields({ name: '⭐ Main', value: mainSection, inline: false });
 
   if (subclasses.length > 0) {
     let subSection = '```ansi\n';
@@ -106,9 +105,7 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
     subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     subSection += '```';
     
-    // Use first subclass's class emoji for the field name
-    const subFieldEmoji = getClassEmoji(subclasses[0].class, interaction?.guild) || '📊';
-    embed.addFields({ name: `${subFieldEmoji} Subclass${subclasses.length > 1 ? 'es' : ''}`, value: subSection, inline: false });
+    embed.addFields({ name: `📊 Subclass${subclasses.length > 1 ? 'es' : ''} (${subclasses.length})`, value: subSection, inline: false });
   }
 
   if (alts.length > 0) {
@@ -125,9 +122,7 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
     altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
     altSection += '```';
     
-    // Use first alt's class emoji for the field name
-    const altFieldEmoji = getClassEmoji(alts[0].class, interaction?.guild) || '🎭';
-    embed.addFields({ name: `${altFieldEmoji} Alts (${alts.length})`, value: altSection, inline: false });
+    embed.addFields({ name: `🎭 Alts (${alts.length})`, value: altSection, inline: false });
   }
 
   embed.setTimestamp();
