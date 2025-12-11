@@ -60,12 +60,28 @@ export async function handleButtonInteraction(interaction) {
       console.log('-> Calling editing.handleRemoveCharacter');
       await editing.handleRemoveCharacter(interaction, userId);
     }
-    else if (customId.startsWith('confirm_remove_')) {
-      console.log('-> Calling editing.handleConfirmRemove');
+    else if (customId.startsWith('confirm_remove_main_')) {
+      console.log('-> Calling editing.handleConfirmRemove for main');
       await editing.handleConfirmRemove(interaction, userId);
     }
-    else if (customId.startsWith('cancel_remove_')) {
-      console.log('-> Calling editing.handleCancelRemove');
+    else if (customId.startsWith('cancel_remove_main_')) {
+      console.log('-> Calling editing.handleCancelRemove for main');
+      await editing.handleCancelRemove(interaction, userId);
+    }
+    else if (customId.startsWith('confirm_remove_alt_')) {
+      console.log('-> Calling editing.handleConfirmRemove for alt');
+      await editing.handleConfirmRemove(interaction, userId);
+    }
+    else if (customId.startsWith('cancel_remove_alt_')) {
+      console.log('-> Calling editing.handleCancelRemove for alt');
+      await editing.handleCancelRemove(interaction, userId);
+    }
+    else if (customId.startsWith('confirm_remove_subclass_')) {
+      console.log('-> Calling editing.handleConfirmRemove for subclass');
+      await editing.handleConfirmRemove(interaction, userId);
+    }
+    else if (customId.startsWith('cancel_remove_subclass_')) {
+      console.log('-> Calling editing.handleCancelRemove for subclass');
       await editing.handleCancelRemove(interaction, userId);
     }
     // Navigation back buttons
@@ -302,14 +318,16 @@ export async function handleSelectMenuInteraction(interaction) {
       }
     }
     
-    // Select specific alt to remove (STEP 2)
+    // Select specific alt to remove (STEP 2) - FIXED
     else if (customId.startsWith('select_alt_to_remove_')) {
-      await handleSelectAltToRemove(interaction, userId);
+      const altId = parseInt(interaction.values[0]);
+      await editing.handleRemoveAlt(interaction, userId, altId);
     }
     
-    // Select specific subclass to remove (STEP 2)
+    // Select specific subclass to remove (STEP 2) - FIXED
     else if (customId.startsWith('select_subclass_to_remove_')) {
-      await handleSelectSubclassToRemove(interaction, userId);
+      const subclassId = parseInt(interaction.values[0]);
+      await editing.handleRemoveSubclass(interaction, userId, subclassId);
     }
     
     console.log('=== SELECT MENU SUCCESS ===');
@@ -380,28 +398,6 @@ async function handleBackToProfile(interaction, userId) {
   const embed = await buildCharacterProfileEmbed(targetUser, characters, interaction);
   const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, userId);
   await interaction.update({ embeds: [embed], components: buttons });
-}
-
-async function handleSelectAltToRemove(interaction, userId) {
-  const characterId = parseInt(interaction.values[0]);
-  const stateManager = (await import('../utils/stateManager.js')).default;
-  const state = stateManager.getRemovalState(userId);
-  if (state) {
-    state.characterId = characterId;
-    stateManager.setRemovalState(userId, state);
-  }
-  await editing.handleConfirmRemove(interaction, userId);
-}
-
-async function handleSelectSubclassToRemove(interaction, userId) {
-  const characterId = parseInt(interaction.values[0]);
-  const stateManager = (await import('../utils/stateManager.js')).default;
-  const state = stateManager.getRemovalState(userId);
-  if (state) {
-    state.characterId = characterId;
-    stateManager.setRemovalState(userId, state);
-  }
-  await editing.handleConfirmRemove(interaction, userId);
 }
 
 export default { handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit };
