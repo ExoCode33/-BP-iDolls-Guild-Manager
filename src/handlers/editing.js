@@ -499,7 +499,7 @@ export async function handleEditIGNModal(interaction, userId) {
 
   try {
     await db.updateCharacter(state.characterId, { ign: newIGN });
-    await sheetsService.syncCharacters();
+    await sheetsService.syncAllCharacters(await db.getAllUsersWithCharacters());
 
     // ✅ NEW: Update Discord nickname if this is a main character (and sync is enabled)
     if (state.type === 'main' && config.sync.nicknameSyncEnabled) {
@@ -545,7 +545,7 @@ export async function handleEditUIDModal(interaction, userId) {
 
   try {
     await db.updateCharacter(state.characterId, { uid: newUID });
-    await sheetsService.syncCharacters();
+    await sheetsService.syncAllCharacters(await db.getAllUsersWithCharacters());
 
     const characters = await db.getAllCharactersWithSubclasses(userId);
     const mainChar = characters.find(c => c.character_type === 'main');
@@ -616,7 +616,7 @@ export async function handleEditSubclassSelect(interaction, userId) {
       class: state.newClass,
       subclass: subclassName 
     });
-    await sheetsService.syncCharacters();
+    await sheetsService.syncAllCharacters(await db.getAllUsersWithCharacters());
 
     const characters = await db.getAllCharactersWithSubclasses(userId);
     const mainChar = characters.find(c => c.character_type === 'main');
@@ -645,7 +645,7 @@ export async function handleEditScoreSelect(interaction, userId) {
 
   try {
     await db.updateCharacter(state.characterId, { ability_score: newScore });
-    await sheetsService.syncCharacters();
+    await sheetsService.syncAllCharacters(await db.getAllUsersWithCharacters());
 
     const characters = await db.getAllCharactersWithSubclasses(userId);
     const mainChar = characters.find(c => c.character_type === 'main');
@@ -674,7 +674,7 @@ export async function handleEditGuildSelect(interaction, userId) {
 
   try {
     await db.updateCharacter(state.characterId, { guild: newGuild });
-    await sheetsService.syncCharacters();
+    await sheetsService.syncAllCharacters(await db.getAllUsersWithCharacters());
 
     const characters = await db.getAllCharactersWithSubclasses(userId);
     const mainChar = characters.find(c => c.character_type === 'main');
@@ -1087,7 +1087,7 @@ export async function handleConfirmRemove(interaction, userId) {
 
   try {
     await db.deleteCharacter(state.characterId);
-    await sheetsService.syncCharacters();
+    await sheetsService.syncAllCharacters(await db.getAllUsersWithCharacters());
 
     const characters = await db.getAllCharactersWithSubclasses(userId);
     const mainChar = characters.find(c => c.character_type === 'main');
