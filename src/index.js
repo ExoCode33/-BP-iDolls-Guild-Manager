@@ -62,8 +62,42 @@ client.once(Events.ClientReady, async () => {
   // ✅ Setup auto-sync interval
   setInterval(async () => {
     try {
-      const allChars = await db.getAllCharacters();
-      await sheetsService.syncAllCharacters(allChars);
+      // Get all characters with subclasses for all users
+      const allChars = await db.getAllUsersWithCharacters();
+      
+      // Enrich with Discord usernames
+      const enrichedChars = await Promise.all(
+        allChars.map(async (char) => {
+          let discordName = char.user_id; // Fallback to user ID
+          
+          try {
+            const user = await client.users.fetch(char.user_id);
+            discordName = user.username;
+            
+            // Try to get server nickname if in guild
+            const guild = client.guilds.cache.get(config.discord.guildId);
+            if (guild) {
+              try {
+                const member = await guild.members.fetch(char.user_id);
+                if (member.nickname) {
+                  discordName = member.nickname;
+                }
+              } catch (error) {
+                // User not in guild, use username
+              }
+            }
+          } catch (error) {
+            // User not found, use user ID as fallback
+          }
+          
+          return {
+            ...char,
+            discord_name: discordName
+          };
+        })
+      );
+      
+      await sheetsService.syncAllCharacters(enrichedChars);
       logger.log('Auto-sync done');
     } catch (error) {
       logger.error(`Auto-sync failed: ${error.message}`);
