@@ -44,10 +44,18 @@ client.once(Events.ClientReady, async () => {
   // 🔥 LOAD LOGGER SETTINGS FROM DATABASE
   await logger.loadSettingsFromDatabase(db);
   
-  // 🔥 INITIALIZE LOGGER with database settings
+  // 🔥 INITIALIZE LOGGER - Use database setting, fallback to env var, fallback to null
+  const logChannelFromDb = await db.getBotSetting('log_channel_id');
+  const logChannelId = logChannelFromDb || process.env.LOG_CHANNEL_ID || null;
+  
+  console.log(`[STARTUP] Logger channel ID sources:`);
+  console.log(`  - Database: ${logChannelFromDb || 'NOT SET'}`);
+  console.log(`  - Environment: ${process.env.LOG_CHANNEL_ID || 'NOT SET'}`);
+  console.log(`  - Using: ${logChannelId || 'NOT SET'}`);
+  
   await logger.setClient(
     client,
-    logger.logChannelId, // Use channel from database
+    logChannelId,
     config.logging.clearOnStart
   );
   
