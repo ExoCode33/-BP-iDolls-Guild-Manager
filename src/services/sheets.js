@@ -376,28 +376,30 @@ class GoogleSheetsService {
 
       const userGroups = {};
       allCharactersWithSubclasses.forEach(char => {
-        if (!userGroups[char.discord_id]) {
-          userGroups[char.discord_id] = [];
+        if (!userGroups[char.user_id]) {
+          userGroups[char.user_id] = [];
         }
-        userGroups[char.discord_id].push(char);
+        userGroups[char.user_id].push(char);
       });
 
-      for (const [discordId, userChars] of Object.entries(userGroups)) {
+      for (const [userId, userChars] of Object.entries(userGroups)) {
         const mainChar = userChars.find(c => c.character_type === 'main');
         const mainSubclasses = userChars.filter(c => c.character_type === 'main_subclass');
         const alts = userChars.filter(c => c.character_type === 'alt');
         
         let userTimezone = '';
         try {
-          userTimezone = await db.getUserTimezone(discordId) || '';
+          userTimezone = await db.getUserTimezone(userId) || '';
         } catch (error) {
           // Silently continue
         }
         
-        let discordName = '';
+        // ✅ Get Discord username from enriched character data
+        let discordName = userId; // Fallback to user ID
         
         if (mainChar) {
-          discordName = mainChar.discord_name;
+          // Use discord_name from enriched data, fallback to userId
+          discordName = mainChar.discord_name || userId;
           
           // ✅ UPDATED: Format timezone - we'll add the time via formula later
           const timezoneAbbrev = userTimezone ? this.getTimezoneAbbreviation(userTimezone) : '';
@@ -460,8 +462,11 @@ class GoogleSheetsService {
         }
 
         alts.forEach(alt => {
+          // Use alt's discord_name if available (fallback to already-set discordName from main)
+          const altDiscordName = alt.discord_name || discordName;
+          
           rows.push([
-            discordName,
+            altDiscordName,
             alt.ign,
             alt.uid || '',
             'Alt',
@@ -477,7 +482,7 @@ class GoogleSheetsService {
 
           rowMetadata.push({
             character: alt,
-            discordName: discordName,
+            discordName: altDiscordName,
             timezone: userTimezone,
             registeredDate: this.formatDate(alt.created_at),
             isSubclass: false,
@@ -493,7 +498,7 @@ class GoogleSheetsService {
 
           altSubclasses.forEach(subclass => {
             rows.push([
-              discordName,
+              altDiscordName,
               alt.ign,
               alt.uid || '',
               'Subclass',
@@ -509,7 +514,7 @@ class GoogleSheetsService {
 
             rowMetadata.push({
               character: subclass,
-              discordName: discordName,
+              discordName: altDiscordName,
               timezone: userTimezone,
               registeredDate: this.formatDate(alt.created_at),
               parentIGN: alt.ign,
