@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
+import db from './database.js';
 
 dotenv.config();
 
@@ -355,8 +356,6 @@ class GoogleSheetsService {
       }
       console.log('✅ [SHEETS] "Member List" tab found');
       
-      const { queries } = await import('../database/queries.js');
-      
       const headers = [
         'Discord Name',
         'IGN',
@@ -390,8 +389,7 @@ class GoogleSheetsService {
         
         let userTimezone = '';
         try {
-          const timezoneData = await queries.getUserTimezone(discordId);
-          userTimezone = timezoneData?.timezone || '';
+          userTimezone = await db.getUserTimezone(discordId) || '';
         } catch (error) {
           // Silently continue
         }
