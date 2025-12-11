@@ -181,6 +181,44 @@ class Database {
     }
   }
 
+  // ✅ NEW: Get all users with all their characters (including subclasses)
+  async getAllUsersWithCharacters() {
+    try {
+      const result = await this.query(
+        `SELECT c.*, 
+                CASE 
+                  WHEN c.parent_character_id IS NOT NULL THEN p.ign 
+                  ELSE NULL 
+                END as parent_ign,
+                CASE
+                  WHEN c.class = 'Beat Performer' THEN 'Support'
+                  WHEN c.class = 'Frost Mage' THEN 'DPS'
+                  WHEN c.class = 'Heavy Guardian' THEN 'Tank'
+                  WHEN c.class = 'Marksman' THEN 'DPS'
+                  WHEN c.class = 'Shield Knight' THEN 'Tank'
+                  WHEN c.class = 'Stormblade' THEN 'DPS'
+                  WHEN c.class = 'Verdant Oracle' THEN 'Support'
+                  WHEN c.class = 'Wind Knight' THEN 'DPS'
+                END as role
+         FROM characters c
+         LEFT JOIN characters p ON c.parent_character_id = p.id
+         ORDER BY 
+           c.user_id,
+           CASE c.character_type
+             WHEN 'main' THEN 1
+             WHEN 'main_subclass' THEN 2
+             WHEN 'alt' THEN 3
+             WHEN 'alt_subclass' THEN 4
+           END,
+           c.created_at ASC`
+      );
+      return result.rows;
+    } catch (error) {
+      logger.error(`Error fetching all users with characters: ${error.message}`);
+      throw error;
+    }
+  }
+
   async updateCharacter(characterId, data) {
     try {
       // Get current character data
