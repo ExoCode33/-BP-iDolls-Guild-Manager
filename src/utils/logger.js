@@ -1,235 +1,1073 @@
+import { EmbedBuilder } from 'discord.js';
+
+/**
+ * Comprehensive Logging System
+ * 
+ * Features:
+ * - Detailed Railway (console) logs with colored ANSI
+ * - Configurable Discord logs with multiple levels
+ * - Role ping support for errors and warnings (separate control)
+ * - Full coverage of all bot operations
+ * - Professional formatting and organization
+ */
+
 class Logger {
   constructor() {
     this.client = null;
     this.logChannelId = null;
+    
+    // Configuration from environment variables
+    this.discordLogLevel = process.env.DISCORD_LOG_LEVEL || 'INFO';
+    this.errorPingEnabled = process.env.ERROR_PING_ENABLED === 'true';
+    this.errorPingRoleId = process.env.ERROR_PING_ROLE_ID || null;
+    this.warnPingEnabled = process.env.WARN_PING_ENABLED === 'true';
+    this.warnPingRoleId = process.env.WARN_PING_ROLE_ID || null;
     this.debugMode = process.env.DEBUG_MODE === 'true';
+    this.clearOnStart = process.env.CLEAR_LOG_ON_START === 'true';
+    
+    // Log level hierarchy
+    this.LOG_LEVELS = {
+      ERROR_ONLY: 0,
+      WARN_ERROR: 1,
+      INFO: 2,
+      VERBOSE: 3,
+      DEBUG: 4,
+      ALL: 5
+    };
+    
+    // ANSI color codes
+    this.COLORS = {
+      RESET: '\x1b[0m',
+      BRIGHT: '\x1b[1m',
+      DIM: '\x1b[2m',
+      
+      // Foreground colors
+      BLACK: '\x1b[30m',
+      RED: '\x1b[31m',
+      GREEN: '\x1b[32m',
+      YELLOW: '\x1b[33m',
+      BLUE: '\x1b[34m',
+      MAGENTA: '\x1b[35m',
+      CYAN: '\x1b[36m',
+      WHITE: '\x1b[37m',
+      GRAY: '\x1b[90m',
+      
+      // Background colors
+      BG_RED: '\x1b[41m',
+      BG_GREEN: '\x1b[42m',
+      BG_YELLOW: '\x1b[43m',
+      BG_BLUE: '\x1b[44m',
+      BG_MAGENTA: '\x1b[45m',
+      BG_CYAN: '\x1b[46m'
+    };
+    
+    // Discord embed colors
+    this.EMBED_COLORS = {
+      ERROR: 0xFF0000,      // Red
+      WARNING: 0xFFA500,    // Orange
+      SUCCESS: 0x00FF00,    // Green
+      INFO: 0x3B82F6,       // Blue
+      COMMAND: 0xA855F7,    // Purple
+      DATABASE: 0x06B6D4,   // Cyan
+      SHEETS: 0xFCD34D,     // Yellow
+      NICKNAME: 0xEC4899,   // Pink
+      SYSTEM: 0x10B981      // Emerald
+    };
+    
+    // Stats tracking
+    this.stats = {
+      errors: 0,
+      warnings: 0,
+      commands: 0,
+      interactions: 0,
+      registrations: 0,
+      edits: 0,
+      deletes: 0
+    };
+    
+    this.startTime = Date.now();
   }
 
-  setClient(client, logChannelId) {
+  /**
+   * Initialize logger with Discord client
+   */
+  async setClient(client, logChannelId, clearOnStart = false) {
     this.client = client;
     this.logChannelId = logChannelId;
+    
+    if (clearOnStart && this.logChannelId) {
+      try {
+        const channel = await this.client.channels.fetch(this.logChannelId);
+        if (channel) {
+          // Clear last 100 messages
+          const messages = await channel.messages.fetch({ limit: 100 });
+          await channel.bulkDelete(messages, true);
+          console.log(this.COLORS.CYAN + '[LOG] Cleared log channel' + this.COLORS.RESET);
+        }
+      } catch (error) {
+        console.error(this.COLORS.RED + '[LOG ERROR] Failed to clear log channel: ' + error.message + this.COLORS.RESET);
+      }
+    }
   }
 
-  async sendToChannel(message) {
+  /**
+   * Get current log level value
+   */
+  getCurrentLogLevel() {
+    return this.LOG_LEVELS[this.discordLogLevel] || this.LOG_LEVELS.INFO;
+  }
+
+  /**
+   * Check if a message should be logged to Discord based on level
+   */
+  shouldLogToDiscord(requiredLevel) {
+    return this.getCurrentLogLevel() >= this.LOG_LEVELS[requiredLevel];
+  }
+
+  /**
+   * Get formatted timestamp
+   */
+  getTimestamp() {
+    const now = new Date();
+    const month = now.toLocaleString('en-US', { month: 'short' });
+    const day = now.getDate();
+    const year = now.getFullYear();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+    return `${month} ${day}, ${year} ${hours}:${minutes}:${seconds}.${ms}`;
+  }
+
+  /**
+   * Format user as "username (userId)"
+   */
+  formatUser(username, userId) {
+    return `${username} (${userId})`;
+  }
+
+  /**
+   * Send message to Discord log channel
+   */
+  async sendToDiscord(content, embed = null) {
     if (!this.client || !this.logChannelId) return;
     
     try {
       const channel = await this.client.channels.fetch(this.logChannelId);
       if (!channel) return;
 
-      await channel.send(message);
+      if (embed) {
+        await channel.send({ content: content || null, embeds: [embed] });
+      } else {
+        await channel.send(content);
+      }
     } catch (error) {
-      console.error(`Failed to log to channel: ${error.message}`);
+      console.error(this.COLORS.RED + `[LOG ERROR] Failed to send to Discord: ${error.message}` + this.COLORS.RESET);
     }
   }
 
-  getUTCTimestamp() {
-    const now = new Date();
-    const month = now.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
-    const day = now.getUTCDate();
-    const year = now.getUTCFullYear();
-    const hours = String(now.getUTCHours()).padStart(2, '0');
-    const minutes = String(now.getUTCMinutes()).padStart(2, '0');
-    const seconds = String(now.getUTCSeconds()).padStart(2, '0');
-    return `${month} ${day}, ${year} at ${hours}:${minutes}:${seconds} UTC`;
+  /**
+   * Create a standard embed
+   */
+  createEmbed(color, title, description, fields = []) {
+    const embed = new EmbedBuilder()
+      .setColor(color)
+      .setDescription(`**${title}**\n${description}`)
+      .setTimestamp();
+    
+    if (fields.length > 0) {
+      embed.addFields(fields);
+    }
+    
+    return embed;
   }
 
+  // ============================================================================
+  // SYSTEM LOGS
+  // ============================================================================
+
+  /**
+   * Log system startup
+   */
   async logStartup(clientTag, port, commandCount) {
-    const timestamp = this.getUTCTimestamp();
+    const timestamp = this.getTimestamp();
     const nodeVersion = process.version;
     const platform = process.platform;
+    const memory = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
     
-    const messages = [
-      `\`\`\`ansi\n\u001b[0;32m[SYSTEM]\u001b[0m ${timestamp} - Bot initialized\n\`\`\``,
-      `\`\`\`ansi\n\u001b[0;32m[SYSTEM]\u001b[0m ${timestamp} - Logged in as: \u001b[0;36m${clientTag}\u001b[0m\n\`\`\``,
-      `\`\`\`ansi\n\u001b[0;32m[SYSTEM]\u001b[0m ${timestamp} - Server: \u001b[0;36mport ${port}\u001b[0m\n\`\`\``,
-      `\`\`\`ansi\n\u001b[0;32m[SYSTEM]\u001b[0m ${timestamp} - Commands: \u001b[0;36m${commandCount} commands\u001b[0m\n\`\`\``,
-      `\`\`\`ansi\n\u001b[0;32m[SYSTEM]\u001b[0m ${timestamp} - Handlers: \u001b[0;36mregistration, editing, interactions\u001b[0m\n\`\`\``,
-      `\`\`\`ansi\n\u001b[0;32m[SYSTEM]\u001b[0m ${timestamp} - Node: \u001b[0;36m${nodeVersion}\u001b[0m | Platform: \u001b[0;36m${platform}\u001b[0m\n\`\`\``
-    ];
+    // Railway log (detailed)
+    console.log(this.COLORS.GREEN + '═'.repeat(80) + this.COLORS.RESET);
+    console.log(this.COLORS.BRIGHT + this.COLORS.GREEN + '[SYSTEM STARTUP] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '═'.repeat(80) + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.BRIGHT + this.COLORS.GREEN + '✓ ONLINE' + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Bot: ' + this.COLORS.CYAN + clientTag + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Port: ' + this.COLORS.CYAN + port + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Commands: ' + this.COLORS.CYAN + commandCount + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Node: ' + this.COLORS.CYAN + nodeVersion + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Platform: ' + this.COLORS.CYAN + platform + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Memory: ' + this.COLORS.CYAN + memory + 'MB' + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Discord Log Level: ' + this.COLORS.YELLOW + this.discordLogLevel + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Error Ping: ' + (this.errorPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '└─ ' + this.COLORS.RESET + 'Warn Ping: ' + (this.warnPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '═'.repeat(80) + this.COLORS.RESET);
     
-    console.log('\x1b[32m[SYSTEM]\x1b[0m ' + timestamp + ' - Bot initialized');
-    console.log('\x1b[32m[SYSTEM]\x1b[0m ' + timestamp + ' - Logged in as: \x1b[36m' + clientTag + '\x1b[0m');
-    console.log('\x1b[32m[SYSTEM]\x1b[0m ' + timestamp + ' - Server: \x1b[36mport ' + port + '\x1b[0m');
-    console.log('\x1b[32m[SYSTEM]\x1b[0m ' + timestamp + ' - Commands: \x1b[36m' + commandCount + ' commands\x1b[0m');
-    console.log('\x1b[32m[SYSTEM]\x1b[0m ' + timestamp + ' - Handlers: \x1b[36mregistration, editing, interactions\x1b[0m');
-    console.log('\x1b[32m[SYSTEM]\x1b[0m ' + timestamp + ' - Node: \x1b[36m' + nodeVersion + '\x1b[0m | Platform: \x1b[36m' + platform + '\x1b[0m');
-    
-    for (const message of messages) {
-      await this.sendToChannel(message);
+    // Discord log (if INFO or higher)
+    if (this.shouldLogToDiscord('INFO')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.SYSTEM,
+        '🚀 System Startup',
+        `Bot successfully initialized and ready`,
+        [
+          { name: 'Bot Tag', value: clientTag, inline: true },
+          { name: 'Commands', value: commandCount.toString(), inline: true },
+          { name: 'Port', value: port.toString(), inline: true },
+          { name: 'Environment', value: `Node ${nodeVersion}\n${platform}`, inline: true },
+          { name: 'Log Level', value: this.discordLogLevel, inline: true },
+          { name: 'Memory', value: `${memory}MB`, inline: true }
+        ]
+      );
+      
+      await this.sendToDiscord(null, embed);
     }
   }
 
-  async logCommand(commandName, userTag, userId, guildName = null, channelName = null) {
-    const timestamp = this.getUTCTimestamp();
-    const message = `\`\`\`ansi
-\u001b[0;35m[COMMAND]\u001b[0m ${timestamp} - /${commandName} by \u001b[0;36m${userTag}\u001b[0m
-\`\`\``;
+  /**
+   * Log system shutdown
+   */
+  async logShutdown(reason = 'Manual shutdown') {
+    const timestamp = this.getTimestamp();
+    const uptime = Date.now() - this.startTime;
+    const uptimeStr = this.formatUptime(uptime);
     
-    console.log('\x1b[35m[COMMAND]\x1b[0m ' + timestamp + ' - /' + commandName + ' by \x1b[36m' + userTag + '\x1b[0m');
-    if (guildName) console.log('  Guild: ' + guildName + ' | Channel: ' + channelName);
+    // Railway log
+    console.log(this.COLORS.YELLOW + '═'.repeat(80) + this.COLORS.RESET);
+    console.log(this.COLORS.BRIGHT + this.COLORS.YELLOW + '[SYSTEM SHUTDOWN] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '═'.repeat(80) + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Reason: ' + this.COLORS.CYAN + reason + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Uptime: ' + this.COLORS.CYAN + uptimeStr + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Total Commands: ' + this.COLORS.CYAN + this.stats.commands + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Total Interactions: ' + this.COLORS.CYAN + this.stats.interactions + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Errors: ' + this.COLORS.RED + this.stats.errors + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Warnings: ' + this.COLORS.YELLOW + this.stats.warnings + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '═'.repeat(80) + this.COLORS.RESET);
     
-    await this.sendToChannel(message);
+    // Discord log (if INFO or higher)
+    if (this.shouldLogToDiscord('INFO')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.WARNING,
+        '🛑 System Shutdown',
+        reason,
+        [
+          { name: 'Uptime', value: uptimeStr, inline: true },
+          { name: 'Commands Processed', value: this.stats.commands.toString(), inline: true },
+          { name: 'Interactions', value: this.stats.interactions.toString(), inline: true }
+        ]
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
   }
 
-  log(message) {
-    const timestamp = this.getUTCTimestamp();
-    const logMessage = `\`\`\`ansi
-\u001b[0;34m[LOG]\u001b[0m ${timestamp} - ${message}
-\`\`\``;
-    console.log(`[LOG] ${new Date().toISOString()} - ${message}`);
-    this.sendToChannel(logMessage);
+  /**
+   * Format uptime duration
+   */
+  formatUptime(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) return `${days}d ${hours % 24}h ${minutes % 60}m`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+    return `${seconds}s`;
   }
 
-  error(message, error = null) {
-    const timestamp = this.getUTCTimestamp();
+  // ============================================================================
+  // COMMAND LOGS
+  // ============================================================================
+
+  /**
+   * Log command execution
+   */
+  async logCommand(commandName, username, userId, options = {}) {
+    this.stats.commands++;
+    const timestamp = this.getTimestamp();
+    const user = this.formatUser(username, userId);
     
-    // Console output with full details
-    let consoleOutput = `[ERROR] ${new Date().toISOString()} - ${message}`;
-    if (error) {
-      consoleOutput += `\n  Error: ${error.message}`;
-      consoleOutput += `\n  Type: ${error.name}`;
-      if (error.code) consoleOutput += `\n  Code: ${error.code}`;
-      if (error.stack) {
-        consoleOutput += `\n  Stack:\n    ${error.stack.split('\n').slice(0, 5).join('\n    ')}`;
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.MAGENTA + '[COMMAND] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Command: ' + this.COLORS.CYAN + '/' + commandName + this.COLORS.RESET);
+    console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
+    
+    if (options.guild) {
+      console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Guild: ' + this.COLORS.CYAN + options.guild + this.COLORS.RESET);
+    }
+    if (options.channel) {
+      console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Channel: ' + this.COLORS.CYAN + options.channel + this.COLORS.RESET);
+    }
+    if (options.subcommand) {
+      console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Subcommand: ' + this.COLORS.CYAN + options.subcommand + this.COLORS.RESET);
+    }
+    if (options.parameters) {
+      console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Parameters:');
+      for (const [key, value] of Object.entries(options.parameters)) {
+        console.log(this.COLORS.MAGENTA + '├─   ' + this.COLORS.RESET + key + ': ' + this.COLORS.MAGENTA + value + this.COLORS.RESET);
       }
     }
-    console.error(consoleOutput);
+    console.log(this.COLORS.MAGENTA + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Executed' + this.COLORS.RESET);
     
-    // Discord message (simple)
-    const errorMessage = `\`\`\`ansi
-\u001b[0;31m[ERROR]\u001b[0m ${timestamp} - ${message}
-\`\`\``;
-    this.sendToChannel(errorMessage);
+    // Discord log (if VERBOSE or higher)
+    if (this.shouldLogToDiscord('VERBOSE')) {
+      let description = `User: ${user}\nCommand: \`/${commandName}\``;
+      
+      if (options.subcommand) {
+        description += `\nSubcommand: \`${options.subcommand}\``;
+      }
+      
+      const fields = [];
+      if (options.guild) {
+        fields.push({ name: 'Guild', value: options.guild, inline: true });
+      }
+      if (options.channel) {
+        fields.push({ name: 'Channel', value: options.channel, inline: true });
+      }
+      
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.COMMAND,
+        '⚡ Command Executed',
+        description,
+        fields
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
   }
 
-  warn(message) {
-    const timestamp = this.getUTCTimestamp();
-    const warnMessage = `\`\`\`ansi
-\u001b[0;33m[WARN]\u001b[0m ${timestamp} - ${message}
-\`\`\``;
-    console.warn(`[WARN] ${new Date().toISOString()} - ${message}`);
-    this.sendToChannel(warnMessage);
+  // ============================================================================
+  // INTERACTION LOGS
+  // ============================================================================
+
+  /**
+   * Log button interaction
+   */
+  async logButton(customId, username, userId, details = {}) {
+    this.stats.interactions++;
+    const timestamp = this.getTimestamp();
+    const user = this.formatUser(username, userId);
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.BLUE + '[BUTTON] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Custom ID: ' + this.COLORS.CYAN + customId + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
+    if (details.action) {
+      console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Action: ' + this.COLORS.MAGENTA + details.action + this.COLORS.RESET);
+    }
+    console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Handled' + this.COLORS.RESET);
+    
+    // Discord log (if DEBUG or higher)
+    if (this.shouldLogToDiscord('DEBUG')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.INFO,
+        '🔘 Button Interaction',
+        `User: ${user}\nButton: \`${customId}\``,
+        details.action ? [{ name: 'Action', value: details.action }] : []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
   }
 
-  success(message) {
-    const timestamp = this.getUTCTimestamp();
-    const successMessage = `\`\`\`ansi
-\u001b[0;32m[SUCCESS]\u001b[0m ${timestamp} - ${message}
-\`\`\``;
-    console.log(`[SUCCESS] ${new Date().toISOString()} - ${message}`);
-    this.sendToChannel(successMessage);
+  /**
+   * Log select menu interaction
+   */
+  async logSelectMenu(customId, username, userId, selected, details = {}) {
+    this.stats.interactions++;
+    const timestamp = this.getTimestamp();
+    const user = this.formatUser(username, userId);
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.BLUE + '[SELECT MENU] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Custom ID: ' + this.COLORS.CYAN + customId + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Selected: ' + this.COLORS.MAGENTA + selected + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Handled' + this.COLORS.RESET);
+    
+    // Discord log (if DEBUG or higher)
+    if (this.shouldLogToDiscord('DEBUG')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.INFO,
+        '📋 Select Menu Interaction',
+        `User: ${user}\nMenu: \`${customId}\`\nSelected: \`${selected}\``,
+        []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
   }
 
-  debug(message, data = null) {
+  /**
+   * Log modal submission
+   */
+  async logModal(customId, username, userId, fields = {}) {
+    this.stats.interactions++;
+    const timestamp = this.getTimestamp();
+    const user = this.formatUser(username, userId);
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.BLUE + '[MODAL] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Custom ID: ' + this.COLORS.CYAN + customId + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
+    if (Object.keys(fields).length > 0) {
+      console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Fields:');
+      for (const [key, value] of Object.entries(fields)) {
+        console.log(this.COLORS.BLUE + '├─   ' + this.COLORS.RESET + key + ': ' + this.COLORS.MAGENTA + value + this.COLORS.RESET);
+      }
+    }
+    console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Handled' + this.COLORS.RESET);
+    
+    // Discord log (if DEBUG or higher)
+    if (this.shouldLogToDiscord('DEBUG')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.INFO,
+        '📝 Modal Submission',
+        `User: ${user}\nModal: \`${customId}\``,
+        []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  // ============================================================================
+  // CHARACTER ACTION LOGS
+  // ============================================================================
+
+  /**
+   * Log character registration
+   */
+  async logRegistration(username, userId, characterType, characterData) {
+    this.stats.registrations++;
+    const timestamp = this.getTimestamp();
+    const user = this.formatUser(username, userId);
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.GREEN + '[REGISTRATION] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Type: ' + this.COLORS.YELLOW + characterType + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'IGN: ' + this.COLORS.MAGENTA + characterData.ign + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'UID: ' + this.COLORS.MAGENTA + characterData.uid + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Class: ' + this.COLORS.MAGENTA + characterData.class + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Subclass: ' + this.COLORS.MAGENTA + characterData.subclass + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Score: ' + this.COLORS.MAGENTA + characterData.abilityScore + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Guild: ' + this.COLORS.MAGENTA + (characterData.guild || 'None') + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Registered' + this.COLORS.RESET);
+    
+    // Discord log (if VERBOSE or higher)
+    if (this.shouldLogToDiscord('VERBOSE')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.SUCCESS,
+        '📝 Character Registration',
+        `User: ${user}\nType: **${characterType}**`,
+        [
+          { name: 'IGN', value: characterData.ign, inline: true },
+          { name: 'UID', value: characterData.uid, inline: true },
+          { name: 'Class', value: `${characterData.class}\n${characterData.subclass}`, inline: true },
+          { name: 'Score', value: characterData.abilityScore, inline: true },
+          { name: 'Guild', value: characterData.guild || 'None', inline: true }
+        ]
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  /**
+   * Log character edit
+   */
+  async logEdit(username, userId, characterType, field, oldValue, newValue, characterId = null) {
+    this.stats.edits++;
+    const timestamp = this.getTimestamp();
+    const user = this.formatUser(username, userId);
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.YELLOW + '[EDIT] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Type: ' + this.COLORS.YELLOW + characterType + this.COLORS.RESET);
+    if (characterId) {
+      console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Character ID: ' + this.COLORS.CYAN + characterId + this.COLORS.RESET);
+    }
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Field: ' + this.COLORS.MAGENTA + field + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Old: ' + this.COLORS.RED + oldValue + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'New: ' + this.COLORS.GREEN + newValue + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Updated' + this.COLORS.RESET);
+    
+    // Discord log (if VERBOSE or higher)
+    if (this.shouldLogToDiscord('VERBOSE')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.WARNING,
+        '✏️ Character Edit',
+        `User: ${user}\nType: **${characterType}**\nField: **${field}**`,
+        [
+          { name: 'Old Value', value: oldValue || 'None', inline: true },
+          { name: 'New Value', value: newValue || 'None', inline: true }
+        ]
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  /**
+   * Log character deletion
+   */
+  async logDelete(username, userId, characterType, characterData) {
+    this.stats.deletes++;
+    const timestamp = this.getTimestamp();
+    const user = this.formatUser(username, userId);
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.RED + '[DELETE] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
+    console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'Type: ' + this.COLORS.YELLOW + characterType + this.COLORS.RESET);
+    console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'IGN: ' + this.COLORS.MAGENTA + characterData.ign + this.COLORS.RESET);
+    console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'Class: ' + this.COLORS.MAGENTA + characterData.class + this.COLORS.RESET);
+    console.log(this.COLORS.RED + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.RED + '✓ Deleted' + this.COLORS.RESET);
+    
+    // Discord log (if VERBOSE or higher)
+    if (this.shouldLogToDiscord('VERBOSE')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.ERROR,
+        '🗑️ Character Deletion',
+        `User: ${user}\nType: **${characterType}**`,
+        [
+          { name: 'IGN', value: characterData.ign, inline: true },
+          { name: 'Class', value: characterData.class, inline: true }
+        ]
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  /**
+   * Log character view/profile access
+   */
+  async logView(viewerUsername, viewerUserId, targetUsername, targetUserId) {
+    const timestamp = this.getTimestamp();
+    const viewer = this.formatUser(viewerUsername, viewerUserId);
+    const target = this.formatUser(targetUsername, targetUserId);
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.BLUE + '[VIEW] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Viewer: ' + this.COLORS.CYAN + viewer + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Target: ' + this.COLORS.CYAN + target + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Viewed' + this.COLORS.RESET);
+    
+    // Discord log (if ALL level only)
+    if (this.shouldLogToDiscord('ALL')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.INFO,
+        '👁️ Profile View',
+        `Viewer: ${viewer}\nTarget: ${target}`,
+        []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  // ============================================================================
+  // DATABASE LOGS
+  // ============================================================================
+
+  /**
+   * Log database query
+   */
+  async logDatabaseQuery(operation, table, duration, success = true, details = '') {
+    const timestamp = this.getTimestamp();
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.CYAN + '[DATABASE] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '├─ ' + this.COLORS.RESET + 'Operation: ' + this.COLORS.MAGENTA + operation + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '├─ ' + this.COLORS.RESET + 'Table: ' + this.COLORS.MAGENTA + table + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '├─ ' + this.COLORS.RESET + 'Duration: ' + this.COLORS.YELLOW + duration + 'ms' + this.COLORS.RESET);
+    if (details) {
+      console.log(this.COLORS.CYAN + '├─ ' + this.COLORS.RESET + 'Details: ' + this.COLORS.GRAY + details + this.COLORS.RESET);
+    }
+    console.log(this.COLORS.CYAN + '└─ ' + this.COLORS.RESET + 'Status: ' + (success ? this.COLORS.GREEN + '✓ Success' : this.COLORS.RED + '✗ Failed') + this.COLORS.RESET);
+    
+    // Discord log (if DEBUG or higher)
+    if (this.shouldLogToDiscord('DEBUG')) {
+      const embed = this.createEmbed(
+        success ? this.EMBED_COLORS.DATABASE : this.EMBED_COLORS.ERROR,
+        '💾 Database Query',
+        `Operation: **${operation}**\nTable: \`${table}\`\nDuration: ${duration}ms`,
+        details ? [{ name: 'Details', value: details }] : []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  /**
+   * Log database connection status
+   */
+  async logDatabaseConnection(status, details = '') {
+    const timestamp = this.getTimestamp();
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.CYAN + '[DATABASE CONNECTION] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '├─ ' + this.COLORS.RESET + 'Status: ' + (status === 'connected' ? this.COLORS.GREEN : this.COLORS.RED) + status.toUpperCase() + this.COLORS.RESET);
+    if (details) {
+      console.log(this.COLORS.CYAN + '├─ ' + this.COLORS.RESET + 'Details: ' + this.COLORS.GRAY + details + this.COLORS.RESET);
+    }
+    console.log(this.COLORS.CYAN + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    
+    // Discord log (if INFO or higher)
+    if (this.shouldLogToDiscord('INFO')) {
+      const embed = this.createEmbed(
+        status === 'connected' ? this.EMBED_COLORS.SUCCESS : this.EMBED_COLORS.ERROR,
+        '💾 Database Connection',
+        `Status: **${status.toUpperCase()}**${details ? `\n${details}` : ''}`,
+        []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  // ============================================================================
+  // SHEETS SYNC LOGS
+  // ============================================================================
+
+  /**
+   * Log sheets sync operation
+   */
+  async logSheetsSync(type, count, duration, success = true, details = '') {
+    const timestamp = this.getTimestamp();
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.YELLOW + '[SHEETS SYNC] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Type: ' + this.COLORS.MAGENTA + type + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Count: ' + this.COLORS.CYAN + count + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Duration: ' + this.COLORS.YELLOW + duration + 'ms' + this.COLORS.RESET);
+    if (details) {
+      console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Details: ' + this.COLORS.GRAY + details + this.COLORS.RESET);
+    }
+    console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Status: ' + (success ? this.COLORS.GREEN + '✓ Success' : this.COLORS.RED + '✗ Failed') + this.COLORS.RESET);
+    
+    // Discord log (if VERBOSE or higher)
+    if (this.shouldLogToDiscord('VERBOSE')) {
+      const embed = this.createEmbed(
+        success ? this.EMBED_COLORS.SHEETS : this.EMBED_COLORS.ERROR,
+        '📊 Sheets Sync',
+        `Type: **${type}**\nCount: ${count}\nDuration: ${duration}ms`,
+        details ? [{ name: 'Details', value: details }] : []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  /**
+   * Log sheets rate limit
+   */
+  async logSheetsRateLimit(retryAfter, requestType = 'sync') {
+    const timestamp = this.getTimestamp();
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.YELLOW + '[SHEETS RATE LIMIT] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Request Type: ' + this.COLORS.MAGENTA + requestType + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Retry After: ' + this.COLORS.RED + retryAfter + 'ms' + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.YELLOW + '⚠ Rate Limited' + this.COLORS.RESET);
+    
+    // Discord log (if WARN_ERROR or higher)
+    if (this.shouldLogToDiscord('WARN_ERROR')) {
+      const content = this.warnPingEnabled && this.warnPingRoleId ? `<@&${this.warnPingRoleId}>` : null;
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.WARNING,
+        '⚠️ Sheets Rate Limit',
+        `Request: **${requestType}**\nRetry After: ${retryAfter}ms`,
+        []
+      );
+      
+      await this.sendToDiscord(content, embed);
+    }
+  }
+
+  // ============================================================================
+  // NICKNAME SYNC LOGS
+  // ============================================================================
+
+  /**
+   * Log nickname sync batch operation
+   */
+  async logNicknameSync(totalUsers, updated, failed, failedUsers = []) {
+    const timestamp = this.getTimestamp();
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.MAGENTA + '[NICKNAME SYNC] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Total Users: ' + this.COLORS.CYAN + totalUsers + this.COLORS.RESET);
+    console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Updated: ' + this.COLORS.GREEN + updated + this.COLORS.RESET);
+    console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Failed: ' + this.COLORS.RED + failed + this.COLORS.RESET);
+    
+    if (failedUsers.length > 0) {
+      console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Failed Users:');
+      failedUsers.forEach(user => {
+        console.log(this.COLORS.MAGENTA + '├─   ' + this.COLORS.RESET + this.COLORS.CYAN + user.userId + this.COLORS.RESET + ' - ' + this.COLORS.RED + user.reason + this.COLORS.RESET);
+      });
+    }
+    
+    console.log(this.COLORS.MAGENTA + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Complete' + this.COLORS.RESET);
+    
+    // Discord log (if VERBOSE or higher)
+    if (this.shouldLogToDiscord('VERBOSE')) {
+      let description = `Total: ${totalUsers}\nUpdated: ${updated}\nFailed: ${failed}`;
+      
+      const fields = [];
+      if (failedUsers.length > 0 && failedUsers.length <= 5) {
+        fields.push({
+          name: 'Failed Users',
+          value: failedUsers.map(u => `${u.userId}: ${u.reason}`).join('\n')
+        });
+      }
+      
+      const embed = this.createEmbed(
+        failed > 0 ? this.EMBED_COLORS.WARNING : this.EMBED_COLORS.NICKNAME,
+        '🏷️ Nickname Sync',
+        description,
+        fields
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  /**
+   * Log individual nickname update
+   */
+  async logNicknameUpdate(username, userId, oldNickname, newNickname, success = true, reason = '') {
+    const timestamp = this.getTimestamp();
+    const user = this.formatUser(username, userId);
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.MAGENTA + '[NICKNAME UPDATE] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
+    console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Old: ' + this.COLORS.RED + (oldNickname || 'None') + this.COLORS.RESET);
+    console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'New: ' + this.COLORS.GREEN + newNickname + this.COLORS.RESET);
+    if (reason) {
+      console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Reason: ' + this.COLORS.YELLOW + reason + this.COLORS.RESET);
+    }
+    console.log(this.COLORS.MAGENTA + '└─ ' + this.COLORS.RESET + 'Status: ' + (success ? this.COLORS.GREEN + '✓ Updated' : this.COLORS.RED + '✗ Failed') + this.COLORS.RESET);
+    
+    // Discord log (if DEBUG or higher)
+    if (this.shouldLogToDiscord('DEBUG')) {
+      const embed = this.createEmbed(
+        success ? this.EMBED_COLORS.NICKNAME : this.EMBED_COLORS.ERROR,
+        '🏷️ Nickname Update',
+        `User: ${user}\nOld: ${oldNickname || 'None'}\nNew: ${newNickname}${reason ? `\nReason: ${reason}` : ''}`,
+        []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  // ============================================================================
+  // ERROR & WARNING LOGS
+  // ============================================================================
+
+  /**
+   * Log error with full details
+   */
+  async logError(category, message, error = null, context = {}) {
+    this.stats.errors++;
+    const timestamp = this.getTimestamp();
+    
+    // Railway log (detailed)
+    console.log('');
+    console.log(this.COLORS.RED + '═'.repeat(80) + this.COLORS.RESET);
+    console.log(this.COLORS.BRIGHT + this.COLORS.RED + '[ERROR] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.RED + '═'.repeat(80) + this.COLORS.RESET);
+    console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'Category: ' + this.COLORS.YELLOW + category + this.COLORS.RESET);
+    console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'Message: ' + this.COLORS.WHITE + message + this.COLORS.RESET);
+    
+    if (error) {
+      console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'Error Name: ' + this.COLORS.MAGENTA + error.name + this.COLORS.RESET);
+      console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'Error Message: ' + this.COLORS.WHITE + error.message + this.COLORS.RESET);
+      
+      if (error.code) {
+        console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'Error Code: ' + this.COLORS.YELLOW + error.code + this.COLORS.RESET);
+      }
+      
+      if (error.stack) {
+        console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'Stack Trace:');
+        const stackLines = error.stack.split('\n').slice(0, 10);
+        stackLines.forEach((line, index) => {
+          const prefix = index === stackLines.length - 1 ? '└─   ' : '├─   ';
+          console.log(this.COLORS.RED + prefix + this.COLORS.RESET + this.COLORS.GRAY + line.trim() + this.COLORS.RESET);
+        });
+      }
+    }
+    
+    if (Object.keys(context).length > 0) {
+      console.log(this.COLORS.RED + '└─ ' + this.COLORS.RESET + 'Context:');
+      for (const [key, value] of Object.entries(context)) {
+        console.log(this.COLORS.RED + '    └─ ' + this.COLORS.RESET + key + ': ' + this.COLORS.CYAN + JSON.stringify(value) + this.COLORS.RESET);
+      }
+    } else {
+      console.log(this.COLORS.RED + '└─ ' + this.COLORS.RESET + 'No additional context');
+    }
+    console.log(this.COLORS.RED + '═'.repeat(80) + this.COLORS.RESET);
+    
+    // Discord log (if ERROR_ONLY or higher)
+    if (this.shouldLogToDiscord('ERROR_ONLY')) {
+      const content = this.errorPingEnabled && this.errorPingRoleId ? `<@&${this.errorPingRoleId}>` : null;
+      
+      let description = `**Category:** ${category}\n**Message:** ${message}`;
+      
+      const fields = [];
+      if (error) {
+        fields.push({
+          name: 'Error Details',
+          value: `**Type:** ${error.name}\n**Message:** ${error.message}${error.code ? `\n**Code:** ${error.code}` : ''}`
+        });
+      }
+      
+      if (Object.keys(context).length > 0) {
+        const contextStr = Object.entries(context)
+          .map(([k, v]) => `**${k}:** ${JSON.stringify(v)}`)
+          .join('\n');
+        fields.push({ name: 'Context', value: contextStr });
+      }
+      
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.ERROR,
+        '❌ Error',
+        description,
+        fields
+      );
+      
+      await this.sendToDiscord(content, embed);
+    }
+  }
+
+  /**
+   * Log warning
+   */
+  async logWarning(category, message, details = '') {
+    this.stats.warnings++;
+    const timestamp = this.getTimestamp();
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.YELLOW + '[WARNING] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Category: ' + this.COLORS.MAGENTA + category + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Message: ' + this.COLORS.WHITE + message + this.COLORS.RESET);
+    if (details) {
+      console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Details: ' + this.COLORS.GRAY + details + this.COLORS.RESET);
+    }
+    console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    
+    // Discord log (if WARN_ERROR or higher)
+    if (this.shouldLogToDiscord('WARN_ERROR')) {
+      const content = this.warnPingEnabled && this.warnPingRoleId ? `<@&${this.warnPingRoleId}>` : null;
+      
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.WARNING,
+        '⚠️ Warning',
+        `**Category:** ${category}\n**Message:** ${message}${details ? `\n**Details:** ${details}` : ''}`,
+        []
+      );
+      
+      await this.sendToDiscord(content, embed);
+    }
+  }
+
+  // ============================================================================
+  // GENERAL LOGS
+  // ============================================================================
+
+  /**
+   * Log general info
+   */
+  async logInfo(message, details = '') {
+    const timestamp = this.getTimestamp();
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.BLUE + '[INFO] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Message: ' + this.COLORS.WHITE + message + this.COLORS.RESET);
+    if (details) {
+      console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Details: ' + this.COLORS.GRAY + details + this.COLORS.RESET);
+    }
+    console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    
+    // Discord log (if INFO or higher)
+    if (this.shouldLogToDiscord('INFO')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.INFO,
+        'ℹ️ Info',
+        message + (details ? `\n${details}` : ''),
+        []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  /**
+   * Log success
+   */
+  async logSuccess(message, details = '') {
+    const timestamp = this.getTimestamp();
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.GREEN + '[SUCCESS] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Message: ' + this.COLORS.WHITE + message + this.COLORS.RESET);
+    if (details) {
+      console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Details: ' + this.COLORS.GRAY + details + this.COLORS.RESET);
+    }
+    console.log(this.COLORS.GREEN + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    
+    // Discord log (if INFO or higher)
+    if (this.shouldLogToDiscord('INFO')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.SUCCESS,
+        '✅ Success',
+        message + (details ? `\n${details}` : ''),
+        []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
+  }
+
+  /**
+   * Log debug information
+   */
+  async logDebug(message, data = null) {
     if (!this.debugMode) return;
     
-    let output = `[DEBUG] ${new Date().toISOString()} - ${message}`;
-    if (data) output += '\n  Data: ' + JSON.stringify(data, null, 2).split('\n').join('\n  ');
-    console.log(output);
+    const timestamp = this.getTimestamp();
+    
+    // Railway log
+    console.log('');
+    console.log(this.COLORS.CYAN + '[DEBUG] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '├─ ' + this.COLORS.RESET + 'Message: ' + this.COLORS.WHITE + message + this.COLORS.RESET);
+    if (data) {
+      console.log(this.COLORS.CYAN + '└─ ' + this.COLORS.RESET + 'Data:');
+      console.log(this.COLORS.GRAY + JSON.stringify(data, null, 2) + this.COLORS.RESET);
+    } else {
+      console.log(this.COLORS.CYAN + '└─ ' + this.COLORS.RESET + 'No data');
+    }
+    
+    // Discord log (if DEBUG or higher)
+    if (this.shouldLogToDiscord('DEBUG')) {
+      const embed = this.createEmbed(
+        this.EMBED_COLORS.INFO,
+        '🐛 Debug',
+        message + (data ? `\n\`\`\`json\n${JSON.stringify(data, null, 2).substring(0, 1000)}\n\`\`\`` : ''),
+        []
+      );
+      
+      await this.sendToDiscord(null, embed);
+    }
   }
 
+  // ============================================================================
+  // LEGACY COMPATIBILITY
+  // ============================================================================
+
+  /**
+   * Legacy: Simple log
+   */
+  log(message) {
+    this.logInfo(message);
+  }
+
+  /**
+   * Legacy: Simple error
+   */
+  error(message, error = null) {
+    this.logError('General', message, error);
+  }
+
+  /**
+   * Legacy: Simple warning
+   */
+  warn(message) {
+    this.logWarning('General', message);
+  }
+
+  /**
+   * Legacy: Simple success
+   */
+  success(message) {
+    this.logSuccess(message);
+  }
+
+  /**
+   * Legacy: Simple debug
+   */
+  debug(message, data = null) {
+    this.logDebug(message, data);
+  }
+
+  /**
+   * Legacy: Log action
+   */
   async logAction(username, action, details = '') {
-    const timestamp = this.getUTCTimestamp();
-    const actionMessage = `\`\`\`ansi
-\u001b[0;34m[LOG]\u001b[0m ${timestamp} - User \u001b[0;36m${username}\u001b[0m ${action}${details ? ` - ${details}` : ''}
-\`\`\``;
-    console.log(`[LOG] ${new Date().toISOString()} - User ${username} ${action}${details ? ` - ${details}` : ''}`);
-    await this.sendToChannel(actionMessage);
+    this.logInfo(`User ${username} ${action}`, details);
   }
 
+  /**
+   * Legacy: Log interaction error
+   */
   async logInteractionError(interactionType, userId, error, interaction = null) {
-    const timestamp = this.getUTCTimestamp();
+    const context = {
+      interactionType,
+      userId,
+      customId: interaction?.customId || 'N/A',
+      guild: interaction?.guild?.name || 'DM',
+      channel: interaction?.channel?.name || 'DM'
+    };
     
-    // Detailed console output
-    let consoleOutput = `[INTERACTION ERROR] ${new Date().toISOString()}`;
-    consoleOutput += `\n  Type: ${interactionType}`;
-    consoleOutput += `\n  User ID: ${userId}`;
-    consoleOutput += `\n  Error: ${error.message}`;
-    consoleOutput += `\n  Error Type: ${error.name}`;
-    if (error.code) consoleOutput += `\n  Error Code: ${error.code}`;
-    
-    if (interaction) {
-      consoleOutput += `\n  Custom ID: ${interaction.customId || 'N/A'}`;
-      consoleOutput += `\n  Guild: ${interaction.guild?.name || 'DM'}`;
-      consoleOutput += `\n  Channel: ${interaction.channel?.name || 'DM'}`;
-      consoleOutput += `\n  Replied: ${interaction.replied}`;
-      consoleOutput += `\n  Deferred: ${interaction.deferred}`;
-    }
-    
-    if (error.stack) {
-      consoleOutput += `\n  Stack:\n    ${error.stack.split('\n').slice(0, 5).join('\n    ')}`;
-    }
-    
-    console.error(consoleOutput);
-    
-    // Simple Discord message
-    const errorMessage = `\`\`\`ansi
-\u001b[0;31m[INTERACTION ERROR]\u001b[0m ${timestamp}
-Type: ${interactionType}
-User: ${userId}
-Error: ${error.message}
-\`\`\``;
-    
-    await this.sendToChannel(errorMessage);
+    this.logError('Interaction', `Failed to handle ${interactionType}`, error, context);
   }
 
-  async logRegistration(userId, username, characterType, characterData) {
-    const timestamp = this.getUTCTimestamp();
-    
-    // Detailed console output
-    console.log(`[REGISTRATION] ${new Date().toISOString()}`);
-    console.log(`  User: ${username} (${userId})`);
-    console.log(`  Type: ${characterType}`);
-    console.log(`  IGN: ${characterData.ign}`);
-    console.log(`  Class: ${characterData.class} - ${characterData.subclass}`);
-    console.log(`  Score: ${characterData.abilityScore}`);
-    console.log(`  Guild: ${characterData.guild}`);
-    
-    // Simple Discord message
-    const message = `\`\`\`ansi
-\u001b[0;32m[REGISTRATION]\u001b[0m ${timestamp}
-User: \u001b[0;36m${username}\u001b[0m | Type: ${characterType}
-IGN: ${characterData.ign} | Class: ${characterData.class}
-\`\`\``;
-    
-    await this.sendToChannel(message);
-  }
-
-  async logEdit(userId, username, characterType, field, oldValue, newValue) {
-    const timestamp = this.getUTCTimestamp();
-    
-    // Detailed console output
-    console.log(`[EDIT] ${new Date().toISOString()}`);
-    console.log(`  User: ${username} (${userId})`);
-    console.log(`  Character Type: ${characterType}`);
-    console.log(`  Field: ${field}`);
-    console.log(`  Changed: ${oldValue} → ${newValue}`);
-    
-    // Simple Discord message
-    const message = `\`\`\`ansi
-\u001b[0;33m[EDIT]\u001b[0m ${timestamp}
-User: \u001b[0;36m${username}\u001b[0m
-Changed ${field}: ${oldValue} → ${newValue}
-\`\`\``;
-    
-    await this.sendToChannel(message);
-  }
-
+  /**
+   * Legacy: Log database
+   */
   async logDatabase(operation, table, duration, success = true, details = '') {
-    console.log(`[DATABASE] ${new Date().toISOString()} - ${operation.toUpperCase()} on ${table} (${duration}ms) ${success ? '✓' : '✗'}${details ? ` - ${details}` : ''}`);
+    this.logDatabaseQuery(operation, table, duration, success, details);
   }
 
+  /**
+   * Legacy: Log sync
+   */
   async logSync(type, count, duration, success = true, error = null) {
-    const timestamp = this.getUTCTimestamp();
-    
-    console.log(`[SYNC] ${new Date().toISOString()} - ${type} sync: ${count} items in ${duration}ms ${success ? '✓' : '✗'}${error ? ` - Error: ${error.message}` : ''}`);
-    
-    const message = `\`\`\`ansi
-\u001b[0;32m[SYNC]\u001b[0m ${timestamp} - ${type}: ${count} items (${duration}ms)
-\`\`\``;
-    
-    await this.sendToChannel(message);
+    if (error) {
+      this.logError('Sync', `${type} sync failed`, error, { count, duration });
+    } else {
+      this.logSheetsSync(type, count, duration, success);
+    }
   }
 }
 
