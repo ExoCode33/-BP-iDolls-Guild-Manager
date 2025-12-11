@@ -14,6 +14,7 @@ import { buildCharacterProfileEmbed } from '../components/embeds/characterProfil
 import { buildCharacterButtons } from '../components/buttons/characterButtons.js';
 import gameData from '../utils/gameData.js';
 import config from '../utils/config.js';
+import { updateDiscordNickname } from '../utils/nicknameSync.js';
 
 const stateManager = (await import('../utils/stateManager.js')).default;
 
@@ -561,6 +562,12 @@ export async function handleIGNModal(interaction, userId) {
     console.log('[REGISTRATION] Creating character with data:', JSON.stringify(characterData, null, 2));
 
     await db.createCharacter(characterData);
+    
+    // ✅ NEW: Update Discord nickname if this is a main character
+    if (characterData.characterType === 'main') {
+      await updateDiscordNickname(interaction.client, config.discord.guildId, userId, ign);
+    }
+    
     stateManager.clearRegistrationState(userId);
 
     const characters = await db.getAllCharactersWithSubclasses(userId);
