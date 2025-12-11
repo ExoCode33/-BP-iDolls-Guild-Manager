@@ -539,13 +539,25 @@ export async function handleGuildSelect(interaction, userId) {
 
 export async function handleIGNModal(interaction, userId) {
   const ign = interaction.fields.getTextInputValue('ign');
-  const uid = interaction.fields.getTextInputValue('uid');
+  const uid = interaction.fields.getTextInputValue('uid').trim();
   const state = stateManager.getRegistrationState(userId);
 
   console.log('[REGISTRATION] IGN entered:', ign);
   console.log('[REGISTRATION] UID entered:', uid);
   console.log('[REGISTRATION] Final state:', JSON.stringify(state, null, 2));
   console.log('[REGISTRATION] Character type will be:', state.characterType || 'main');
+
+  // ✅ Validate UID is numbers only
+  if (!/^\d+$/.test(uid)) {
+    const errorEmbed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setDescription('# ❌ **Invalid UID**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**UID must contain only numbers.**\n\nYou entered: `' + uid + '`\n\nPlease try again with a valid numeric UID.')
+      .setTimestamp();
+    
+    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+    stateManager.clearRegistrationState(userId);
+    return;
+  }
 
   try {
     const characterData = {
