@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, PermissionFlagBits } from 'discord.js';
+import pkg from 'discord.js';
+const { SlashCommandBuilder, PermissionFlagBits } = pkg;
 import { buildCharacterProfileEmbed } from '../../components/embeds/characterProfile.js';
 import { buildCharacterButtons } from '../../components/buttons/characterButtons.js';
 import db from '../../services/database.js';
