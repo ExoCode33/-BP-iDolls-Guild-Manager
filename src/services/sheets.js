@@ -318,6 +318,24 @@ class GoogleSheetsService {
     if (!this.sheets) return;
 
     try {
+      // ✅ NEW: Verify spreadsheet access and tab existence
+      console.log(`🔍 [SHEETS] Checking spreadsheet: ${this.spreadsheetId}`);
+      const spreadsheet = await this.sheets.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId,
+      });
+      console.log(`📋 [SHEETS] Spreadsheet found: "${spreadsheet.data.properties.title}"`);
+      
+      const sheetNames = spreadsheet.data.sheets.map(s => s.properties.title);
+      console.log(`📑 [SHEETS] Available tabs:`, sheetNames);
+      
+      const memberListSheet = spreadsheet.data.sheets.find(s => s.properties.title === 'Member List');
+      if (!memberListSheet) {
+        console.error('❌ [SHEETS] ERROR: "Member List" tab not found!');
+        console.error('📋 [SHEETS] Please create a tab named "Member List" (case-sensitive)');
+        return;
+      }
+      console.log('✅ [SHEETS] "Member List" tab found');
+      
       const { queries } = await import('../database/queries.js');
       
       const headers = [
@@ -500,6 +518,10 @@ class GoogleSheetsService {
       await this.clearAllFormatting('Member List');
 
       console.log('📝 [SHEETS] Writing fresh data to Member List...');
+      console.log(`📊 [SHEETS] Headers: ${headers.length} columns`);
+      console.log(`📊 [SHEETS] Data rows: ${rows.length} rows`);
+      console.log(`📊 [SHEETS] First row sample:`, rows[0]);
+      
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
         range: 'Member List!A1',
@@ -508,6 +530,8 @@ class GoogleSheetsService {
           values: [headers, ...rows],
         },
       });
+      
+      console.log('✅ [SHEETS] Data written successfully');
 
       await this.formatCleanSheet('Member List', headers.length, rows.length);
       await this.applyCleanDesign('Member List', rowMetadata);
@@ -518,6 +542,20 @@ class GoogleSheetsService {
 
     } catch (error) {
       console.error('❌ [SHEETS] Sync error:', error.message);
+      
+      // Check for specific error types
+      if (error.message.includes('not found')) {
+        console.error('📋 [SHEETS] Spreadsheet not found. Check GOOGLE_SHEETS_ID in .env');
+      } else if (error.message.includes('permission') || error.message.includes('forbidden') || error.code === 403) {
+        console.error('🔒 [SHEETS] Permission denied!');
+        console.error('➡️  Add this email to your sheet with Editor access:');
+        console.error(`    ${process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL}`);
+      } else if (error.message.includes('Quota exceeded')) {
+        this.minSyncInterval = Math.min(this.minSyncInterval * 2, 300000);
+        console.log(`⚠️  [SHEETS] Quota exceeded - increased interval to ${this.minSyncInterval/1000}s`);
+      } else {
+        console.error('🐛 [SHEETS] Full error:', error);
+      }
     }
   }
 
