@@ -31,12 +31,19 @@ class GoogleSheetsService {
   }
 
   async initialize() {
+    console.log('🚀 [SHEETS] initialize() called');
     try {
+      console.log('🔍 [SHEETS] Checking environment variables...');
+      console.log(`  GOOGLE_SHEETS_ID: ${process.env.GOOGLE_SHEETS_ID ? '✅ Set' : '❌ Missing'}`);
+      console.log(`  GOOGLE_SERVICE_ACCOUNT_EMAIL: ${process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ? '✅ Set' : '❌ Missing'}`);
+      console.log(`  GOOGLE_PRIVATE_KEY: ${process.env.GOOGLE_PRIVATE_KEY ? '✅ Set' : '❌ Missing'}`);
+      
       if (!process.env.GOOGLE_SHEETS_ID || !process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
         console.log('⚠️  Google Sheets credentials not configured - skipping');
         return false;
       }
 
+      console.log('🔧 [SHEETS] Creating Google Auth...');
       const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
       this.auth = new google.auth.GoogleAuth({
@@ -47,12 +54,14 @@ class GoogleSheetsService {
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
       });
 
+      console.log('🔧 [SHEETS] Creating Sheets client...');
       this.sheets = google.sheets({ version: 'v4', auth: this.auth });
-      console.log('✅ Google Sheets API initialized');
+      console.log('✅ Google Sheets API initialized successfully');
       
       return true;
     } catch (error) {
       console.error('⚠️  Google Sheets initialization failed:', error.message);
+      console.error('🐛 Full error:', error);
       return false;
     }
   }
@@ -315,7 +324,17 @@ class GoogleSheetsService {
   }
 
   async syncMemberList(allCharactersWithSubclasses) {
-    if (!this.sheets) return;
+    console.log('🚀 [SHEETS] syncMemberList called');
+    console.log(`📊 [SHEETS] Characters to sync: ${allCharactersWithSubclasses.length}`);
+    console.log(`🔧 [SHEETS] this.sheets initialized: ${!!this.sheets}`);
+    console.log(`🔧 [SHEETS] spreadsheetId: ${this.spreadsheetId}`);
+    
+    if (!this.sheets) {
+      console.error('❌ [SHEETS] Google Sheets API not initialized!');
+      console.error('➡️  Check that initialize() was called on startup');
+      console.error('➡️  Verify GOOGLE_SHEETS_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, and GOOGLE_PRIVATE_KEY in .env');
+      return;
+    }
 
     try {
       // ✅ NEW: Verify spreadsheet access and tab existence
