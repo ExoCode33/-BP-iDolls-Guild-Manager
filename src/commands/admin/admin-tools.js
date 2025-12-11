@@ -1,4 +1,4 @@
-import pkg from 'discord.js';
+import discord from 'discord.js';
 const { 
   SlashCommandBuilder, 
   PermissionFlagBits, 
@@ -10,7 +10,7 @@ const {
   TextInputStyle,
   ButtonBuilder,
   ButtonStyle
-} = pkg;
+} = discord;
 import db from '../../services/database.js';
 import sheetsService from '../../services/sheets.js';
 import logger from '../../utils/logger.js';
