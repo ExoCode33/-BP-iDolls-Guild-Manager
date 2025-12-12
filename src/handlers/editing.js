@@ -31,17 +31,17 @@ function formatAbilityScore(score) {
   return scoreRanges[num] || num.toLocaleString();
 }
 
-// Helper to get class icon emoji ID from config
+// Helper to get class icon emoji ID (hardcoded Discord emoji IDs)
 function getClassIconId(className) {
   const iconMap = {
-    'Beat Performer': config.icons.beatPerformer,
-    'Frost Mage': config.icons.frostMage,
-    'Heavy Guardian': config.icons.heavyGuardian,
-    'Marksman': config.icons.marksman,
-    'Shield Knight': config.icons.shieldKnight,
-    'Stormblade': config.icons.stormblade,
-    'Verdant Oracle': config.icons.verdantOracle,
-    'Wind Knight': config.icons.windKnight
+    'Beat Performer': '1448837920931840021',
+    'Frost Mage': '1448837917144387604',
+    'Heavy Guardian': '1448837916171309147',
+    'Marksman': '1448837914338267350',
+    'Shield Knight': '1448837913218388000',
+    'Stormblade': '1448837911838593188',
+    'Verdant Oracle': '1448837910294958140',
+    'Wind Knight': '1448837908302925874'
   };
   return iconMap[className] || null;
 }
