@@ -26,6 +26,21 @@ function createRegEmbed(step, total, title, description) {
     .setTimestamp();
 }
 
+// Helper to get class icon emoji ID from config
+function getClassIconId(className) {
+  const iconMap = {
+    'Beat Performer': config.icons.beatPerformer,
+    'Frost Mage': config.icons.frostMage,
+    'Heavy Guardian': config.icons.heavyGuardian,
+    'Marksman': config.icons.marksman,
+    'Shield Knight': config.icons.shieldKnight,
+    'Stormblade': config.icons.stormblade,
+    'Verdant Oracle': config.icons.verdantOracle,
+    'Wind Knight': config.icons.windKnight
+  };
+  return iconMap[className] || null;
+}
+
 // Region → Countries → Timezones mapping
 const REGIONS = {
   'North America': {
@@ -169,11 +184,22 @@ export async function handleRegisterMain(interaction, userId) {
     
     const embed = createRegEmbed(1, 4, '🎭 Choose Your Class', `**Timezone:** ${timezoneAbbr} • ${timeString}`);
     
-    const classOptions = Object.keys(gameData.classes).map(className => ({
-      label: className,
-      value: className,
-      emoji: gameData.classes[className].emoji
-    }));
+    const classOptions = Object.keys(gameData.classes).map(className => {
+      const iconId = getClassIconId(className);
+      const option = {
+        label: className,
+        value: className,
+        description: gameData.classes[className].role
+      };
+      
+      if (iconId) {
+        option.emoji = { id: iconId };
+      } else {
+        option.emoji = gameData.classes[className].emoji;
+      }
+      
+      return option;
+    });
     
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId(`select_class_${userId}`)
@@ -258,10 +284,19 @@ export async function handleCountrySelect(interaction, userId) {
   const embed = createRegEmbed(3, 7, '🕐 Choose Your Timezone', `**Country:** ${country}`);
 
   const timezones = REGIONS[state.region][country];
-  const timezoneOptions = Object.keys(timezones).map(tzLabel => ({
-    label: tzLabel,
-    value: timezones[tzLabel]
-  }));
+  
+  // ✅ UPDATED - Shows city examples
+  const timezoneOptions = Object.keys(timezones).map(tzLabel => {
+    const tzValue = timezones[tzLabel];
+    const cityMatch = tzValue.split('/')[1];
+    const city = cityMatch ? cityMatch.replace(/_/g, ' ') : '';
+    
+    return {
+      label: tzLabel,
+      value: tzValue,
+      description: city ? `Example: ${city}` : tzLabel
+    };
+  });
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_timezone_${userId}`)
@@ -305,11 +340,23 @@ export async function handleTimezoneSelect(interaction, userId) {
 
   const embed = createRegEmbed(4, 7, '🎭 Choose Your Class', `**Timezone:** ${timezoneAbbr} • ${timeString}`);
 
-  const classOptions = Object.keys(gameData.classes).map(className => ({
-    label: className,
-    value: className,
-    emoji: gameData.classes[className].emoji
-  }));
+  // ✅ UPDATED - Uses custom Discord icons
+  const classOptions = Object.keys(gameData.classes).map(className => {
+    const iconId = getClassIconId(className);
+    const option = {
+      label: className,
+      value: className,
+      description: gameData.classes[className].role
+    };
+    
+    if (iconId) {
+      option.emoji = { id: iconId };
+    } else {
+      option.emoji = gameData.classes[className].emoji;
+    }
+    
+    return option;
+  });
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_class_${userId}`)
@@ -343,13 +390,24 @@ export async function handleClassSelect(interaction, userId) {
   
   const embed = createRegEmbed(stepNum, totalSteps, '📋 Choose Your Subclass', `**Class:** ${className}`);
 
+  // ✅ UPDATED - Uses custom Discord icons
   const subclassOptions = subclasses.map(subclassName => {
     const roleEmoji = classRole === 'Tank' ? '🛡️' : classRole === 'DPS' ? '⚔️' : '💚';
-    return {
+    const iconId = getClassIconId(className);
+    
+    const option = {
       label: subclassName,
       value: subclassName,
-      emoji: roleEmoji
+      description: classRole
     };
+    
+    if (iconId) {
+      option.emoji = { id: iconId };
+    } else {
+      option.emoji = roleEmoji;
+    }
+    
+    return option;
   });
 
   const selectMenu = new StringSelectMenuBuilder()
