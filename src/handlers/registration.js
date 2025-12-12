@@ -26,17 +26,17 @@ function createRegEmbed(step, total, title, description) {
     .setTimestamp();
 }
 
-// Helper to get class icon emoji ID from config
+// Helper to get class icon emoji ID (hardcoded Discord emoji IDs)
 function getClassIconId(className) {
   const iconMap = {
-    'Beat Performer': config.icons.beatPerformer,
-    'Frost Mage': config.icons.frostMage,
-    'Heavy Guardian': config.icons.heavyGuardian,
-    'Marksman': config.icons.marksman,
-    'Shield Knight': config.icons.shieldKnight,
-    'Stormblade': config.icons.stormblade,
-    'Verdant Oracle': config.icons.verdantOracle,
-    'Wind Knight': config.icons.windKnight
+    'Beat Performer': '1448837920931840021',
+    'Frost Mage': '1448837917144387604',
+    'Heavy Guardian': '1448837916171309147',
+    'Marksman': '1448837914338267350',
+    'Shield Knight': '1448837913218388000',
+    'Stormblade': '1448837911838593188',
+    'Verdant Oracle': '1448837910294958140',
+    'Wind Knight': '1448837908302925874'
   };
   return iconMap[className] || null;
 }
@@ -285,16 +285,82 @@ export async function handleCountrySelect(interaction, userId) {
 
   const timezones = REGIONS[state.region][country];
   
-  // ✅ UPDATED - Shows city examples
+  // ✅ UPDATED - Shows multiple city examples with country flag
   const timezoneOptions = Object.keys(timezones).map(tzLabel => {
     const tzValue = timezones[tzLabel];
-    const cityMatch = tzValue.split('/')[1];
-    const city = cityMatch ? cityMatch.replace(/_/g, ' ') : '';
+    
+    // Extract city examples - get major cities for this timezone
+    const cityExamples = {
+      'America/New_York': '🇺🇸 New York, Miami, Boston',
+      'America/Chicago': '🇺🇸 Chicago, Houston, Dallas',
+      'America/Denver': '🇺🇸 Denver, Phoenix, Salt Lake City',
+      'America/Los_Angeles': '🇺🇸 Los Angeles, San Francisco, Seattle',
+      'America/Anchorage': '🇺🇸 Anchorage, Juneau',
+      'Pacific/Honolulu': '🇺🇸 Honolulu, Hilo',
+      'America/Toronto': '🇨🇦 Toronto, Montreal, Ottawa',
+      'America/Winnipeg': '🇨🇦 Winnipeg, Regina',
+      'America/Edmonton': '🇨🇦 Edmonton, Calgary',
+      'America/Vancouver': '🇨🇦 Vancouver, Victoria',
+      'America/Halifax': '🇨🇦 Halifax, Moncton',
+      'America/Mexico_City': '🇲🇽 Mexico City, Guadalajara',
+      'America/Chihuahua': '🇲🇽 Chihuahua, Hermosillo',
+      'America/Tijuana': '🇲🇽 Tijuana, Mexicali',
+      'America/Sao_Paulo': '🇧🇷 São Paulo, Rio de Janeiro',
+      'America/Manaus': '🇧🇷 Manaus, Porto Velho',
+      'America/Buenos_Aires': '🇦🇷 Buenos Aires, Córdoba',
+      'America/Santiago': '🇨🇱 Santiago, Valparaíso',
+      'America/Bogota': '🇨🇴 Bogotá, Medellín',
+      'America/Lima': '🇵🇪 Lima, Arequipa',
+      'Europe/London': '🇬🇧 London, Manchester, Birmingham',
+      'Europe/Paris': '🇫🇷 Paris, Lyon, Marseille',
+      'Europe/Berlin': '🇩🇪 Berlin, Munich, Hamburg',
+      'Europe/Rome': '🇮🇹 Rome, Milan, Naples',
+      'Europe/Madrid': '🇪🇸 Madrid, Barcelona, Valencia',
+      'Europe/Amsterdam': '🇳🇱 Amsterdam, Rotterdam',
+      'Europe/Brussels': '🇧🇪 Brussels, Antwerp',
+      'Europe/Vienna': '🇦🇹 Vienna, Graz',
+      'Europe/Warsaw': '🇵🇱 Warsaw, Kraków',
+      'Europe/Stockholm': '🇸🇪 Stockholm, Gothenburg',
+      'Europe/Athens': '🇬🇷 Athens, Thessaloniki',
+      'Europe/Istanbul': '🇹🇷 Istanbul, Ankara',
+      'Europe/Moscow': '🇷🇺 Moscow, Saint Petersburg',
+      'Asia/Yekaterinburg': '🇷🇺 Yekaterinburg, Chelyabinsk',
+      'Asia/Novosibirsk': '🇷🇺 Novosibirsk, Omsk',
+      'Asia/Vladivostok': '🇷🇺 Vladivostok, Khabarovsk',
+      'Asia/Tokyo': '🇯🇵 Tokyo, Osaka, Kyoto',
+      'Asia/Seoul': '🇰🇷 Seoul, Busan, Incheon',
+      'Asia/Shanghai': '🇨🇳 Beijing, Shanghai, Shenzhen',
+      'Asia/Hong_Kong': '🇭🇰 Hong Kong',
+      'Asia/Taipei': '🇹🇼 Taipei, Kaohsiung',
+      'Asia/Singapore': '🇸🇬 Singapore',
+      'Asia/Bangkok': '🇹🇭 Bangkok, Chiang Mai',
+      'Asia/Ho_Chi_Minh': '🇻🇳 Ho Chi Minh City, Hanoi',
+      'Asia/Manila': '🇵🇭 Manila, Cebu',
+      'Asia/Jakarta': '🇮🇩 Jakarta, Bandung',
+      'Asia/Makassar': '🇮🇩 Bali, Makassar',
+      'Asia/Kolkata': '🇮🇳 Mumbai, Delhi, Bangalore',
+      'Asia/Dubai': '🇦🇪 Dubai, Abu Dhabi',
+      'Asia/Riyadh': '🇸🇦 Riyadh, Jeddah',
+      'Australia/Sydney': '🇦🇺 Sydney, Canberra',
+      'Australia/Brisbane': '🇦🇺 Brisbane, Gold Coast',
+      'Australia/Adelaide': '🇦🇺 Adelaide',
+      'Australia/Perth': '🇦🇺 Perth',
+      'Australia/Darwin': '🇦🇺 Darwin',
+      'Pacific/Auckland': '🇳🇿 Auckland, Wellington',
+      'Pacific/Fiji': '🇫🇯 Suva, Nadi',
+      'Africa/Johannesburg': '🇿🇦 Johannesburg, Cape Town',
+      'Africa/Cairo': '🇪🇬 Cairo, Alexandria',
+      'Africa/Lagos': '🇳🇬 Lagos, Abuja',
+      'Africa/Nairobi': '🇰🇪 Nairobi, Mombasa',
+      'Africa/Casablanca': '🇲🇦 Casablanca, Rabat'
+    };
+    
+    const description = cityExamples[tzValue] || tzLabel;
     
     return {
       label: tzLabel,
       value: tzValue,
-      description: city ? `Example: ${city}` : tzLabel
+      description: description
     };
   });
 
