@@ -31,6 +31,21 @@ function formatAbilityScore(score) {
   return scoreRanges[num] || num.toLocaleString();
 }
 
+// Helper to get class icon emoji ID from config
+function getClassIconId(className) {
+  const iconMap = {
+    'Beat Performer': config.icons.beatPerformer,
+    'Frost Mage': config.icons.frostMage,
+    'Heavy Guardian': config.icons.heavyGuardian,
+    'Marksman': config.icons.marksman,
+    'Shield Knight': config.icons.shieldKnight,
+    'Stormblade': config.icons.stormblade,
+    'Verdant Oracle': config.icons.verdantOracle,
+    'Wind Knight': config.icons.windKnight
+  };
+  return iconMap[className] || null;
+}
+
 // STEP 1: Choose which character type to edit
 export async function handleEditCharacter(interaction, userId) {
   try {
@@ -413,12 +428,22 @@ export async function handleEditOption(interaction, userId, option) {
       // Show class selection
       const embed = createEditEmbed('🎭 Edit Class', 'Pick your new class:');
 
-      const classOptions = Object.keys(gameData.classes).map(className => ({
-        label: className,
-        value: className,
-        description: gameData.classes[className].role,
-        emoji: gameData.classes[className].emoji
-      }));
+      const classOptions = Object.keys(gameData.classes).map(className => {
+        const iconId = getClassIconId(className);
+        const option = {
+          label: className,
+          value: className,
+          description: gameData.classes[className].role
+        };
+        
+        if (iconId) {
+          option.emoji = { id: iconId };
+        } else {
+          option.emoji = gameData.classes[className].emoji;
+        }
+        
+        return option;
+      });
 
       const selectMenu = new StringSelectMenuBuilder()
         .setCustomId(`edit_class_select_${userId}`)
@@ -797,12 +822,22 @@ async function startSubclassRegistration(interaction, userId, parentId, parentTy
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_class_${userId}`)
     .setPlaceholder('🎭 Choose class')
-    .addOptions(classes.map(className => ({ 
-      label: className, 
-      value: className,
-      description: gameData.classes[className].role,
-      emoji: gameData.classes[className].emoji 
-    })));
+    .addOptions(classes.map(className => {
+      const iconId = getClassIconId(className);
+      const option = {
+        label: className,
+        value: className,
+        description: gameData.classes[className].role
+      };
+      
+      if (iconId) {
+        option.emoji = { id: iconId };
+      } else {
+        option.emoji = gameData.classes[className].emoji;
+      }
+      
+      return option;
+    }));
     
   const backButton = new ButtonBuilder()
     .setCustomId(`back_to_profile_${userId}`)
