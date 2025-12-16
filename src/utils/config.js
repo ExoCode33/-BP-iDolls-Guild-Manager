@@ -23,6 +23,33 @@ function parseIntValue(value, defaultValue = 0) {
   return isNaN(parsed) ? defaultValue : parsed;
 }
 
+/**
+ * Load Battle Imagines from environment variables
+ * Looks for BATTLE_IMAGINE_NAME_X and BATTLE_IMAGINE_LOGO_X pairs
+ */
+function loadBattleImagines() {
+  const battleImagines = [];
+  let index = 1;
+  
+  while (process.env[`BATTLE_IMAGINE_NAME_${index}`]) {
+    const name = process.env[`BATTLE_IMAGINE_NAME_${index}`];
+    const logo = process.env[`BATTLE_IMAGINE_LOGO_${index}`];
+    
+    // Only add if name is provided (logo is optional)
+    if (name && name.trim() !== '') {
+      battleImagines.push({
+        name: name.trim(),
+        logo: logo ? logo.trim() : null,
+        tiers: ['T0', 'T1', 'T2', 'T3', 'T4', 'T5']
+      });
+    }
+    
+    index++;
+  }
+  
+  return battleImagines;
+}
+
 const config = {
   discord: {
     clientId: process.env.CLIENT_ID,
@@ -64,6 +91,7 @@ const config = {
     verdantOracle: process.env.ICON_VERDANT_ORACLE,
     windKnight: process.env.ICON_WIND_KNIGHT
   },
+  battleImagines: loadBattleImagines(), // ✅ NEW: Load Battle Imagines
   sync: {
     autoSyncInterval: parseIntValue(process.env.AUTO_SYNC_INTERVAL, 3600000), // 1 hour default
     nicknameSyncEnabled: parseBool(process.env.NICKNAME_SYNC_ENABLED, false),
@@ -77,7 +105,7 @@ const config = {
   },
   logging: {
     toChannel: parseBool(process.env.LOG_TO_CHANNEL, true),
-    clearOnStart: parseBool(process.env.CLEAR_LOG_ON_START, false) // ✅ Fixed with parseBool
+    clearOnStart: parseBool(process.env.CLEAR_LOG_ON_START, false)
   }
 };
 
