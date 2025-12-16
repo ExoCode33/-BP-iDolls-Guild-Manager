@@ -660,10 +660,13 @@ async function showBattleImagineSelection(interaction, userId) {
   }
   const stepNum = baseStep + currentImagineIndex;
   
+  // Use custom emoji in title if available
+  const titleEmoji = currentImagine.logo ? `<:bi:${currentImagine.logo}>` : '⚔️';
+  
   const embed = createRegEmbed(
     stepNum, 
     totalSteps, 
-    `🎭 Battle Imagine - ${currentImagine.name}`, 
+    `${titleEmoji} Battle Imagine - ${currentImagine.name}`, 
     `Do you own **${currentImagine.name}**?\n\nSelect the highest tier you own:`
   );
   
