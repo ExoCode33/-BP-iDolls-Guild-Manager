@@ -826,10 +826,6 @@ export async function handleGuildSelect(interaction, userId) {
 }
 
 export async function handleIGNModal(interaction, userId) {
-  // ✅ CRITICAL: Defer reply immediately to prevent "Unknown interaction" error
-  // Discord gives us 3 seconds to respond - we need more time for validation/DB operations
-  await interaction.deferReply({ ephemeral: true });
-  
   const ign = interaction.fields.getTextInputValue('ign');
   const uid = interaction.fields.getTextInputValue('uid').trim();
   const state = stateManager.getRegistrationState(userId);
@@ -860,10 +856,10 @@ export async function handleIGNModal(interaction, userId) {
     
     const row = new ActionRowBuilder().addComponents(retryButton);
     
-    // ✅ Use editReply after deferring
-    await interaction.editReply({ 
+    await interaction.reply({ 
       embeds: [errorEmbed], 
-      components: [row]
+      components: [row],
+      ephemeral: true 
     });
     
     return;
@@ -910,10 +906,10 @@ export async function handleIGNModal(interaction, userId) {
     const embed = await buildCharacterProfileEmbed(interaction.user, characters, interaction);
     const buttons = buildCharacterButtons(mainChar, alts.length, subs.length, userId);
 
-    // ✅ Use editReply after deferring
-    await interaction.editReply({ 
+    await interaction.reply({ 
       embeds: [embed], 
-      components: buttons
+      components: buttons,
+      ephemeral: config.ephemeral.registerChar
     });
 
     const charType = characterData.characterType;
@@ -921,9 +917,9 @@ export async function handleIGNModal(interaction, userId) {
   } catch (error) {
     console.error('[REGISTRATION ERROR]', error);
     logger.error(`Registration error: ${error.message}`, error);
-    // ✅ Use editReply after deferring
-    await interaction.editReply({
-      content: '❌ Something went wrong. Please try again!'
+    await interaction.reply({
+      content: '❌ Something went wrong. Please try again!',
+      ephemeral: true
     });
   }
 }
