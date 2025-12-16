@@ -121,7 +121,7 @@ class Logger {
   /**
    * Clean up old Discord log messages (keep last N messages)
    */
-  async cleanupOldLogs(forcedCleanup = false) {
+  async cleanupOldLogs() {
     if (!this.client || !this.logChannelId) return;
     
     try {
@@ -130,17 +130,9 @@ class Logger {
       
       const now = Date.now();
       
-      // Don't clean if we cleaned recently (within last 10 minutes) - UNLESS forced
-      if (!forcedCleanup && now - this.lastCleanupTime < 600000) {
-        console.log(this.COLORS.YELLOW + `[LOGGER CLEANUP] Skipped - cooldown active (${Math.round((600000 - (now - this.lastCleanupTime)) / 1000)}s remaining)` + this.COLORS.RESET);
-        return;
-      }
+      console.log(this.COLORS.CYAN + `[LOGGER CLEANUP] Starting cleanup...` + this.COLORS.RESET);
       
-      this.lastCleanupTime = now;
-      
-      console.log(this.COLORS.CYAN + `[LOGGER CLEANUP] Starting cleanup${forcedCleanup ? ' (FORCED)' : ''}...` + this.COLORS.RESET);
-      
-      // ✅ FIX: Fetch ALL messages, not just 100
+      // Fetch ALL messages in batches
       let allMessages = [];
       let lastMessageId = null;
       let fetchCount = 0;
@@ -192,44 +184,73 @@ class Logger {
       
       // Delete in batches
       let deleted = 0;
+      let batchNum = 0;
+      
       for (let i = 0; i < messagesToDelete.length; i += this.cleanupBatchSize) {
         const batch = messagesToDelete.slice(i, i + this.cleanupBatchSize);
+        batchNum++;
+        
+        console.log(this.COLORS.CYAN + `[LOGGER CLEANUP] Processing batch ${batchNum}: ${batch.length} messages` + this.COLORS.RESET);
         
         // Use bulk delete if possible (messages < 14 days old)
         const recentMessages = batch.filter(m => now - m.createdTimestamp < 1209600000);
         const oldMessages = batch.filter(m => now - m.createdTimestamp >= 1209600000);
         
+        // Bulk delete recent messages
         if (recentMessages.length > 1) {
-          await channel.bulkDelete(recentMessages, true);
-          deleted += recentMessages.length;
+          try {
+            await channel.bulkDelete(recentMessages, true);
+            deleted += recentMessages.length;
+            console.log(this.COLORS.GREEN + `[LOGGER CLEANUP] Bulk deleted ${recentMessages.length} messages` + this.COLORS.RESET);
+          } catch (error) {
+            console.error(this.COLORS.RED + `[LOGGER CLEANUP] Bulk delete failed: ${error.message}` + this.COLORS.RESET);
+            // Fall back to individual deletion
+            for (const msg of recentMessages) {
+              try {
+                await msg.delete();
+                deleted++;
+                await new Promise(resolve => setTimeout(resolve, 100));
+              } catch (err) {
+                console.error(this.COLORS.RED + `[LOGGER CLEANUP] Failed to delete message ${msg.id}: ${err.message}` + this.COLORS.RESET);
+              }
+            }
+          }
         } else if (recentMessages.length === 1) {
-          await recentMessages[0].delete();
-          deleted++;
+          try {
+            await recentMessages[0].delete();
+            deleted++;
+          } catch (error) {
+            console.error(this.COLORS.RED + `[LOGGER CLEANUP] Failed to delete message: ${error.message}` + this.COLORS.RESET);
+          }
         }
         
-        // Old messages must be deleted individually
+        // Delete old messages individually
         for (const msg of oldMessages) {
           try {
             await msg.delete();
             deleted++;
             await new Promise(resolve => setTimeout(resolve, 100));
           } catch (error) {
-            console.error(this.COLORS.RED + `[LOGGER CLEANUP] Failed to delete message: ${error.message}` + this.COLORS.RESET);
+            console.error(this.COLORS.RED + `[LOGGER CLEANUP] Failed to delete old message ${msg.id}: ${error.message}` + this.COLORS.RESET);
           }
         }
         
-        // Delay between batches
+        // Delay between batches to avoid rate limits
         if (i + this.cleanupBatchSize < messagesToDelete.length) {
+          console.log(this.COLORS.CYAN + `[LOGGER CLEANUP] Waiting 1s before next batch...` + this.COLORS.RESET);
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       
       this.stats.messagesDeleted += deleted;
       
-      console.log(this.COLORS.GREEN + `[LOGGER CLEANUP] ✓ Deleted ${deleted} messages | Kept: ${messageCount - deleted}` + this.COLORS.RESET);
+      console.log(this.COLORS.GREEN + `[LOGGER CLEANUP] ✓ Cleanup complete! Deleted ${deleted} messages | Kept: ${messageCount - deleted}` + this.COLORS.RESET);
       
     } catch (error) {
       console.error(this.COLORS.RED + `[LOGGER CLEANUP ERROR] ${error.message}` + this.COLORS.RESET);
+      if (this.debugMode) {
+        console.error(this.COLORS.RED + `[LOGGER CLEANUP ERROR] Stack: ${error.stack}` + this.COLORS.RESET);
+      }
     }
   }
 
@@ -237,8 +258,8 @@ class Logger {
    * Manual cleanup trigger (for admin command)
    */
   async manualCleanup() {
-    console.log(this.COLORS.CYAN + '[LOGGER] Manual cleanup triggered (bypassing cooldown)' + this.COLORS.RESET);
-    await this.cleanupOldLogs(true); // Force cleanup, bypass cooldown
+    console.log(this.COLORS.CYAN + '[LOGGER] Manual cleanup triggered' + this.COLORS.RESET);
+    await this.cleanupOldLogs();
   }
 
   // ============================================================================
@@ -353,10 +374,10 @@ class Logger {
     
     this.isReady = true;
     
-    // ✅ NEW: Count existing messages on startup
-    await this.countExistingMessages();
+    // ✅ REMOVED: Don't count/cleanup on startup (causes cooldown issues)
+    // Only cleanup on schedule (every hour) or manual trigger
     
-    // ✅ NEW: Start automatic cleanup
+    // Start automatic periodic cleanup
     this.startPeriodicCleanup();
     
     // Flush queued messages
