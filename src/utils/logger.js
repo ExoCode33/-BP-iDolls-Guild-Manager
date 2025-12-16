@@ -1,15 +1,16 @@
 import { EmbedBuilder } from 'discord.js';
 
 /**
- * Comprehensive Logging System
+ * Enhanced Logging System with Auto-Cleanup
  * 
  * Features:
  * - Detailed Railway (console) logs with colored ANSI
- * - Discord logs with ANSI colors (NO EMBEDS - single line format)
+ * - Discord logs with ANSI colors (single line format)
  * - Configurable Discord logs with multiple levels
- * - Role ping support for errors and warnings (separate control)
- * - Full coverage of all bot operations
- * - Professional formatting and organization
+ * - Role ping support for errors and warnings
+ * - Automatic log cleanup (rolling logs)
+ * - Rate limiting for Discord sends
+ * - Memory-efficient message queuing
  */
 
 class Logger {
@@ -18,6 +19,18 @@ class Logger {
     this.logChannelId = null;
     this.isReady = false;
     this.messageQueue = [];
+    
+    // ✅ NEW: Discord log cleanup settings
+    this.maxLogMessages = parseInt(process.env.MAX_LOG_MESSAGES) || 500;
+    this.cleanupInterval = parseInt(process.env.LOG_CLEANUP_INTERVAL) || 3600000; // 1 hour
+    this.cleanupBatchSize = parseInt(process.env.LOG_CLEANUP_BATCH) || 50;
+    this.lastCleanupTime = 0;
+    this.cleanupTimer = null;
+    
+    // ✅ NEW: Rate limiting for Discord sends
+    this.discordSendQueue = [];
+    this.isSendingToDiscord = false;
+    this.minSendInterval = 100; // 100ms between sends
     
     // Configuration from environment variables
     this.discordLogLevel = process.env.DISCORD_LOG_LEVEL || 'INFO';
@@ -43,8 +56,6 @@ class Logger {
       RESET: '\x1b[0m',
       BRIGHT: '\x1b[1m',
       DIM: '\x1b[2m',
-      
-      // Foreground colors
       BLACK: '\x1b[30m',
       RED: '\x1b[31m',
       GREEN: '\x1b[32m',
@@ -54,8 +65,6 @@ class Logger {
       CYAN: '\x1b[36m',
       WHITE: '\x1b[37m',
       GRAY: '\x1b[90m',
-      
-      // Background colors
       BG_RED: '\x1b[41m',
       BG_GREEN: '\x1b[42m',
       BG_YELLOW: '\x1b[43m',
@@ -72,160 +81,173 @@ class Logger {
       interactions: 0,
       registrations: 0,
       edits: 0,
-      deletes: 0
+      deletes: 0,
+      messagesSent: 0,
+      messagesDeleted: 0
     };
     
     this.startTime = Date.now();
   }
 
+  // ============================================================================
+  // ✅ NEW: AUTOMATIC CLEANUP SYSTEM
+  // ============================================================================
+
   /**
-   * Initialize logger with Discord client
+   * Start periodic cleanup of Discord logs
    */
-  async setClient(client, logChannelId, clearOnStart = false) {
-    this.client = client;
-    this.logChannelId = logChannelId;
-    
-    console.log(this.COLORS.CYAN + '[LOGGER INIT] Setting up Discord logging...' + this.COLORS.RESET);
-    console.log(this.COLORS.CYAN + '├─ Channel ID: ' + this.COLORS.YELLOW + (logChannelId || 'NOT SET') + this.COLORS.RESET);
-    console.log(this.COLORS.CYAN + '├─ Log Level: ' + this.COLORS.YELLOW + this.discordLogLevel + this.COLORS.RESET);
-    console.log(this.COLORS.CYAN + '├─ Error Ping: ' + (this.errorPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
-    console.log(this.COLORS.CYAN + '├─ Warn Ping: ' + (this.warnPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
-    console.log(this.COLORS.CYAN + '├─ Debug Mode: ' + (this.debugMode ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
-    console.log(this.COLORS.CYAN + '├─ Queued Messages: ' + this.COLORS.YELLOW + this.messageQueue.length + this.COLORS.RESET);
-    
-    if (!logChannelId) {
-      console.error(this.COLORS.RED + '[LOGGER ERROR] No log channel ID provided! Discord logging will not work.' + this.COLORS.RESET);
-      return;
+  startPeriodicCleanup() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
     }
     
-    if (clearOnStart && this.logChannelId) {
-      try {
-        const channel = await this.client.channels.fetch(this.logChannelId);
-        if (channel) {
-          // Clear last 100 messages
-          const messages = await channel.messages.fetch({ limit: 100 });
-          await channel.bulkDelete(messages, true);
-          console.log(this.COLORS.CYAN + '[LOG] Cleared log channel' + this.COLORS.RESET);
-        }
-      } catch (error) {
-        console.error(this.COLORS.RED + '[LOG ERROR] Failed to clear log channel: ' + error.message + this.COLORS.RESET);
-      }
-    }
+    this.cleanupTimer = setInterval(async () => {
+      await this.cleanupOldLogs();
+    }, this.cleanupInterval);
     
-    // Mark as ready
-    this.isReady = true;
-    
-    // Flush queued messages
-    if (this.messageQueue.length > 0) {
-      console.log(this.COLORS.CYAN + `[LOGGER INIT] Flushing ${this.messageQueue.length} queued messages...` + this.COLORS.RESET);
-      for (const { ansiMessage, pingRole } of this.messageQueue) {
-        await this._sendToDiscordNow(ansiMessage, pingRole);
-      }
-      this.messageQueue = [];
-    }
-    
-    console.log(this.COLORS.GREEN + '[LOGGER INIT] Discord logging initialized successfully!' + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + `[LOGGER] Auto-cleanup enabled: keeping last ${this.maxLogMessages} messages, cleaning every ${this.cleanupInterval/1000}s` + this.COLORS.RESET);
   }
 
   /**
-   * Load settings from database
+   * Stop periodic cleanup
    */
-  async loadSettingsFromDatabase(db) {
+  stopPeriodicCleanup() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+  }
+
+  /**
+   * Clean up old Discord log messages (keep last N messages)
+   */
+  async cleanupOldLogs() {
+    if (!this.client || !this.logChannelId) return;
+    
     try {
-      const settings = await db.getAllBotSettings();
+      const channel = await this.client.channels.fetch(this.logChannelId);
+      if (!channel || !channel.isTextBased()) return;
       
-      // Update logger settings
-      if (settings.log_level) {
-        this.discordLogLevel = settings.log_level;
-      }
-      if (settings.debug_mode !== undefined) {
-        this.debugMode = settings.debug_mode;
-      }
-      if (settings.error_ping_enabled !== undefined) {
-        this.errorPingEnabled = settings.error_ping_enabled;
-      }
-      if (settings.error_ping_role_id) {
-        this.errorPingRoleId = settings.error_ping_role_id;
-      }
-      if (settings.warn_ping_enabled !== undefined) {
-        this.warnPingEnabled = settings.warn_ping_enabled;
-      }
-      if (settings.warn_ping_role_id) {
-        this.warnPingRoleId = settings.warn_ping_role_id;
-      }
-      if (settings.log_channel_id) {
-        this.logChannelId = settings.log_channel_id;
+      const now = Date.now();
+      
+      // Don't clean if we cleaned recently (within last 10 minutes)
+      if (now - this.lastCleanupTime < 600000) {
+        return;
       }
       
-      console.log(this.COLORS.CYAN + '[LOGGER] Settings loaded from database' + this.COLORS.RESET);
-      console.log(this.COLORS.CYAN + '├─ Level: ' + this.COLORS.YELLOW + this.discordLogLevel + this.COLORS.RESET);
-      console.log(this.COLORS.CYAN + '├─ Channel: ' + this.COLORS.YELLOW + (this.logChannelId || 'None') + this.COLORS.RESET);
-      console.log(this.COLORS.CYAN + '├─ Error Ping: ' + (this.errorPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
-      console.log(this.COLORS.CYAN + '└─ Warn Ping: ' + (this.warnPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
+      this.lastCleanupTime = now;
+      
+      console.log(this.COLORS.CYAN + `[LOGGER CLEANUP] Starting cleanup...` + this.COLORS.RESET);
+      
+      // Fetch all messages
+      const allMessages = await channel.messages.fetch({ limit: 100 });
+      const messageCount = allMessages.size;
+      
+      // If under limit, no cleanup needed
+      if (messageCount <= this.maxLogMessages) {
+        console.log(this.COLORS.CYAN + `[LOGGER CLEANUP] No cleanup needed (${messageCount}/${this.maxLogMessages} messages)` + this.COLORS.RESET);
+        return;
+      }
+      
+      // Sort messages by creation time (oldest first)
+      const sortedMessages = Array.from(allMessages.values())
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+      
+      // Calculate how many to delete
+      const toDelete = messageCount - this.maxLogMessages;
+      const messagesToDelete = sortedMessages.slice(0, toDelete);
+      
+      console.log(this.COLORS.YELLOW + `[LOGGER CLEANUP] Deleting ${messagesToDelete.length} old messages...` + this.COLORS.RESET);
+      
+      // Delete in batches
+      let deleted = 0;
+      for (let i = 0; i < messagesToDelete.length; i += this.cleanupBatchSize) {
+        const batch = messagesToDelete.slice(i, i + this.cleanupBatchSize);
+        
+        // Use bulk delete if possible (messages < 14 days old)
+        const recentMessages = batch.filter(m => now - m.createdTimestamp < 1209600000);
+        const oldMessages = batch.filter(m => now - m.createdTimestamp >= 1209600000);
+        
+        if (recentMessages.length > 1) {
+          await channel.bulkDelete(recentMessages, true);
+          deleted += recentMessages.length;
+        } else if (recentMessages.length === 1) {
+          await recentMessages[0].delete();
+          deleted++;
+        }
+        
+        // Old messages must be deleted individually
+        for (const msg of oldMessages) {
+          try {
+            await msg.delete();
+            deleted++;
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } catch (error) {
+            console.error(this.COLORS.RED + `[LOGGER CLEANUP] Failed to delete message: ${error.message}` + this.COLORS.RESET);
+          }
+        }
+        
+        // Delay between batches
+        if (i + this.cleanupBatchSize < messagesToDelete.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
+      this.stats.messagesDeleted += deleted;
+      
+      console.log(this.COLORS.GREEN + `[LOGGER CLEANUP] ✓ Deleted ${deleted} messages | Kept: ${messageCount - deleted}` + this.COLORS.RESET);
+      
     } catch (error) {
-      console.error(this.COLORS.RED + `[LOGGER ERROR] Failed to load settings from database: ${error.message}` + this.COLORS.RESET);
+      console.error(this.COLORS.RED + `[LOGGER CLEANUP ERROR] ${error.message}` + this.COLORS.RESET);
     }
   }
 
   /**
-   * Get current log level value
+   * Manual cleanup trigger (for admin command)
    */
-  getCurrentLogLevel() {
-    return this.LOG_LEVELS[this.discordLogLevel] || this.LOG_LEVELS.INFO;
+  async manualCleanup() {
+    console.log(this.COLORS.CYAN + '[LOGGER] Manual cleanup triggered' + this.COLORS.RESET);
+    this.lastCleanupTime = 0; // Reset to force cleanup
+    await this.cleanupOldLogs();
   }
 
-  /**
-   * Check if a message should be logged to Discord based on level
-   */
-  shouldLogToDiscord(requiredLevel) {
-    return this.getCurrentLogLevel() >= this.LOG_LEVELS[requiredLevel];
-  }
+  // ============================================================================
+  // ✅ IMPROVED: RATE-LIMITED DISCORD SENDING
+  // ============================================================================
 
   /**
-   * Get formatted timestamp
-   */
-  getTimestamp() {
-    const now = new Date();
-    const month = now.toLocaleString('en-US', { month: 'short' });
-    const day = now.getDate();
-    const year = now.getFullYear();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const ms = String(now.getMilliseconds()).padStart(3, '0');
-    return `${month} ${day}, ${year} ${hours}:${minutes}:${seconds}.${ms}`;
-  }
-
-  /**
-   * Get short timestamp for Discord
-   */
-  getShortTimestamp() {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  }
-
-  /**
-   * Format user as "username (userId)"
-   */
-  formatUser(username, userId) {
-    return `${username} (${userId})`;
-  }
-
-  /**
-   * Send ANSI colored message to Discord (in code block)
-   * Queues messages if client not ready yet
+   * Queue and rate-limit Discord sends
    */
   async sendToDiscord(ansiMessage, pingRole = null) {
     if (!this.isReady) {
-      // Queue message until client is ready
       this.messageQueue.push({ ansiMessage, pingRole });
       return;
     }
     
-    await this._sendToDiscordNow(ansiMessage, pingRole);
+    this.discordSendQueue.push({ ansiMessage, pingRole });
+    
+    if (!this.isSendingToDiscord) {
+      this.processSendQueue();
+    }
+  }
+
+  /**
+   * Process Discord send queue with rate limiting
+   */
+  async processSendQueue() {
+    if (this.isSendingToDiscord) return;
+    this.isSendingToDiscord = true;
+    
+    while (this.discordSendQueue.length > 0) {
+      const { ansiMessage, pingRole } = this.discordSendQueue.shift();
+      await this._sendToDiscordNow(ansiMessage, pingRole);
+      
+      if (this.discordSendQueue.length > 0) {
+        await new Promise(resolve => setTimeout(resolve, this.minSendInterval));
+      }
+    }
+    
+    this.isSendingToDiscord = false;
   }
 
   /**
@@ -244,7 +266,6 @@ class Logger {
         return;
       }
 
-      // Put ping INSIDE the ANSI block for cleaner appearance
       let fullMessage = ansiMessage;
       if (pingRole) {
         fullMessage = `${this.COLORS.RED}[@${this.COLORS.RESET}<@&${pingRole}>${this.COLORS.RED}]${this.COLORS.RESET} ${ansiMessage}`;
@@ -253,18 +274,128 @@ class Logger {
       const message = `\`\`\`ansi\n${fullMessage}\n\`\`\``;
       
       await channel.send(message);
+      this.stats.messagesSent++;
+      
     } catch (error) {
       console.error(this.COLORS.RED + `[LOG ERROR] Failed to send to Discord: ${error.message}` + this.COLORS.RESET);
-      console.error(this.COLORS.RED + `[LOG ERROR] Channel ID: ${this.logChannelId}` + this.COLORS.RESET);
       if (this.debugMode) {
         console.error(this.COLORS.RED + `[LOG ERROR] Error details: ${error.stack}` + this.COLORS.RESET);
       }
     }
   }
 
+  // ============================================================================
+  // INITIALIZATION
+  // ============================================================================
+
   /**
-   * Format uptime duration
+   * Initialize logger with Discord client
    */
+  async setClient(client, logChannelId, clearOnStart = false) {
+    this.client = client;
+    this.logChannelId = logChannelId;
+    
+    console.log(this.COLORS.CYAN + '[LOGGER INIT] Setting up Discord logging...' + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '├─ Channel ID: ' + this.COLORS.YELLOW + (logChannelId || 'NOT SET') + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '├─ Log Level: ' + this.COLORS.YELLOW + this.discordLogLevel + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '├─ Max Messages: ' + this.COLORS.YELLOW + this.maxLogMessages + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '├─ Cleanup Interval: ' + this.COLORS.YELLOW + (this.cleanupInterval/1000) + 's' + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '├─ Error Ping: ' + (this.errorPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
+    console.log(this.COLORS.CYAN + '└─ Warn Ping: ' + (this.warnPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
+    
+    if (!logChannelId) {
+      console.error(this.COLORS.RED + '[LOGGER ERROR] No log channel ID provided!' + this.COLORS.RESET);
+      return;
+    }
+    
+    if (clearOnStart && this.logChannelId) {
+      try {
+        const channel = await this.client.channels.fetch(this.logChannelId);
+        if (channel) {
+          const messages = await channel.messages.fetch({ limit: 100 });
+          await channel.bulkDelete(messages, true);
+          console.log(this.COLORS.CYAN + '[LOG] Cleared log channel' + this.COLORS.RESET);
+        }
+      } catch (error) {
+        console.error(this.COLORS.RED + '[LOG ERROR] Failed to clear log channel: ' + error.message + this.COLORS.RESET);
+      }
+    }
+    
+    this.isReady = true;
+    
+    // ✅ NEW: Start automatic cleanup
+    this.startPeriodicCleanup();
+    
+    // Flush queued messages
+    if (this.messageQueue.length > 0) {
+      console.log(this.COLORS.CYAN + `[LOGGER INIT] Flushing ${this.messageQueue.length} queued messages...` + this.COLORS.RESET);
+      for (const { ansiMessage, pingRole } of this.messageQueue) {
+        this.discordSendQueue.push({ ansiMessage, pingRole });
+      }
+      this.messageQueue = [];
+      this.processSendQueue();
+    }
+    
+    console.log(this.COLORS.GREEN + '[LOGGER INIT] Discord logging initialized successfully!' + this.COLORS.RESET);
+  }
+
+  /**
+   * Load settings from database
+   */
+  async loadSettingsFromDatabase(db) {
+    try {
+      const settings = await db.getAllBotSettings();
+      
+      if (settings.log_level) this.discordLogLevel = settings.log_level;
+      if (settings.debug_mode !== undefined) this.debugMode = settings.debug_mode;
+      if (settings.error_ping_enabled !== undefined) this.errorPingEnabled = settings.error_ping_enabled;
+      if (settings.error_ping_role_id) this.errorPingRoleId = settings.error_ping_role_id;
+      if (settings.warn_ping_enabled !== undefined) this.warnPingEnabled = settings.warn_ping_enabled;
+      if (settings.warn_ping_role_id) this.warnPingRoleId = settings.warn_ping_role_id;
+      if (settings.log_channel_id) this.logChannelId = settings.log_channel_id;
+      
+      console.log(this.COLORS.CYAN + '[LOGGER] Settings loaded from database' + this.COLORS.RESET);
+    } catch (error) {
+      console.error(this.COLORS.RED + `[LOGGER ERROR] Failed to load settings: ${error.message}` + this.COLORS.RESET);
+    }
+  }
+
+  // ============================================================================
+  // UTILITY METHODS
+  // ============================================================================
+
+  getCurrentLogLevel() {
+    return this.LOG_LEVELS[this.discordLogLevel] || this.LOG_LEVELS.INFO;
+  }
+
+  shouldLogToDiscord(requiredLevel) {
+    return this.getCurrentLogLevel() >= this.LOG_LEVELS[requiredLevel];
+  }
+
+  getTimestamp() {
+    const now = new Date();
+    const month = now.toLocaleString('en-US', { month: 'short' });
+    const day = now.getDate();
+    const year = now.getFullYear();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+    return `${month} ${day}, ${year} ${hours}:${minutes}:${seconds}.${ms}`;
+  }
+
+  getShortTimestamp() {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
+  formatUser(username, userId) {
+    return `${username} (${userId})`;
+  }
+
   formatUptime(ms) {
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
@@ -281,16 +412,12 @@ class Logger {
   // SYSTEM LOGS
   // ============================================================================
 
-  /**
-   * Log system startup
-   */
   async logStartup(clientTag, port, commandCount) {
     const timestamp = this.getTimestamp();
     const nodeVersion = process.version;
     const platform = process.platform;
     const memory = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
     
-    // Railway log (detailed)
     console.log(this.COLORS.GREEN + '═'.repeat(80) + this.COLORS.RESET);
     console.log(this.COLORS.BRIGHT + this.COLORS.GREEN + '[SYSTEM STARTUP] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.GREEN + '═'.repeat(80) + this.COLORS.RESET);
@@ -306,7 +433,6 @@ class Logger {
     console.log(this.COLORS.GREEN + '└─ ' + this.COLORS.RESET + 'Warn Ping: ' + (this.warnPingEnabled ? this.COLORS.GREEN + 'ENABLED' : this.COLORS.GRAY + 'DISABLED') + this.COLORS.RESET);
     console.log(this.COLORS.GREEN + '═'.repeat(80) + this.COLORS.RESET);
     
-    // Discord log (if INFO or higher) - ANSI colored single line
     if (this.shouldLogToDiscord('INFO')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.GREEN}[${time}] 🚀 SYSTEM STARTUP${this.COLORS.RESET} - Bot: ${this.COLORS.CYAN}${clientTag}${this.COLORS.RESET} | Commands: ${this.COLORS.CYAN}${commandCount}${this.COLORS.RESET} | Log Level: ${this.COLORS.YELLOW}${this.discordLogLevel}${this.COLORS.RESET}`;
@@ -314,15 +440,11 @@ class Logger {
     }
   }
 
-  /**
-   * Log system shutdown
-   */
   async logShutdown(reason = 'Manual shutdown') {
     const timestamp = this.getTimestamp();
     const uptime = Date.now() - this.startTime;
     const uptimeStr = this.formatUptime(uptime);
     
-    // Railway log
     console.log(this.COLORS.YELLOW + '═'.repeat(80) + this.COLORS.RESET);
     console.log(this.COLORS.BRIGHT + this.COLORS.YELLOW + '[SYSTEM SHUTDOWN] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '═'.repeat(80) + this.COLORS.RESET);
@@ -330,11 +452,12 @@ class Logger {
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Uptime: ' + this.COLORS.CYAN + uptimeStr + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Total Commands: ' + this.COLORS.CYAN + this.stats.commands + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Total Interactions: ' + this.COLORS.CYAN + this.stats.interactions + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Messages Sent: ' + this.COLORS.CYAN + this.stats.messagesSent + this.COLORS.RESET);
+    console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Messages Deleted: ' + this.COLORS.CYAN + this.stats.messagesDeleted + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Errors: ' + this.COLORS.RED + this.stats.errors + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Warnings: ' + this.COLORS.YELLOW + this.stats.warnings + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '═'.repeat(80) + this.COLORS.RESET);
     
-    // Discord log (if INFO or higher)
     if (this.shouldLogToDiscord('INFO')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.YELLOW}[${time}] 🛑 SYSTEM SHUTDOWN${this.COLORS.RESET} - Reason: ${this.COLORS.CYAN}${reason}${this.COLORS.RESET} | Uptime: ${this.COLORS.CYAN}${uptimeStr}${this.COLORS.RESET} | Errors: ${this.COLORS.RED}${this.stats.errors}${this.COLORS.RESET}`;
@@ -346,15 +469,11 @@ class Logger {
   // COMMAND LOGS
   // ============================================================================
 
-  /**
-   * Log command execution
-   */
   async logCommand(commandName, username, userId, options = {}) {
     this.stats.commands++;
     const timestamp = this.getTimestamp();
     const user = this.formatUser(username, userId);
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.MAGENTA + '[COMMAND] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Command: ' + this.COLORS.CYAN + '/' + commandName + this.COLORS.RESET);
@@ -369,15 +488,8 @@ class Logger {
     if (options.subcommand) {
       console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Subcommand: ' + this.COLORS.CYAN + options.subcommand + this.COLORS.RESET);
     }
-    if (options.parameters) {
-      console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Parameters:');
-      for (const [key, value] of Object.entries(options.parameters)) {
-        console.log(this.COLORS.MAGENTA + '├─   ' + this.COLORS.RESET + key + ': ' + this.COLORS.MAGENTA + value + this.COLORS.RESET);
-      }
-    }
     console.log(this.COLORS.MAGENTA + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Executed' + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
       const time = this.getShortTimestamp();
       const subCmd = options.subcommand ? ` ${options.subcommand}` : '';
@@ -390,15 +502,11 @@ class Logger {
   // INTERACTION LOGS
   // ============================================================================
 
-  /**
-   * Log button interaction
-   */
   async logButton(customId, username, userId, details = {}) {
     this.stats.interactions++;
     const timestamp = this.getTimestamp();
     const user = this.formatUser(username, userId);
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.BLUE + '[BUTTON] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Custom ID: ' + this.COLORS.CYAN + customId + this.COLORS.RESET);
@@ -408,7 +516,6 @@ class Logger {
     }
     console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Handled' + this.COLORS.RESET);
     
-    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
       const time = this.getShortTimestamp();
       const action = details.action ? ` [${details.action}]` : '';
@@ -417,15 +524,11 @@ class Logger {
     }
   }
 
-  /**
-   * Log select menu interaction
-   */
   async logSelectMenu(customId, username, userId, selected, details = {}) {
     this.stats.interactions++;
     const timestamp = this.getTimestamp();
     const user = this.formatUser(username, userId);
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.BLUE + '[SELECT MENU] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Custom ID: ' + this.COLORS.CYAN + customId + this.COLORS.RESET);
@@ -433,7 +536,6 @@ class Logger {
     console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Selected: ' + this.COLORS.MAGENTA + selected + this.COLORS.RESET);
     console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Handled' + this.COLORS.RESET);
     
-    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.BLUE}[${time}] 📋 MENU${this.COLORS.RESET} ${this.COLORS.CYAN}${customId}${this.COLORS.RESET} → ${this.COLORS.MAGENTA}${selected}${this.COLORS.RESET} by ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
@@ -441,15 +543,11 @@ class Logger {
     }
   }
 
-  /**
-   * Log modal submission
-   */
   async logModal(customId, username, userId, fields = {}) {
     this.stats.interactions++;
     const timestamp = this.getTimestamp();
     const user = this.formatUser(username, userId);
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.BLUE + '[MODAL] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Custom ID: ' + this.COLORS.CYAN + customId + this.COLORS.RESET);
@@ -462,7 +560,6 @@ class Logger {
     }
     console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Handled' + this.COLORS.RESET);
     
-    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.BLUE}[${time}] 📝 MODAL${this.COLORS.RESET} ${this.COLORS.CYAN}${customId}${this.COLORS.RESET} by ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
@@ -474,15 +571,11 @@ class Logger {
   // CHARACTER ACTION LOGS
   // ============================================================================
 
-  /**
-   * Log character registration
-   */
   async logRegistration(username, userId, characterType, characterData) {
     this.stats.registrations++;
     const timestamp = this.getTimestamp();
     const user = this.formatUser(username, userId);
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.GREEN + '[REGISTRATION] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
@@ -495,7 +588,6 @@ class Logger {
     console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Guild: ' + this.COLORS.MAGENTA + (characterData.guild || 'None') + this.COLORS.RESET);
     console.log(this.COLORS.GREEN + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Registered' + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.GREEN}[${time}] 📝 REGISTER${this.COLORS.RESET} ${this.COLORS.YELLOW}${characterType}${this.COLORS.RESET} | ${this.COLORS.MAGENTA}${characterData.ign}${this.COLORS.RESET} (${characterData.uid}) | ${characterData.class}/${characterData.subclass} | ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
@@ -503,15 +595,11 @@ class Logger {
     }
   }
 
-  /**
-   * Log character edit
-   */
   async logEdit(username, userId, characterType, field, oldValue, newValue, characterId = null) {
     this.stats.edits++;
     const timestamp = this.getTimestamp();
     const user = this.formatUser(username, userId);
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.YELLOW + '[EDIT] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
@@ -524,7 +612,6 @@ class Logger {
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'New: ' + this.COLORS.GREEN + newValue + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Updated' + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.YELLOW}[${time}] ✏️ EDIT${this.COLORS.RESET} ${this.COLORS.YELLOW}${characterType}${this.COLORS.RESET} | ${this.COLORS.MAGENTA}${field}${this.COLORS.RESET}: ${this.COLORS.RED}${oldValue}${this.COLORS.RESET} → ${this.COLORS.GREEN}${newValue}${this.COLORS.RESET} | ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
@@ -532,15 +619,11 @@ class Logger {
     }
   }
 
-  /**
-   * Log character deletion
-   */
   async logDelete(username, userId, characterType, characterData) {
     this.stats.deletes++;
     const timestamp = this.getTimestamp();
     const user = this.formatUser(username, userId);
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.RED + '[DELETE] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
@@ -549,7 +632,6 @@ class Logger {
     console.log(this.COLORS.RED + '├─ ' + this.COLORS.RESET + 'Class: ' + this.COLORS.MAGENTA + characterData.class + this.COLORS.RESET);
     console.log(this.COLORS.RED + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.RED + '✓ Deleted' + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.RED}[${time}] 🗑️ DELETE${this.COLORS.RESET} ${this.COLORS.YELLOW}${characterType}${this.COLORS.RESET} | ${this.COLORS.MAGENTA}${characterData.ign}${this.COLORS.RESET} (${characterData.class}) | ${this.COLORS.CYAN}${username}${this.COLORS.RESET}`;
@@ -557,22 +639,17 @@ class Logger {
     }
   }
 
-  /**
-   * Log character view/profile access
-   */
   async logView(viewerUsername, viewerUserId, targetUsername, targetUserId) {
     const timestamp = this.getTimestamp();
     const viewer = this.formatUser(viewerUsername, viewerUserId);
     const target = this.formatUser(targetUsername, targetUserId);
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.BLUE + '[VIEW] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Viewer: ' + this.COLORS.CYAN + viewer + this.COLORS.RESET);
     console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Target: ' + this.COLORS.CYAN + target + this.COLORS.RESET);
     console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Viewed' + this.COLORS.RESET);
     
-    // Discord log (if ALL level only) - ANSI single line
     if (this.shouldLogToDiscord('ALL')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.BLUE}[${time}] 👁️ VIEW${this.COLORS.RESET} ${this.COLORS.CYAN}${viewerUsername}${this.COLORS.RESET} viewed ${this.COLORS.CYAN}${targetUsername}${this.COLORS.RESET}'s profile`;
@@ -584,13 +661,9 @@ class Logger {
   // DATABASE LOGS
   // ============================================================================
 
-  /**
-   * Log database query
-   */
   async logDatabaseQuery(operation, table, duration, success = true, details = '') {
     const timestamp = this.getTimestamp();
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.CYAN + '[DATABASE] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.CYAN + '├─ ' + this.COLORS.RESET + 'Operation: ' + this.COLORS.MAGENTA + operation + this.COLORS.RESET);
@@ -601,7 +674,6 @@ class Logger {
     }
     console.log(this.COLORS.CYAN + '└─ ' + this.COLORS.RESET + 'Status: ' + (success ? this.COLORS.GREEN + '✓ Success' : this.COLORS.RED + '✗ Failed') + this.COLORS.RESET);
     
-    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
       const time = this.getShortTimestamp();
       const status = success ? this.COLORS.GREEN + '✓' : this.COLORS.RED + '✗';
@@ -610,13 +682,9 @@ class Logger {
     }
   }
 
-  /**
-   * Log database connection status
-   */
   async logDatabaseConnection(status, details = '') {
     const timestamp = this.getTimestamp();
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.CYAN + '[DATABASE CONNECTION] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.CYAN + '├─ ' + this.COLORS.RESET + 'Status: ' + (status === 'connected' ? this.COLORS.GREEN : this.COLORS.RED) + status.toUpperCase() + this.COLORS.RESET);
@@ -625,7 +693,6 @@ class Logger {
     }
     console.log(this.COLORS.CYAN + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     
-    // Discord log (if INFO or higher) - ANSI single line
     if (this.shouldLogToDiscord('INFO')) {
       const time = this.getShortTimestamp();
       const statusColor = status === 'connected' ? this.COLORS.GREEN : this.COLORS.RED;
@@ -638,13 +705,9 @@ class Logger {
   // SHEETS SYNC LOGS
   // ============================================================================
 
-  /**
-   * Log sheets sync operation
-   */
   async logSheetsSync(type, count, duration, success = true, details = '') {
     const timestamp = this.getTimestamp();
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.YELLOW + '[SHEETS SYNC] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Type: ' + this.COLORS.MAGENTA + type + this.COLORS.RESET);
@@ -655,7 +718,6 @@ class Logger {
     }
     console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Status: ' + (success ? this.COLORS.GREEN + '✓ Success' : this.COLORS.RED + '✗ Failed') + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
       const time = this.getShortTimestamp();
       const status = success ? this.COLORS.GREEN + '✓' : this.COLORS.RED + '✗';
@@ -664,20 +726,15 @@ class Logger {
     }
   }
 
-  /**
-   * Log sheets rate limit
-   */
   async logSheetsRateLimit(retryAfter, requestType = 'sync') {
     const timestamp = this.getTimestamp();
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.YELLOW + '[SHEETS RATE LIMIT] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Request Type: ' + this.COLORS.MAGENTA + requestType + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Retry After: ' + this.COLORS.RED + retryAfter + 'ms' + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.YELLOW + '⚠ Rate Limited' + this.COLORS.RESET);
     
-    // Discord log (if WARN_ERROR or higher) - ANSI single line with role ping
     if (this.shouldLogToDiscord('WARN_ERROR')) {
       const time = this.getShortTimestamp();
       const roleId = this.warnPingEnabled ? this.warnPingRoleId : null;
@@ -690,13 +747,9 @@ class Logger {
   // NICKNAME SYNC LOGS
   // ============================================================================
 
-  /**
-   * Log nickname sync batch operation
-   */
   async logNicknameSync(totalUsers, updated, failed, failedUsers = []) {
     const timestamp = this.getTimestamp();
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.MAGENTA + '[NICKNAME SYNC] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'Total Users: ' + this.COLORS.CYAN + totalUsers + this.COLORS.RESET);
@@ -712,7 +765,6 @@ class Logger {
     
     console.log(this.COLORS.MAGENTA + '└─ ' + this.COLORS.RESET + 'Status: ' + this.COLORS.GREEN + '✓ Complete' + this.COLORS.RESET);
     
-    // Discord log (if VERBOSE or higher) - ANSI single line
     if (this.shouldLogToDiscord('VERBOSE')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.MAGENTA}[${time}] 🏷️ NICKNAME SYNC${this.COLORS.RESET} Total: ${this.COLORS.CYAN}${totalUsers}${this.COLORS.RESET} | Updated: ${this.COLORS.GREEN}${updated}${this.COLORS.RESET} | Failed: ${this.COLORS.RED}${failed}${this.COLORS.RESET}`;
@@ -720,14 +772,10 @@ class Logger {
     }
   }
 
-  /**
-   * Log individual nickname update
-   */
   async logNicknameUpdate(username, userId, oldNickname, newNickname, success = true, reason = '') {
     const timestamp = this.getTimestamp();
     const user = this.formatUser(username, userId);
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.MAGENTA + '[NICKNAME UPDATE] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.MAGENTA + '├─ ' + this.COLORS.RESET + 'User: ' + this.COLORS.CYAN + user + this.COLORS.RESET);
@@ -738,7 +786,6 @@ class Logger {
     }
     console.log(this.COLORS.MAGENTA + '└─ ' + this.COLORS.RESET + 'Status: ' + (success ? this.COLORS.GREEN + '✓ Updated' : this.COLORS.RED + '✗ Failed') + this.COLORS.RESET);
     
-    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
       const time = this.getShortTimestamp();
       const status = success ? this.COLORS.GREEN + '✓' : this.COLORS.RED + '✗';
@@ -751,14 +798,10 @@ class Logger {
   // ERROR & WARNING LOGS
   // ============================================================================
 
-  /**
-   * Log error with full details
-   */
   async logError(category, message, error = null, context = {}) {
     this.stats.errors++;
     const timestamp = this.getTimestamp();
     
-    // Railway log (detailed)
     console.log('');
     console.log(this.COLORS.RED + '═'.repeat(80) + this.COLORS.RESET);
     console.log(this.COLORS.BRIGHT + this.COLORS.RED + '[ERROR] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
@@ -794,7 +837,6 @@ class Logger {
     }
     console.log(this.COLORS.RED + '═'.repeat(80) + this.COLORS.RESET);
     
-    // Discord log (if ERROR_ONLY or higher) - ANSI single/multi line with role ping
     if (this.shouldLogToDiscord('ERROR_ONLY')) {
       const time = this.getShortTimestamp();
       const roleId = this.errorPingEnabled ? this.errorPingRoleId : null;
@@ -808,14 +850,10 @@ class Logger {
     }
   }
 
-  /**
-   * Log warning
-   */
   async logWarning(category, message, details = '') {
     this.stats.warnings++;
     const timestamp = this.getTimestamp();
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.YELLOW + '[WARNING] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.YELLOW + '├─ ' + this.COLORS.RESET + 'Category: ' + this.COLORS.MAGENTA + category + this.COLORS.RESET);
@@ -825,7 +863,6 @@ class Logger {
     }
     console.log(this.COLORS.YELLOW + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     
-    // Discord log (if WARN_ERROR or higher) - ANSI single line with role ping
     if (this.shouldLogToDiscord('WARN_ERROR')) {
       const time = this.getShortTimestamp();
       const roleId = this.warnPingEnabled ? this.warnPingRoleId : null;
@@ -838,13 +875,9 @@ class Logger {
   // GENERAL LOGS
   // ============================================================================
 
-  /**
-   * Log general info
-   */
   async logInfo(message, details = '') {
     const timestamp = this.getTimestamp();
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.BLUE + '[INFO] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.BLUE + '├─ ' + this.COLORS.RESET + 'Message: ' + this.COLORS.WHITE + message + this.COLORS.RESET);
@@ -853,7 +886,6 @@ class Logger {
     }
     console.log(this.COLORS.BLUE + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     
-    // Discord log (if INFO or higher) - ANSI single line
     if (this.shouldLogToDiscord('INFO')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.BLUE}[${time}] ℹ️ INFO${this.COLORS.RESET} ${this.COLORS.WHITE}${message}${this.COLORS.RESET}${details ? ` | ${details}` : ''}`;
@@ -861,13 +893,9 @@ class Logger {
     }
   }
 
-  /**
-   * Log success
-   */
   async logSuccess(message, details = '') {
     const timestamp = this.getTimestamp();
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.GREEN + '[SUCCESS] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.GREEN + '├─ ' + this.COLORS.RESET + 'Message: ' + this.COLORS.WHITE + message + this.COLORS.RESET);
@@ -876,7 +904,6 @@ class Logger {
     }
     console.log(this.COLORS.GREEN + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     
-    // Discord log (if INFO or higher) - ANSI single line
     if (this.shouldLogToDiscord('INFO')) {
       const time = this.getShortTimestamp();
       const ansiMsg = `${this.COLORS.GREEN}[${time}] ✅ SUCCESS${this.COLORS.RESET} ${this.COLORS.WHITE}${message}${this.COLORS.RESET}${details ? ` | ${details}` : ''}`;
@@ -884,15 +911,11 @@ class Logger {
     }
   }
 
-  /**
-   * Log debug information
-   */
   async logDebug(message, data = null) {
     if (!this.debugMode) return;
     
     const timestamp = this.getTimestamp();
     
-    // Railway log
     console.log('');
     console.log(this.COLORS.CYAN + '[DEBUG] ' + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
     console.log(this.COLORS.CYAN + '├─ ' + this.COLORS.RESET + 'Message: ' + this.COLORS.WHITE + message + this.COLORS.RESET);
@@ -903,7 +926,6 @@ class Logger {
       console.log(this.COLORS.CYAN + '└─ ' + this.COLORS.RESET + 'No data');
     }
     
-    // Discord log (if DEBUG or higher) - ANSI single line
     if (this.shouldLogToDiscord('DEBUG')) {
       const time = this.getShortTimestamp();
       const dataStr = data ? ` | ${JSON.stringify(data).substring(0, 100)}` : '';
@@ -916,51 +938,30 @@ class Logger {
   // LEGACY COMPATIBILITY
   // ============================================================================
 
-  /**
-   * Legacy: Simple log
-   */
   log(message) {
     this.logInfo(message);
   }
 
-  /**
-   * Legacy: Simple error
-   */
   error(message, error = null) {
     this.logError('General', message, error);
   }
 
-  /**
-   * Legacy: Simple warning
-   */
   warn(message) {
     this.logWarning('General', message);
   }
 
-  /**
-   * Legacy: Simple success
-   */
   success(message) {
     this.logSuccess(message);
   }
 
-  /**
-   * Legacy: Simple debug
-   */
   debug(message, data = null) {
     this.logDebug(message, data);
   }
 
-  /**
-   * Legacy: Log action
-   */
   async logAction(username, action, details = '') {
     this.logInfo(`User ${username} ${action}`, details);
   }
 
-  /**
-   * Legacy: Log interaction error
-   */
   async logInteractionError(interactionType, userId, error, interaction = null) {
     const context = {
       interactionType,
@@ -973,16 +974,10 @@ class Logger {
     this.logError('Interaction', `Failed to handle ${interactionType}`, error, context);
   }
 
-  /**
-   * Legacy: Log database
-   */
   async logDatabase(operation, table, duration, success = true, details = '') {
     this.logDatabaseQuery(operation, table, duration, success, details);
   }
 
-  /**
-   * Legacy: Log sync
-   */
   async logSync(type, count, duration, success = true, error = null) {
     if (error) {
       this.logError('Sync', `${type} sync failed`, error, { count, duration });
