@@ -106,7 +106,7 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
   // ✅ NEW: Add Battle Imagines for main character
   const mainBattleImagines = await formatBattleImagines(mainChar.id, db);
   if (mainBattleImagines) {
-    mainSection += `\u001b[1;34m🎭 Battle Imagines:\u001b[0m ${mainBattleImagines}\n`;
+    mainSection += `\u001b[1;34m⚔️ Battle Imagines:\u001b[0m ${mainBattleImagines}\n`;
   }
   
   mainSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${mainChar.guild || 'None'}\n`;
@@ -148,7 +148,7 @@ export async function buildCharacterProfileEmbed(user, characters, interaction =
       // ✅ NEW: Add Battle Imagines for alt
       const altBattleImagines = await formatBattleImagines(alt.id, db);
       if (altBattleImagines) {
-        altSection += `\u001b[1;34m🎭 Battle Imagines:\u001b[0m ${altBattleImagines}\n`;
+        altSection += `\u001b[1;34m⚔️ Battle Imagines:\u001b[0m ${altBattleImagines}\n`;
       }
       
       altSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
