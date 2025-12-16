@@ -22,7 +22,7 @@ const stateManager = (await import('../utils/stateManager.js')).default;
 function createRegEmbed(step, total, title, description) {
   return new EmbedBuilder()
     .setColor('#EC4899')
-    .setDescription(`# **${title}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${description}\n\n*Step ${step} of ${total}*`)
+    .setDescription(\`# **\${title}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\${description}\n\n*Step \${step} of \${total}*\`)
     .setTimestamp();
 }
 
@@ -138,6 +138,26 @@ function getTimezoneAbbr(timezoneLabel) {
   return match ? match[1] : timezoneLabel;
 }
 
+// ✅ NEW: Calculate total steps dynamically based on character type and battle imagines
+function getTotalSteps(characterType) {
+  const baseSteps = {
+    'main': 7, // Region, Country, Timezone, Class, Subclass, Score, Guild, IGN/UID
+    'alt': 4,  // Class, Subclass, Score, Guild, IGN/UID
+    'subclass': 2 // Class, Score
+  };
+  
+  const battleImagineSteps = config.battleImagines.length;
+  
+  // Subclasses don't get battle imagines
+  if (characterType === 'subclass' || characterType === 'main_subclass' || characterType === 'alt_subclass') {
+    return baseSteps.subclass;
+  }
+  
+  // Main and alts get battle imagine steps
+  const type = characterType === 'alt' ? 'alt' : 'main';
+  return baseSteps[type] + battleImagineSteps;
+}
+
 export async function handleRegisterMain(interaction, userId) {
   const state = stateManager.getRegistrationState(userId) || {};
   
@@ -182,7 +202,8 @@ export async function handleRegisterMain(interaction, userId) {
       hour12: true 
     });
     
-    const embed = createRegEmbed(1, 4, '🎭 Choose Your Class', `**Timezone:** ${timezoneAbbr} • ${timeString}`);
+    const totalSteps = getTotalSteps('alt');
+    const embed = createRegEmbed(1, totalSteps, '🎭 Choose Your Class', \`**Timezone:** \${timezoneAbbr} • \${timeString}\`);
     
     const classOptions = Object.keys(gameData.classes).map(className => {
       const iconId = getClassIconId(className);
@@ -202,12 +223,12 @@ export async function handleRegisterMain(interaction, userId) {
     });
     
     const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(`select_class_${userId}`)
+      .setCustomId(\`select_class_\${userId}\`)
       .setPlaceholder('🎭 Pick your class')
       .addOptions(classOptions);
     
     const backButton = new ButtonBuilder()
-      .setCustomId(`back_to_profile_${userId}`)
+      .setCustomId(\`back_to_profile_\${userId}\`)
       .setLabel('❌ Cancel')
       .setStyle(ButtonStyle.Secondary);
     
@@ -223,7 +244,8 @@ export async function handleRegisterMain(interaction, userId) {
   }
   
   // Main character registration - start with region
-  const embed = createRegEmbed(1, 7, '🌍 Choose Your Region', 'Where are you playing from?');
+  const totalSteps = getTotalSteps('main');
+  const embed = createRegEmbed(1, totalSteps, '🌍 Choose Your Region', 'Where are you playing from?');
 
   const regionOptions = Object.keys(REGIONS).map(region => ({
     label: region,
@@ -232,12 +254,12 @@ export async function handleRegisterMain(interaction, userId) {
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_region_${userId}`)
+    .setCustomId(\`select_region_\${userId}\`)
     .setPlaceholder('🌍 Pick your region')
     .addOptions(regionOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_profile_${userId}`)
+    .setCustomId(\`back_to_profile_\${userId}\`)
     .setLabel('❌ Cancel')
     .setStyle(ButtonStyle.Secondary);
 
@@ -252,7 +274,8 @@ export async function handleRegionSelect(interaction, userId) {
   const state = stateManager.getRegistrationState(userId) || {};
   stateManager.setRegistrationState(userId, { ...state, region });
 
-  const embed = createRegEmbed(2, 7, '🏳️ Choose Your Country', `**Region:** ${region}`);
+  const totalSteps = getTotalSteps('main');
+  const embed = createRegEmbed(2, totalSteps, '🏳️ Choose Your Country', \`**Region:** \${region}\`);
 
   const countries = Object.keys(REGIONS[region]);
   const countryOptions = countries.map(country => ({
@@ -261,12 +284,12 @@ export async function handleRegionSelect(interaction, userId) {
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_country_${userId}`)
+    .setCustomId(\`select_country_\${userId}\`)
     .setPlaceholder('🏳️ Pick your country')
     .addOptions(countryOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_region_${userId}`)
+    .setCustomId(\`back_to_region_\${userId}\`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -281,15 +304,14 @@ export async function handleCountrySelect(interaction, userId) {
   const country = interaction.values[0];
   stateManager.setRegistrationState(userId, { ...state, country });
 
-  const embed = createRegEmbed(3, 7, '🕐 Choose Your Timezone', `**Country:** ${country}`);
+  const totalSteps = getTotalSteps('main');
+  const embed = createRegEmbed(3, totalSteps, '🕐 Choose Your Timezone', \`**Country:** \${country}\`);
 
   const timezones = REGIONS[state.region][country];
   
-  // ✅ UPDATED - Shows multiple city examples with country flag
   const timezoneOptions = Object.keys(timezones).map(tzLabel => {
     const tzValue = timezones[tzLabel];
     
-    // Extract city examples - get major cities for this timezone
     const cityExamples = {
       'America/New_York': '🇺🇸 New York, Miami, Boston',
       'America/Chicago': '🇺🇸 Chicago, Houston, Dallas',
@@ -365,12 +387,12 @@ export async function handleCountrySelect(interaction, userId) {
   });
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_timezone_${userId}`)
+    .setCustomId(\`select_timezone_\${userId}\`)
     .setPlaceholder('🕐 Pick your timezone')
     .addOptions(timezoneOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_country_${userId}`)
+    .setCustomId(\`back_to_country_\${userId}\`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -404,9 +426,9 @@ export async function handleTimezoneSelect(interaction, userId) {
     hour12: true 
   });
 
-  const embed = createRegEmbed(4, 7, '🎭 Choose Your Class', `**Timezone:** ${timezoneAbbr} • ${timeString}`);
+  const totalSteps = getTotalSteps('main');
+  const embed = createRegEmbed(4, totalSteps, '🎭 Choose Your Class', \`**Timezone:** \${timezoneAbbr} • \${timeString}\`);
 
-  // ✅ UPDATED - Uses custom Discord icons
   const classOptions = Object.keys(gameData.classes).map(className => {
     const iconId = getClassIconId(className);
     const option = {
@@ -425,12 +447,12 @@ export async function handleTimezoneSelect(interaction, userId) {
   });
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_class_${userId}`)
+    .setCustomId(\`select_class_\${userId}\`)
     .setPlaceholder('🎭 Pick your class')
     .addOptions(classOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_timezone_${userId}`)
+    .setCustomId(\`back_to_timezone_\${userId}\`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -451,12 +473,19 @@ export async function handleClassSelect(interaction, userId) {
   // Determine step numbers based on whether it's an alt or subclass
   const isAlt = state.characterType === 'alt';
   const isSubclass = state.type === 'subclass';
-  const stepNum = isSubclass ? 1 : (isAlt ? 2 : 5);
-  const totalSteps = isSubclass ? 2 : (isAlt ? 4 : 7);
+  const totalSteps = getTotalSteps(state.characterType || 'main');
   
-  const embed = createRegEmbed(stepNum, totalSteps, '📋 Choose Your Subclass', `**Class:** ${className}`);
+  let stepNum;
+  if (isSubclass) {
+    stepNum = 1;
+  } else if (isAlt) {
+    stepNum = 2;
+  } else {
+    stepNum = 5;
+  }
+  
+  const embed = createRegEmbed(stepNum, totalSteps, '📋 Choose Your Subclass', \`**Class:** \${className}\`);
 
-  // ✅ UPDATED - Uses custom Discord icons
   const subclassOptions = subclasses.map(subclassName => {
     const roleEmoji = classRole === 'Tank' ? '🛡️' : classRole === 'DPS' ? '⚔️' : '💚';
     const iconId = getClassIconId(className);
@@ -477,12 +506,12 @@ export async function handleClassSelect(interaction, userId) {
   });
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_subclass_${userId}`)
+    .setCustomId(\`select_subclass_\${userId}\`)
     .setPlaceholder('📋 Pick your subclass')
     .addOptions(subclassOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(isSubclass ? `back_to_profile_${userId}` : (isAlt ? `back_to_profile_${userId}` : `back_to_class_${userId}`))
+    .setCustomId(isSubclass ? \`back_to_profile_\${userId}\` : (isAlt ? \`back_to_profile_\${userId}\` : \`back_to_class_\${userId}\`))
     .setLabel(isSubclass || isAlt ? '❌ Cancel' : '◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -500,10 +529,18 @@ export async function handleSubclassSelect(interaction, userId) {
   // Determine step numbers based on whether it's an alt or subclass
   const isAlt = state.characterType === 'alt';
   const isSubclass = state.type === 'subclass';
-  const stepNum = isSubclass ? 2 : (isAlt ? 3 : 6);
-  const totalSteps = isSubclass ? 2 : (isAlt ? 4 : 7);
+  const totalSteps = getTotalSteps(state.characterType || 'main');
   
-  const embed = createRegEmbed(stepNum, totalSteps, '💪 Choose Your Score', `**Subclass:** ${subclassName}`);
+  let stepNum;
+  if (isSubclass) {
+    stepNum = 2;
+  } else if (isAlt) {
+    stepNum = 3;
+  } else {
+    stepNum = 6;
+  }
+  
+  const embed = createRegEmbed(stepNum, totalSteps, '💪 Choose Your Score', \`**Subclass:** \${subclassName}\`);
 
   const scoreOptions = gameData.abilityScores.map(score => ({
     label: score.label,
@@ -511,12 +548,12 @@ export async function handleSubclassSelect(interaction, userId) {
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_ability_score_${userId}`)
+    .setCustomId(\`select_ability_score_\${userId}\`)
     .setPlaceholder('💪 Pick your score')
     .addOptions(scoreOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_subclass_${userId}`)
+    .setCustomId(\`back_to_subclass_\${userId}\`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -535,9 +572,8 @@ export async function handleAbilityScoreSelect(interaction, userId) {
   const isSubclass = state.type === 'subclass';
   
   if (isSubclass) {
-    // For subclasses, skip guild selection and complete registration
+    // For subclasses, skip battle imagines and guild selection, complete registration
     try {
-      // Get parent character to inherit guild and IGN
       const parentChar = await db.getCharacterById(state.parentId);
       
       if (!parentChar) {
@@ -546,12 +582,12 @@ export async function handleAbilityScoreSelect(interaction, userId) {
 
       const characterData = {
         userId,
-        ign: parentChar.ign, // Inherit parent's IGN
-        uid: parentChar.uid, // Inherit parent's UID
-        guild: parentChar.guild, // Inherit parent's guild
+        ign: parentChar.ign,
+        uid: parentChar.uid,
+        guild: parentChar.guild,
         class: state.class,
         subclass: state.subclass,
-        abilityScore: abilityScore, // Use the variable directly, not from state
+        abilityScore: abilityScore,
         characterType: state.characterType,
         parentCharacterId: state.parentId
       };
@@ -574,10 +610,10 @@ export async function handleAbilityScoreSelect(interaction, userId) {
         components: buttons
       });
 
-      logger.logAction(interaction.user.tag, `registered ${state.characterType} subclass`, `${state.class} - ${state.subclass}`);
+      logger.logAction(interaction.user.tag, \`registered \${state.characterType} subclass\`, \`\${state.class} - \${state.subclass}\`);
     } catch (error) {
       console.error('[REGISTRATION ERROR]', error);
-      logger.error(`Subclass registration error: ${error.message}`, error);
+      logger.error(\`Subclass registration error: \${error.message}\`, error);
       await interaction.update({
         content: '❌ Something went wrong. Please try again!',
         components: []
@@ -586,13 +622,138 @@ export async function handleAbilityScoreSelect(interaction, userId) {
     return;
   }
 
-  // Regular character flow continues with guild selection
-  const scoreLabel = gameData.abilityScores.find(s => s.value === abilityScore)?.label || abilityScore;
-  const isAlt = state.characterType === 'alt';
-  const stepNum = isAlt ? 4 : 7;
-  const totalSteps = isAlt ? 4 : 7;
+  // ✅ NEW: For main/alt characters, proceed to Battle Imagines
+  // Initialize battle imagine tracking
+  stateManager.setRegistrationState(userId, { 
+    ...state, 
+    abilityScore,
+    battleImagines: [],
+    currentImagineIndex: 0
+  });
   
-  const embed = createRegEmbed(stepNum, totalSteps, '🏰 Choose Your Guild', `**Score:** ${scoreLabel}`);
+  // Start Battle Imagine flow
+  await showBattleImagineSelection(interaction, userId);
+}
+
+// ✅ NEW: Show Battle Imagine selection for current imagine
+async function showBattleImagineSelection(interaction, userId) {
+  const state = stateManager.getRegistrationState(userId);
+  const { currentImagineIndex, battleImagines } = state;
+  
+  // Check if we've shown all battle imagines
+  if (currentImagineIndex >= config.battleImagines.length) {
+    // All battle imagines done, proceed to guild selection
+    await proceedToGuildSelection(interaction, userId);
+    return;
+  }
+  
+  const currentImagine = config.battleImagines[currentImagineIndex];
+  const isAlt = state.characterType === 'alt';
+  const totalSteps = getTotalSteps(state.characterType || 'main');
+  
+  // Calculate step number
+  let baseStep;
+  if (isAlt) {
+    baseStep = 4; // After Score (step 3)
+  } else {
+    baseStep = 7; // After Score (step 6)
+  }
+  const stepNum = baseStep + currentImagineIndex;
+  
+  const embed = createRegEmbed(
+    stepNum, 
+    totalSteps, 
+    \`🎭 Battle Imagine - \${currentImagine.name}\`, 
+    \`Do you own **\${currentImagine.name}**?\n\nSelect the highest tier you own:\`
+  );
+  
+  // Build tier options with custom emoji
+  const tierOptions = [
+    {
+      label: 'Skip / I don\\'t own this',
+      value: 'skip',
+      description: 'I don\\'t have this Battle Imagine',
+      emoji: '⏭️'
+    }
+  ];
+  
+  // Add tier options T0-T5 with custom emoji
+  const tiers = ['T0', 'T1', 'T2', 'T3', 'T4', 'T5'];
+  const tierDescriptions = {
+    'T0': 'Base tier',
+    'T1': 'Tier One',
+    'T2': 'Tier Two',
+    'T3': 'Tier Three',
+    'T4': 'Tier Four',
+    'T5': 'Tier Five (Max)'
+  };
+  
+  for (const tier of tiers) {
+    const option = {
+      label: tier,
+      value: tier,
+      description: tierDescriptions[tier]
+    };
+    
+    // Add custom emoji if available
+    if (currentImagine.logo) {
+      option.emoji = { id: currentImagine.logo };
+    } else {
+      option.emoji = '⭐';
+    }
+    
+    tierOptions.push(option);
+  }
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(\`select_battle_imagine_\${userId}\`)
+    .setPlaceholder(\`Choose tier for \${currentImagine.name}\`)
+    .addOptions(tierOptions);
+  
+  const backButton = new ButtonBuilder()
+    .setCustomId(\`back_to_battle_imagine_\${userId}\`)
+    .setLabel('◀️ Back')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton);
+  
+  await interaction.update({ embeds: [embed], components: [row1, row2] });
+}
+
+// ✅ NEW: Handle Battle Imagine tier selection
+export async function handleBattleImagineSelect(interaction, userId) {
+  const state = stateManager.getRegistrationState(userId);
+  const selectedTier = interaction.values[0];
+  const currentImagine = config.battleImagines[state.currentImagineIndex];
+  
+  // If not skipped, add to battle imagines array
+  if (selectedTier !== 'skip') {
+    state.battleImagines.push({
+      name: currentImagine.name,
+      tier: selectedTier
+    });
+  }
+  
+  // Move to next imagine
+  state.currentImagineIndex++;
+  stateManager.setRegistrationState(userId, state);
+  
+  // Show next imagine or proceed to guild
+  await showBattleImagineSelection(interaction, userId);
+}
+
+// ✅ NEW: Proceed to guild selection after battle imagines
+async function proceedToGuildSelection(interaction, userId) {
+  const state = stateManager.getRegistrationState(userId);
+  const scoreLabel = gameData.abilityScores.find(s => s.value === state.abilityScore)?.label || state.abilityScore;
+  const isAlt = state.characterType === 'alt';
+  const totalSteps = getTotalSteps(state.characterType || 'main');
+  
+  // Calculate step number (after all battle imagines)
+  const stepNum = totalSteps - 1; // Guild is second-to-last step
+  
+  const embed = createRegEmbed(stepNum, totalSteps, '🏰 Choose Your Guild', \`**Score:** \${scoreLabel}\`);
 
   const guildOptions = config.guilds.map(guild => ({
     label: guild.name,
@@ -600,12 +761,12 @@ export async function handleAbilityScoreSelect(interaction, userId) {
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_guild_${userId}`)
+    .setCustomId(\`select_guild_\${userId}\`)
     .setPlaceholder('🏰 Pick your guild')
     .addOptions(guildOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_ability_score_${userId}`)
+    .setCustomId(\`back_to_battle_imagine_\${userId}\`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -635,7 +796,7 @@ export async function handleGuildSelect(interaction, userId) {
   stateManager.setRegistrationState(userId, { ...state, guild });
 
   const modal = new ModalBuilder()
-    .setCustomId(`ign_modal_${userId}`)
+    .setCustomId(\`ign_modal_\${userId}\`)
     .setTitle('Enter Character Details');
 
   const ignInput = new TextInputBuilder()
@@ -671,15 +832,33 @@ export async function handleIGNModal(interaction, userId) {
   console.log('[REGISTRATION] Final state:', JSON.stringify(state, null, 2));
   console.log('[REGISTRATION] Character type will be:', state.characterType || 'main');
 
-  // ✅ Validate UID is numbers only
+  // ✅ FIXED: Validate UID is numbers only
   if (!/^\d+$/.test(uid)) {
+    // Store IGN in state so we can pre-fill it on retry
+    stateManager.setRegistrationState(userId, { 
+      ...state, 
+      lastIgnEntered: ign 
+    });
+    
     const errorEmbed = new EmbedBuilder()
       .setColor('#FF0000')
-      .setDescription('# ❌ **Invalid UID**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**UID must contain only numbers.**\n\nYou entered: `' + uid + '`\n\nPlease try again with a valid numeric UID.')
+      .setDescription('# ❌ **Invalid UID**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**UID must contain only numbers.**\n\nYou entered: `' + uid + '`\n\nPlease click the button below to try again with a valid numeric UID.')
       .setTimestamp();
     
-    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
-    stateManager.clearRegistrationState(userId);
+    // Create retry button
+    const retryButton = new ButtonBuilder()
+      .setCustomId(`retry_ign_uid_${userId}`)
+      .setLabel('✏️ Retry Registration')
+      .setStyle(ButtonStyle.Primary);
+    
+    const row = new ActionRowBuilder().addComponents(retryButton);
+    
+    await interaction.reply({ 
+      embeds: [errorEmbed], 
+      components: [row],
+      ephemeral: true 
+    });
+    
     return;
   }
 
@@ -697,7 +876,15 @@ export async function handleIGNModal(interaction, userId) {
 
     console.log('[REGISTRATION] Creating character with data:', JSON.stringify(characterData, null, 2));
 
-    await db.createCharacter(characterData);
+    const newCharacter = await db.createCharacter(characterData);
+    
+    // ✅ NEW: Save Battle Imagines if any were selected
+    if (state.battleImagines && state.battleImagines.length > 0) {
+      for (const imagine of state.battleImagines) {
+        await db.addBattleImagine(newCharacter.id, imagine.name, imagine.tier);
+      }
+      console.log(`[REGISTRATION] Saved ${state.battleImagines.length} Battle Imagines`);
+    }
     
     // ✅ NEW: Update Discord nickname if this is a main character (and sync is enabled)
     if (characterData.characterType === 'main' && config.sync.nicknameSyncEnabled) {
@@ -734,6 +921,51 @@ export async function handleIGNModal(interaction, userId) {
   }
 }
 
+// ✅ NEW: Handle retry button click
+export async function handleRetryIGNUID(interaction, userId) {
+  const state = stateManager.getRegistrationState(userId);
+  
+  if (!state) {
+    await interaction.reply({ 
+      content: '❌ Registration session expired. Please start over with `/register-character`.', 
+      ephemeral: true 
+    });
+    return;
+  }
+  
+  const modal = new ModalBuilder()
+    .setCustomId(`ign_modal_${userId}`)
+    .setTitle('Enter Character Details');
+
+  const ignInput = new TextInputBuilder()
+    .setCustomId('ign')
+    .setLabel('In-Game Name (IGN)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Your character name')
+    .setRequired(true)
+    .setMaxLength(50);
+  
+  // ✅ FIXED: Pre-fill IGN if it was saved
+  if (state.lastIgnEntered) {
+    ignInput.setValue(state.lastIgnEntered);
+  }
+
+  const uidInput = new TextInputBuilder()
+    .setCustomId('uid')
+    .setLabel('UID (User ID) - Numbers only!')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Enter numeric UID (e.g. 123456789)')
+    .setRequired(true)
+    .setMaxLength(50);
+
+  const row1 = new ActionRowBuilder().addComponents(ignInput);
+  const row2 = new ActionRowBuilder().addComponents(uidInput);
+  modal.addComponents(row1, row2);
+
+  await interaction.showModal(modal);
+}
+
+
 // Back button handlers
 export async function handleBackToRegion(interaction, userId) {
   await handleRegisterMain(interaction, userId);
@@ -746,7 +978,6 @@ export async function handleBackToCountry(interaction, userId) {
     return;
   }
   
-  // Simulate region selection
   interaction.values = [state.region];
   await handleRegionSelect(interaction, userId);
 }
@@ -758,7 +989,6 @@ export async function handleBackToTimezone(interaction, userId) {
     return;
   }
   
-  // Simulate country selection
   interaction.values = [state.country];
   await handleCountrySelect(interaction, userId);
 }
@@ -770,7 +1000,6 @@ export async function handleBackToClass(interaction, userId) {
     return;
   }
   
-  // Simulate timezone selection
   interaction.values = [state.timezone];
   await handleTimezoneSelect(interaction, userId);
 }
@@ -782,7 +1011,6 @@ export async function handleBackToSubclass(interaction, userId) {
     return;
   }
   
-  // Simulate class selection
   interaction.values = [state.class];
   await handleClassSelect(interaction, userId);
 }
@@ -794,9 +1022,36 @@ export async function handleBackToAbilityScore(interaction, userId) {
     return;
   }
   
-  // Simulate subclass selection
   interaction.values = [state.subclass];
   await handleSubclassSelect(interaction, userId);
+}
+
+// ✅ NEW: Handle back button from battle imagine selection
+export async function handleBackToBattleImagine(interaction, userId) {
+  const state = stateManager.getRegistrationState(userId);
+  
+  if (!state) {
+    await handleRegisterMain(interaction, userId);
+    return;
+  }
+  
+  // If we're at the first battle imagine, go back to ability score
+  if (state.currentImagineIndex === 0) {
+    interaction.values = [state.subclass];
+    await handleSubclassSelect(interaction, userId);
+    return;
+  }
+  
+  // Otherwise, go back to previous battle imagine
+  state.currentImagineIndex--;
+  
+  // Remove the last added imagine if user is going back
+  if (state.battleImagines && state.battleImagines.length > 0) {
+    state.battleImagines.pop();
+  }
+  
+  stateManager.setRegistrationState(userId, state);
+  await showBattleImagineSelection(interaction, userId);
 }
 
 export default {
@@ -807,12 +1062,15 @@ export default {
   handleClassSelect,
   handleSubclassSelect,
   handleAbilityScoreSelect,
+  handleBattleImagineSelect,
   handleGuildSelect,
   handleIGNModal,
+  handleRetryIGNUID,
   handleBackToRegion,
   handleBackToCountry,
   handleBackToTimezone,
   handleBackToClass,
   handleBackToSubclass,
-  handleBackToAbilityScore
+  handleBackToAbilityScore,
+  handleBackToBattleImagine
 };
