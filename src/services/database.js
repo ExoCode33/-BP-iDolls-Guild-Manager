@@ -11,6 +11,21 @@ class Database {
   }
 
   /**
+   * Initialize database tables and default settings
+   */
+  async initialize() {
+    try {
+      console.log('[DATABASE] Initializing database...');
+      await this.initializeDatabase();
+      console.log('[DATABASE] ✅ Database initialized successfully');
+      return true;
+    } catch (error) {
+      console.error('[DATABASE] ❌ Initialization failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Extract operation and table from SQL query for better logging
    */
   parseQuery(text) {
@@ -91,7 +106,7 @@ class Database {
         )
       `);
 
-      // ✅ NEW: Create battle_imagines table
+      // Create battle_imagines table
       await this.query(`
         CREATE TABLE IF NOT EXISTS battle_imagines (
           id SERIAL PRIMARY KEY,
@@ -135,7 +150,6 @@ class Database {
         CREATE INDEX IF NOT EXISTS idx_bot_settings_key ON bot_settings(setting_key)
       `);
 
-      // ✅ NEW: Create battle_imagines indexes
       await this.query(`
         CREATE INDEX IF NOT EXISTS idx_battle_imagines_character ON battle_imagines(character_id)
       `);
@@ -241,7 +255,10 @@ class Database {
     }
   }
 
-  // Character Operations
+  // ============================================================================
+  // CHARACTER OPERATIONS
+  // ============================================================================
+
   async createCharacter(data) {
     const { userId, ign, uid, guild, class: className, subclass, abilityScore, characterType, parentCharacterId = null } = data;
     
@@ -484,7 +501,10 @@ class Database {
     }
   }
 
-  // Timezone Operations
+  // ============================================================================
+  // TIMEZONE OPERATIONS
+  // ============================================================================
+
   async getUserTimezone(userId) {
     try {
       const result = await this.query(
@@ -526,7 +546,10 @@ class Database {
     }
   }
 
-  // Bot Settings Operations
+  // ============================================================================
+  // BOT SETTINGS OPERATIONS
+  // ============================================================================
+
   async getBotSetting(key) {
     try {
       const result = await this.query(
