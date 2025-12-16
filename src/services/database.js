@@ -72,7 +72,7 @@ class Database {
     } catch (error) {
       const duration = Date.now() - start;
       await logger.logDatabaseQuery(operation, table, duration, false, error.message);
-      logger.error(`Database query error: ${error.message}`);
+      console.error(`Database query error: ${error.message}`);
       throw error;
     }
   }
@@ -174,9 +174,9 @@ class Database {
         );
       }
 
-      logger.success('Database tables initialized successfully');
+      console.log('[DATABASE] ✅ Database tables initialized successfully');
     } catch (error) {
-      logger.error(`Database initialization error: ${error.message}`);
+      console.error('[DATABASE] ❌ Database initialization error:', error);
       throw error;
     }
   }
@@ -199,10 +199,10 @@ class Database {
         [characterId, imagineName, tier]
       );
       
-      logger.success(`Battle Imagine added: ${imagineName} ${tier} to character ${characterId}`);
+      console.log(`[DATABASE] ✅ Battle Imagine added: ${imagineName} ${tier} to character ${characterId}`);
       return result.rows[0];
     } catch (error) {
-      logger.error(`Error adding battle imagine: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error adding battle imagine:`, error);
       throw error;
     }
   }
@@ -218,7 +218,7 @@ class Database {
       );
       return result.rows;
     } catch (error) {
-      logger.error(`Error fetching battle imagines: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error fetching battle imagines:`, error);
       throw error;
     }
   }
@@ -232,9 +232,9 @@ class Database {
         `DELETE FROM battle_imagines WHERE character_id = $1 AND imagine_name = $2`,
         [characterId, imagineName]
       );
-      logger.success(`Battle Imagine deleted: ${imagineName} from character ${characterId}`);
+      console.log(`[DATABASE] ✅ Battle Imagine deleted: ${imagineName} from character ${characterId}`);
     } catch (error) {
-      logger.error(`Error deleting battle imagine: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error deleting battle imagine:`, error);
       throw error;
     }
   }
@@ -248,9 +248,9 @@ class Database {
         `DELETE FROM battle_imagines WHERE character_id = $1`,
         [characterId]
       );
-      logger.success(`All Battle Imagines deleted for character ${characterId}`);
+      console.log(`[DATABASE] ✅ All Battle Imagines deleted for character ${characterId}`);
     } catch (error) {
-      logger.error(`Error deleting all battle imagines: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error deleting all battle imagines:`, error);
       throw error;
     }
   }
@@ -270,10 +270,10 @@ class Database {
         [userId, ign, uid, guild, className, subclass, abilityScore, characterType, parentCharacterId]
       );
       
-      logger.success(`Character created: ${ign} (${className})`);
+      console.log(`[DATABASE] ✅ Character created: ${ign} (${className})`);
       return result.rows[0];
     } catch (error) {
-      logger.error(`Error creating character: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error creating character:`, error);
       throw error;
     }
   }
@@ -286,7 +286,7 @@ class Database {
       );
       return result.rows[0] || null;
     } catch (error) {
-      logger.error(`Error fetching main character: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error fetching main character:`, error);
       throw error;
     }
   }
@@ -299,7 +299,7 @@ class Database {
       );
       return result.rows;
     } catch (error) {
-      logger.error(`Error fetching alts: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error fetching alts:`, error);
       throw error;
     }
   }
@@ -337,7 +337,7 @@ class Database {
       );
       return result.rows;
     } catch (error) {
-      logger.error(`Error fetching characters: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error fetching characters:`, error);
       throw error;
     }
   }
@@ -362,7 +362,7 @@ class Database {
       );
       return result.rows;
     } catch (error) {
-      logger.error(`Error fetching all characters: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error fetching all characters:`, error);
       throw error;
     }
   }
@@ -399,7 +399,7 @@ class Database {
       );
       return result.rows;
     } catch (error) {
-      logger.error(`Error fetching all users with characters: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error fetching all users with characters:`, error);
       throw error;
     }
   }
@@ -434,10 +434,10 @@ class Database {
         [ign, uid, guild, className, subclass, abilityScore, characterId]
       );
       
-      logger.success(`Character updated: ID ${characterId}`);
+      console.log(`[DATABASE] ✅ Character updated: ID ${characterId}`);
       return result.rows[0];
     } catch (error) {
-      logger.error(`Error updating character: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error updating character:`, error);
       throw error;
     }
   }
@@ -445,9 +445,9 @@ class Database {
   async deleteCharacter(characterId) {
     try {
       await this.query('DELETE FROM characters WHERE id = $1', [characterId]);
-      logger.success(`Character deleted: ID ${characterId}`);
+      console.log(`[DATABASE] ✅ Character deleted: ID ${characterId}`);
     } catch (error) {
-      logger.error(`Error deleting character: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error deleting character:`, error);
       throw error;
     }
   }
@@ -455,9 +455,9 @@ class Database {
   async deleteAllCharacters(userId) {
     try {
       await this.query('DELETE FROM characters WHERE user_id = $1', [userId]);
-      logger.success(`All characters deleted for user: ${userId}`);
+      console.log(`[DATABASE] ✅ All characters deleted for user: ${userId}`);
     } catch (error) {
-      logger.error(`Error deleting all characters: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error deleting all characters:`, error);
       throw error;
     }
   }
@@ -482,7 +482,7 @@ class Database {
       );
       return result.rows[0] || null;
     } catch (error) {
-      logger.error(`Error fetching character by ID: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error fetching character by ID:`, error);
       throw error;
     }
   }
@@ -496,7 +496,7 @@ class Database {
         totalUsers: parseInt(result.rows[0].total_users) || 0
       };
     } catch (error) {
-      logger.error(`Error getting stats: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error getting stats:`, error);
       return { totalUsers: 0 };
     }
   }
@@ -513,7 +513,7 @@ class Database {
       );
       return result.rows[0]?.timezone || null;
     } catch (error) {
-      logger.error(`Error getting user timezone: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error getting user timezone:`, error);
       return null;
     }
   }
@@ -527,10 +527,10 @@ class Database {
          DO UPDATE SET timezone = $2, updated_at = NOW()`,
         [userId, timezone]
       );
-      logger.success(`Set timezone for user ${userId}: ${timezone}`);
+      console.log(`[DATABASE] ✅ Set timezone for user ${userId}: ${timezone}`);
       return true;
     } catch (error) {
-      logger.error(`Error setting user timezone: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error setting user timezone:`, error);
       return false;
     }
   }
@@ -538,10 +538,10 @@ class Database {
   async removeUserTimezone(userId) {
     try {
       await this.query('DELETE FROM user_timezones WHERE user_id = $1', [userId]);
-      logger.success(`Removed timezone for user ${userId}`);
+      console.log(`[DATABASE] ✅ Removed timezone for user ${userId}`);
       return true;
     } catch (error) {
-      logger.error(`Error removing user timezone: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error removing user timezone:`, error);
       return false;
     }
   }
@@ -573,7 +573,7 @@ class Database {
           return setting_value;
       }
     } catch (error) {
-      logger.error(`Error getting bot setting ${key}: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error getting bot setting ${key}:`, error);
       return null;
     }
   }
@@ -591,10 +591,10 @@ class Database {
         [key, stringValue, type, description, updatedBy]
       );
       
-      logger.success(`Bot setting updated: ${key} = ${value}`);
+      console.log(`[DATABASE] ✅ Bot setting updated: ${key} = ${value}`);
       return true;
     } catch (error) {
-      logger.error(`Error setting bot setting ${key}: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error setting bot setting ${key}:`, error);
       return false;
     }
   }
@@ -627,7 +627,7 @@ class Database {
       
       return settings;
     } catch (error) {
-      logger.error(`Error getting all bot settings: ${error.message}`);
+      console.error(`[DATABASE] ❌ Error getting all bot settings:`, error);
       return {};
     }
   }
