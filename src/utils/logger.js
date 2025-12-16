@@ -186,7 +186,7 @@ class Logger {
       // If under limit, no cleanup needed
       if (messageCount <= this.maxLogMessages) {
         console.log(this.COLORS.CYAN + `[LOGGER CLEANUP] No cleanup needed (${messageCount}/${this.maxLogMessages} messages)` + this.COLORS.RESET);
-        return;
+        return 0; // No messages deleted
       }
       
       // Sort messages by creation time (oldest first)
@@ -262,11 +262,14 @@ class Logger {
       
       console.log(this.COLORS.GREEN + `[LOGGER CLEANUP] ✓ Cleanup complete! Deleted ${deleted} messages | Kept: ${messageCount - deleted}` + this.COLORS.RESET);
       
+      return deleted; // Return count of deleted messages
+      
     } catch (error) {
       console.error(this.COLORS.RED + `[LOGGER CLEANUP ERROR] ${error.message}` + this.COLORS.RESET);
       if (this.debugMode) {
         console.error(this.COLORS.RED + `[LOGGER CLEANUP ERROR] Stack: ${error.stack}` + this.COLORS.RESET);
       }
+      return 0; // Return 0 on error
     }
   }
 
@@ -275,7 +278,8 @@ class Logger {
    */
   async manualCleanup() {
     console.log(this.COLORS.CYAN + '[LOGGER] Manual cleanup triggered' + this.COLORS.RESET);
-    await this.cleanupOldLogs();
+    const deleted = await this.cleanupOldLogs();
+    return deleted;
   }
 
   // ============================================================================
