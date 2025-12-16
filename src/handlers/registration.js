@@ -848,11 +848,11 @@ export async function handleIGNModal(interaction, userId) {
       .setDescription('# ❌ **Invalid UID**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**UID must contain only numbers.**\n\nYou entered: `' + uid + '`\n\nPlease click the button below to try again with a valid numeric UID.')
       .setTimestamp();
     
-    // Create retry button
+    // Create retry button (red to indicate error)
     const retryButton = new ButtonBuilder()
       .setCustomId(`retry_ign_uid_${userId}`)
       .setLabel('✏️ Retry Registration')
-      .setStyle(ButtonStyle.Primary);
+      .setStyle(ButtonStyle.Danger);
     
     const row = new ActionRowBuilder().addComponents(retryButton);
     
