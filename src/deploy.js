@@ -20,7 +20,7 @@ async function loadCommands() {
       const command = await import(`file://${filePath}`);
       if (command.default && 'data' in command.default) {
         commands.push(command.default.data.toJSON());
-        logger.log(`Loaded: ${command.default.data.name}`); // ✅ Fixed: use parentheses
+        logger.log(`Loaded: ${command.default.data.name}`);
       }
     }
   }
@@ -29,12 +29,12 @@ async function loadCommands() {
 async function deploy() {
   try {
     await loadCommands();
-    logger.log(`Deploying ${commands.length} commands...`); // ✅ Fixed: use parentheses
+    logger.log(`Deploying ${commands.length} commands...`);
     const rest = new REST().setToken(config.discord.token);
     const data = await rest.put(Routes.applicationGuildCommands(config.discord.clientId, config.discord.guildId), { body: commands });
-    logger.success(`Deployed ${data.length} commands!`); // ✅ Fixed: use parentheses
+    logger.success(`Deployed ${data.length} commands!`);
   } catch (error) {
-    logger.error('Deployment failed', error); // ✅ Fixed: use parentheses and proper arguments
+    logger.error(`Deployment failed: ${error.message}`);
     process.exit(1);
   }
 }
