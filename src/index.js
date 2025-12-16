@@ -5,7 +5,7 @@ import { readdirSync } from 'fs';
 import config from './utils/config.js';
 import logger from './utils/logger.js';
 import db from './services/database.js';
-import { startAutoMaintenance } from './utils/logMaintenance.js'; // ✅ NEW
+import { startAutoMaintenance } from './utils/logMaintenance.js';
 import { handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit } from './handlers/interactions.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -23,24 +23,32 @@ const client = new Client({
 // Load commands
 client.commands = new Collection();
 const commandsPath = join(__dirname, 'commands');
-const commandFiles = readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
-for (const file of commandFiles) {
-  const filePath = join(commandsPath, file);
-  const command = await import(`file://${filePath}`);
-  if ('data' in command && 'execute' in command) {
-    client.commands.set(command.data.name, command);
-    logger.logInfo(`Loaded: ${command.data.name}`);
+async function loadCommands() {
+  const commandFolders = ['user', 'admin'];
+  for (const folder of commandFolders) {
+    const folderPath = join(commandsPath, folder);
+    const commandFiles = readdirSync(folderPath).filter(file => file.endsWith('.js'));
+    for (const file of commandFiles) {
+      const filePath = join(folderPath, file);
+      const command = await import(`file://${filePath}`);
+      if (command.default && 'data' in command.default) {
+        client.commands.set(command.default.data.name, command.default);
+        console.log(`✅ Loaded: ${command.default.data.name}`);
+      }
+    }
   }
 }
 
-// ✅ Store maintenance interval for clean shutdown
+// Load commands before bot starts
+await loadCommands();
+
+// Store maintenance interval for clean shutdown
 let maintenanceInterval = null;
 
 // Bot ready event
 client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-  logger.logInfo(`Bot ready: ${client.user.tag}`);
   
   // Initialize database
   try {
@@ -48,13 +56,28 @@ client.once(Events.ClientReady, async () => {
     console.log('[DATABASE] ✅ Initialized successfully');
   } catch (error) {
     console.error('[DATABASE] ❌ Initialization failed:', error);
-    logger.error('Database initialization failed', error);
+    await logger.logError('Database', 'Database initialization failed', error);
   }
   
-  // ✅ Start automatic log maintenance
+  // Initialize logger with Discord client
+  try {
+    await logger.loadSettingsFromDatabase(db);
+    await logger.setClient(client, config.channels.log, config.logging.clearOnStart);
+  } catch (error) {
+    console.error('[LOGGER] ❌ Failed to initialize:', error);
+  }
+  
+  // Start automatic log maintenance
   if (config.logging.autoMaintenance && config.channels.log) {
     maintenanceInterval = startAutoMaintenance(client, config);
   }
+  
+  // Log startup to Discord
+  await logger.logStartup(
+    client.user.tag,
+    process.env.PORT || 8080,
+    client.commands.size
+  );
   
   console.log('[STARTUP] ✅ Bot is ready!');
 });
@@ -75,7 +98,7 @@ client.on(Events.InteractionCreate, async interaction => {
         await command.execute(interaction);
       } catch (error) {
         console.error(`[COMMAND ERROR] ${interaction.commandName}:`, error);
-        logger.error(`Command error: ${interaction.commandName}`, error);
+        await logger.logError('Command', `Command error: ${interaction.commandName}`, error);
         
         const errorMessage = '❌ Error occurred.';
         if (interaction.replied || interaction.deferred) {
@@ -103,7 +126,7 @@ client.on(Events.InteractionCreate, async interaction => {
     
   } catch (error) {
     console.error('[INTERACTION ERROR]:', error);
-    logger.error('Interaction error', error);
+    await logger.logError('Interaction', 'Interaction error', error);
     
     try {
       if (!interaction.replied && !interaction.deferred) {
@@ -116,29 +139,29 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 // Error handling
-client.on(Events.Error, error => {
+client.on(Events.Error, async error => {
   console.error('[CLIENT ERROR]:', error);
-  logger.error('Discord client error', error);
+  await logger.logError('Discord Client', 'Discord client error', error);
 });
 
-client.on(Events.Warn, warning => {
+client.on(Events.Warn, async warning => {
   console.warn('[CLIENT WARNING]:', warning);
-  logger.logWarn(warning);
+  await logger.logWarning('Discord Client', warning);
 });
 
-process.on('unhandledRejection', error => {
+process.on('unhandledRejection', async error => {
   console.error('[UNHANDLED REJECTION]:', error);
-  logger.error('Unhandled rejection', error);
+  await logger.logError('Unhandled Rejection', 'Unhandled promise rejection', error);
 });
 
-process.on('uncaughtException', error => {
+process.on('uncaughtException', async error => {
   console.error('[UNCAUGHT EXCEPTION]:', error);
-  logger.error('Uncaught exception', error);
+  await logger.logError('Uncaught Exception', 'Uncaught exception', error);
   process.exit(1);
 });
 
-// ✅ Graceful shutdown handlers
-process.on('SIGINT', () => {
+// Graceful shutdown handlers
+process.on('SIGINT', async () => {
   console.log('\n[SHUTDOWN] Received SIGINT, shutting down gracefully...');
   
   if (maintenanceInterval) {
@@ -146,11 +169,12 @@ process.on('SIGINT', () => {
     clearInterval(maintenanceInterval);
   }
   
+  await logger.logShutdown('SIGINT received');
   client.destroy();
   process.exit(0);
 });
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('\n[SHUTDOWN] Received SIGTERM, shutting down gracefully...');
   
   if (maintenanceInterval) {
@@ -158,6 +182,7 @@ process.on('SIGTERM', () => {
     clearInterval(maintenanceInterval);
   }
   
+  await logger.logShutdown('SIGTERM received');
   client.destroy();
   process.exit(0);
 });
@@ -175,9 +200,9 @@ const healthServer = http.createServer((req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
-healthServer.listen(PORT, () => {
+healthServer.listen(PORT, async () => {
   console.log(`[HEALTH] Server listening on port ${PORT}`);
-  logger.logInfo(`Health server on port ${PORT}`);
+  // Don't log to Discord here as logger isn't ready yet
 });
 
 // Login
