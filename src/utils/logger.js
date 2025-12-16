@@ -139,9 +139,27 @@ class Logger {
       
       console.log(this.COLORS.CYAN + `[LOGGER CLEANUP] Starting cleanup...` + this.COLORS.RESET);
       
-      // Fetch all messages
-      const allMessages = await channel.messages.fetch({ limit: 100 });
-      const messageCount = allMessages.size;
+      // ✅ FIX: Fetch ALL messages, not just 100
+      let allMessages = [];
+      let lastMessageId = null;
+      
+      while (true) {
+        const options = { limit: 100 };
+        if (lastMessageId) {
+          options.before = lastMessageId;
+        }
+        
+        const messages = await channel.messages.fetch(options);
+        if (messages.size === 0) break;
+        
+        allMessages.push(...messages.values());
+        lastMessageId = messages.last().id;
+        
+        // If we got less than 100, we're done
+        if (messages.size < 100) break;
+      }
+      
+      const messageCount = allMessages.length;
       
       // If under limit, no cleanup needed
       if (messageCount <= this.maxLogMessages) {
@@ -150,14 +168,13 @@ class Logger {
       }
       
       // Sort messages by creation time (oldest first)
-      const sortedMessages = Array.from(allMessages.values())
-        .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+      const sortedMessages = allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
       
       // Calculate how many to delete
       const toDelete = messageCount - this.maxLogMessages;
       const messagesToDelete = sortedMessages.slice(0, toDelete);
       
-      console.log(this.COLORS.YELLOW + `[LOGGER CLEANUP] Deleting ${messagesToDelete.length} old messages...` + this.COLORS.RESET);
+      console.log(this.COLORS.YELLOW + `[LOGGER CLEANUP] Deleting ${messagesToDelete.length} old messages (${messageCount} total)...` + this.COLORS.RESET);
       
       // Delete in batches
       let deleted = 0;
