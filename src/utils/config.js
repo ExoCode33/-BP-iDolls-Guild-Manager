@@ -3,8 +3,8 @@ dotenv.config();
 
 /**
  * Robust boolean parser that handles Railway's quoted values
- * Railway adds quotes: CLEAR_LOG_ON_START=\"true\" 
- * This becomes string \"true\" which fails === 'true' check
+ * Railway adds quotes: CLEAR_LOG_ON_START="true" 
+ * This becomes string "true" which fails === 'true' check
  */
 function parseBool(value, defaultValue = false) {
   if (value === undefined || value === null || value === '') {
@@ -62,7 +62,7 @@ const config = {
   sheets: {
     id: process.env.GOOGLE_SHEETS_ID,
     serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    privateKey: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\\\n/g, '\n'),
+    privateKey: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     debugMode: parseBool(process.env.SHEETS_DEBUG_MODE, false)
   },
   guilds: [
@@ -91,7 +91,7 @@ const config = {
     verdantOracle: process.env.ICON_VERDANT_ORACLE,
     windKnight: process.env.ICON_WIND_KNIGHT
   },
-  battleImagines: loadBattleImagines(),
+  battleImagines: loadBattleImagines(), // ✅ NEW: Load Battle Imagines
   sync: {
     autoSyncInterval: parseIntValue(process.env.AUTO_SYNC_INTERVAL, 3600000), // 1 hour default
     nicknameSyncEnabled: parseBool(process.env.NICKNAME_SYNC_ENABLED, false),
@@ -105,13 +105,7 @@ const config = {
   },
   logging: {
     toChannel: parseBool(process.env.LOG_TO_CHANNEL, true),
-    clearOnStart: parseBool(process.env.CLEAR_LOG_ON_START, false),
-    
-    // ✅ NEW: Auto-maintenance settings
-    autoMaintenance: parseBool(process.env.LOG_AUTO_MAINTENANCE, true),
-    maintenanceInterval: parseIntValue(process.env.LOG_MAINTENANCE_INTERVAL, 3600000), // 1 hour default
-    retentionDays: parseIntValue(process.env.LOG_RETENTION_DAYS, 7), // Keep 7 days
-    maxMessages: parseIntValue(process.env.LOG_MAX_MESSAGES, 1000) // Keep max 1000 messages
+    clearOnStart: parseBool(process.env.CLEAR_LOG_ON_START, false)
   }
 };
 
