@@ -27,6 +27,7 @@ Clean, modular Discord bot for guild member registration and management.
 - `/admin sync` - Force sheets sync
 - `/admin nicknames` - Sync all nicknames
 - `/admin logs` - Configure log categories
+- `/admin ephemeral` - Configure ephemeral settings
 - `/admin stats` - View statistics
 - `/admin delete <user>` - Delete user data
 
@@ -35,12 +36,11 @@ Clean, modular Discord bot for guild member registration and management.
 See `.env.example` for all options.
 
 ## Architecture
-
 ```
 src/
 ├── config/          # Environment, game data, log categories
 ├── database/        # Pool, repositories
-├── services/        # Logger, state, sheets, nickname sync
+├── services/        # Logger, state, sheets, nickname sync, ephemeral
 ├── commands/        # Slash commands
 ├── interactions/    # Registration, editing flows, router
 └── ui/              # Embeds, components, utilities
