@@ -9,7 +9,6 @@ import db from '../../services/database.js';
 import sheetsService from '../../services/sheets.js';
 import logger from '../../utils/logger.js';
 import config from '../../utils/config.js';
-import { syncAllNicknames } from '../../utils/nicknameSync.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -31,10 +30,6 @@ export default {
     .addSubcommand(sub =>
       sub.setName('log-cleanup')
         .setDescription('Manually trigger Discord log cleanup')
-    )
-    .addSubcommand(sub =>
-      sub.setName('nickname-sync')
-        .setDescription('Manually sync all Discord nicknames with IGNs')
     ),
   async execute(interaction) {
     try {
@@ -48,8 +43,6 @@ export default {
         await handleLoggerStatus(interaction);
       } else if (subcommand === 'log-cleanup') {
         await handleLogCleanup(interaction);
-      } else if (subcommand === 'nickname-sync') {
-        await handleNicknameSync(interaction);
       }
     } catch (error) {
       logger.error(`Admin tools error: ${error.message}`);
@@ -113,59 +106,6 @@ async function handleSync(interaction) {
   } catch (error) {
     logger.error(`Sync error: ${error.message}`);
     await interaction.editReply({ content: '❌ Sync failed. Check logs for details.' });
-  }
-}
-
-// ============================================================================
-// NICKNAME SYNC HANDLER
-// ============================================================================
-
-async function handleNicknameSync(interaction) {
-  await interaction.deferReply({ ephemeral: config.ephemeral.admin });
-  
-  try {
-    const startTime = Date.now();
-    
-    // Get guild ID from config
-    const guildId = config.discord.guildId;
-    
-    if (!guildId) {
-      await interaction.editReply({ content: '❌ Guild ID not configured in environment variables.' });
-      return;
-    }
-    
-    // Run the sync
-    const results = await syncAllNicknames(interaction.client, guildId, db);
-    
-    const duration = Date.now() - startTime;
-    
-    const embed = new EmbedBuilder()
-      .setColor(results.failed > 0 ? '#FFA500' : '#00FF00')
-      .setTitle('🏷️ Nickname Sync Complete')
-      .setDescription(`Discord nickname sync has been executed.`)
-      .addFields(
-        { name: '✅ Updated', value: results.success.toString(), inline: true },
-        { name: '⏭️ Skipped', value: results.skipped.toString(), inline: true },
-        { name: '❌ Failed', value: results.failed.toString(), inline: true },
-        { name: 'Duration', value: `${duration}ms`, inline: false }
-      )
-      .setFooter({ text: `Executed by ${interaction.user.username}` })
-      .setTimestamp();
-    
-    if (results.failed > 0) {
-      embed.addFields({
-        name: 'Note',
-        value: 'Check Railway logs for detailed failure reasons.',
-        inline: false
-      });
-    }
-    
-    await interaction.editReply({ embeds: [embed] });
-    await logger.logInfo(`Admin ${interaction.user.username} triggered nickname sync`, `Updated: ${results.success}, Skipped: ${results.skipped}, Failed: ${results.failed}`);
-    
-  } catch (error) {
-    logger.error(`Nickname sync error: ${error.message}`);
-    await interaction.editReply({ content: '❌ Nickname sync failed. Check logs for details.' });
   }
 }
 
