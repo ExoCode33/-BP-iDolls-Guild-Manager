@@ -5,6 +5,8 @@ import { dirname, join } from 'path';
 import logger from './utils/logger.js';
 import db from './services/database.js';
 import sheetsService from './services/sheets.js';
+import config from './utils/config.js';
+import { updateDiscordNickname } from './utils/nicknameSync.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -220,47 +222,124 @@ client.once(Events.ClientReady, async () => {
       await logger.logInfo('Auto-sync scheduled', `Every ${autoSyncInterval/1000}s`);
     }
     
-    // ✅ 8. START NICKNAME SYNC (if enabled)
-    const nicknameSyncEnabled = process.env.NICKNAME_SYNC_ENABLED?.toLowerCase() === 'true';
-    if (nicknameSyncEnabled) {
-      const nicknameSyncInterval = parseInt(process.env.NICKNAME_SYNC_INTERVAL) || 300000;
+    // ✅ 8. START NICKNAME SYNC (if enabled) - WITH FIXED MISMATCH DETECTION
+    if (config.sync.nicknameSyncEnabled) {
+      const nicknameSyncInterval = config.sync.nicknameSyncInterval || 300000;
       console.log(`[STARTUP] Starting nickname sync (every ${nicknameSyncInterval/1000}s)...`);
       
       setInterval(async () => {
         try {
-          console.log('[NICKNAME SYNC] Starting...');
-          const guild = client.guilds.cache.first();
-          if (!guild) return;
+          console.log('[NICKNAME SYNC] Starting periodic sync...');
+          const guild = await client.guilds.fetch(config.discord.guildId);
+          if (!guild) {
+            console.error('[NICKNAME SYNC] Guild not found');
+            return;
+          }
+
+          // ✅ FIXED: Get all characters and filter to main only
+          const allChars = await db.getAllCharacters();
+          const mainChars = allChars.filter(c => c.character_type === 'main');
           
-          const allUsers = await db.getAllUsersWithCharacters();
+          console.log(`[NICKNAME SYNC] Found ${mainChars.length} main characters to check`);
+
           let updated = 0;
+          let skipped = 0;
           let failed = 0;
-          
-          for (const userData of allUsers) {
+          const failedUsers = [];
+
+          for (const mainChar of mainChars) {
             try {
-              const member = await guild.members.fetch(userData.user_id);
-              const mainChar = userData.main_character;
-              
-              if (mainChar && mainChar.ign) {
-                const newNickname = mainChar.ign;
-                
-                if (member.nickname !== newNickname) {
-                  await member.setNickname(newNickname);
-                  updated++;
-                  console.log(`[NICKNAME SYNC] Updated ${userData.user_id} -> ${newNickname}`);
-                }
+              const member = await guild.members.fetch(mainChar.user_id);
+              if (!member) {
+                console.log(`[NICKNAME SYNC] ⚠️ Member ${mainChar.user_id} not found in guild`);
+                continue;
               }
+
+              // ✅ CRITICAL FIX: Check actual display name (nickname OR username)
+              const currentDisplayName = member.nickname || member.user.username;
+              const expectedIGN = mainChar.ign;
+
+              console.log(`[NICKNAME SYNC] Checking ${member.user.username}: "${currentDisplayName}" vs "${expectedIGN}"`);
+
+              // Check if already matches
+              if (currentDisplayName === expectedIGN) {
+                skipped++;
+                console.log(`[NICKNAME SYNC] ✅ ${member.user.username} already correct: ${expectedIGN}`);
+                continue;
+              }
+
+              // ✅ MISMATCH DETECTED - Attempt to sync
+              console.log(`[NICKNAME SYNC] 🔄 MISMATCH: "${currentDisplayName}" → "${expectedIGN}"`);
+              
+              const result = await updateDiscordNickname(
+                client,
+                config.discord.guildId,
+                mainChar.user_id,
+                expectedIGN
+              );
+
+              if (result.success) {
+                updated++;
+                console.log(`[NICKNAME SYNC] ✅ Updated ${member.user.username} → ${expectedIGN}`);
+              } else {
+                failed++;
+                failedUsers.push({
+                  userId: mainChar.user_id,
+                  username: member.user.username,
+                  ign: expectedIGN,
+                  currentNickname: currentDisplayName,
+                  reason: result.reason
+                });
+                console.log(`[NICKNAME SYNC] ❌ Failed for ${member.user.username}: ${result.reason}`);
+              }
+
+              // Small delay to avoid rate limits
+              await new Promise(resolve => setTimeout(resolve, 100));
+
             } catch (error) {
+              console.error(`[NICKNAME SYNC] ❌ Error for ${mainChar.user_id}:`, error.message);
               failed++;
-              console.error(`[NICKNAME SYNC] Failed for ${userData.user_id}:`, error.message);
+              failedUsers.push({
+                userId: mainChar.user_id,
+                ign: mainChar.ign,
+                reason: error.message
+              });
             }
           }
-          
-          console.log(`[NICKNAME SYNC] ✓ Complete: ${updated} updated, ${failed} failed`);
-          await logger.logInfo(`Nickname sync complete: ${updated} updated, ${failed} failed`);
+
+          // Log summary
+          console.log(`[NICKNAME SYNC] Complete: ${updated} updated, ${skipped} already correct, ${failed} failed`);
+
+          if (failedUsers.length > 0) {
+            console.log(`[NICKNAME SYNC] Failed users:`, failedUsers);
+            
+            // Log to Discord if there are failures
+            const failureDetails = failedUsers
+              .map(f => `• <@${f.userId}> (${f.username || 'Unknown'}) - IGN: ${f.ign} - Current: ${f.currentNickname || 'None'} - Reason: ${f.reason}`)
+              .join('\n');
+
+            await logger.logWarning(
+              'Periodic Nickname Sync',
+              `${failed} nickname sync failure${failed > 1 ? 's' : ''} detected`,
+              failureDetails
+            );
+          }
+
+          if (updated > 0) {
+            await logger.logInfo(
+              'Periodic Nickname Sync',
+              `Successfully synced ${updated} nickname${updated > 1 ? 's' : ''}`,
+              `${skipped} already correct, ${failed} failed`
+            );
+          }
+
         } catch (error) {
-          console.error('[NICKNAME SYNC] Error:', error.message);
-          await logger.logError('NicknameSync', 'Nickname sync failed', error);
+          console.error('[NICKNAME SYNC] Periodic sync error:', error);
+          await logger.logError(
+            'Periodic Nickname Sync',
+            'Periodic nickname sync encountered an error',
+            error
+          );
         }
       }, nicknameSyncInterval);
       
