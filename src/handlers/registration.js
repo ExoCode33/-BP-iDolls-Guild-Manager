@@ -18,6 +18,36 @@ import { updateDiscordNickname } from '../utils/nicknameSync.js';
 
 const stateManager = (await import('../utils/stateManager.js')).default;
 
+// ✅ NEW: Track active interactions to prevent race conditions
+const activeInteractions = new Map();
+
+// ✅ NEW: Helper to check if user has active interaction
+function hasActiveInteraction(userId, interactionId) {
+  const active = activeInteractions.get(userId);
+  if (!active) return false;
+  
+  // Clean up stale interactions (older than 3 seconds)
+  if (Date.now() - active.timestamp > 3000) {
+    activeInteractions.delete(userId);
+    return false;
+  }
+  
+  return active.id !== interactionId;
+}
+
+// ✅ NEW: Mark interaction as active
+function setActiveInteraction(userId, interactionId) {
+  activeInteractions.set(userId, {
+    id: interactionId,
+    timestamp: Date.now()
+  });
+}
+
+// ✅ NEW: Clear active interaction
+function clearActiveInteraction(userId) {
+  activeInteractions.delete(userId);
+}
+
 // Helper to create consistent embeds
 function createRegEmbed(step, total, title, description) {
   return new EmbedBuilder()
@@ -138,27 +168,34 @@ function getTimezoneAbbr(timezoneLabel) {
   return match ? match[1] : timezoneLabel;
 }
 
-// ✅ NEW: Calculate total steps dynamically based on character type and battle imagines
+// Calculate total steps dynamically
 function getTotalSteps(characterType) {
   const baseSteps = {
-    'main': 7, // Region, Country, Timezone, Class, Subclass, Score, Guild, IGN/UID
-    'alt': 4,  // Class, Subclass, Score, Guild, IGN/UID
-    'subclass': 2 // Class, Score
+    'main': 7,
+    'alt': 4,
+    'subclass': 2
   };
   
   const battleImagineSteps = config.battleImagines.length;
   
-  // Subclasses don't get battle imagines
   if (characterType === 'subclass' || characterType === 'main_subclass' || characterType === 'alt_subclass') {
     return baseSteps.subclass;
   }
   
-  // Main and alts get battle imagine steps
   const type = characterType === 'alt' ? 'alt' : 'main';
   return baseSteps[type] + battleImagineSteps;
 }
 
 export async function handleRegisterMain(interaction, userId) {
+  // ✅ NEW: Check for race condition
+  if (hasActiveInteraction(userId, interaction.id)) {
+    console.log(`[REGISTRATION] Race condition detected for ${userId}, ignoring duplicate interaction`);
+    return;
+  }
+  
+  // ✅ NEW: Mark this interaction as active
+  setActiveInteraction(userId, interaction.id);
+  
   const state = stateManager.getRegistrationState(userId) || {};
   
   console.log('[REGISTRATION] Starting registration for user:', userId);
@@ -171,11 +208,9 @@ export async function handleRegisterMain(interaction, userId) {
   console.log('[REGISTRATION] Is Alt:', isAlt, '| Existing timezone:', existingTimezone);
   
   if (isAlt && existingTimezone) {
-    // Skip region/country/timezone for alts - go straight to class
     console.log('[REGISTRATION] Skipping timezone for alt, going to class selection');
     
     let timezoneAbbr = '';
-    // Find timezone abbreviation from existing timezone
     outer: for (const region of Object.keys(REGIONS)) {
       for (const country of Object.keys(REGIONS[region])) {
         for (const [label, tz] of Object.entries(REGIONS[region][country])) {
@@ -240,6 +275,9 @@ export async function handleRegisterMain(interaction, userId) {
     } else {
       await interaction.update({ embeds: [embed], components: [row1, row2] });
     }
+    
+    // ✅ NEW: Clear active interaction after successful update
+    clearActiveInteraction(userId);
     return;
   }
   
@@ -267,9 +305,21 @@ export async function handleRegisterMain(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
+  
+  // ✅ NEW: Clear active interaction after successful update
+  clearActiveInteraction(userId);
 }
 
 export async function handleRegionSelect(interaction, userId) {
+  // ✅ NEW: Check for race condition
+  if (hasActiveInteraction(userId, interaction.id)) {
+    console.log(`[REGISTRATION] Race condition detected for ${userId} at region select, ignoring`);
+    return;
+  }
+  
+  // ✅ NEW: Mark this interaction as active
+  setActiveInteraction(userId, interaction.id);
+  
   const region = interaction.values[0];
   const state = stateManager.getRegistrationState(userId) || {};
   stateManager.setRegistrationState(userId, { ...state, region });
@@ -297,9 +347,21 @@ export async function handleRegionSelect(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
+  
+  // ✅ NEW: Clear active interaction after successful update
+  clearActiveInteraction(userId);
 }
 
 export async function handleCountrySelect(interaction, userId) {
+  // ✅ NEW: Check for race condition
+  if (hasActiveInteraction(userId, interaction.id)) {
+    console.log(`[REGISTRATION] Race condition detected for ${userId} at country select, ignoring`);
+    return;
+  }
+  
+  // ✅ NEW: Mark this interaction as active
+  setActiveInteraction(userId, interaction.id);
+  
   const state = stateManager.getRegistrationState(userId);
   const country = interaction.values[0];
   stateManager.setRegistrationState(userId, { ...state, country });
@@ -400,9 +462,21 @@ export async function handleCountrySelect(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
+  
+  // ✅ NEW: Clear active interaction after successful update
+  clearActiveInteraction(userId);
 }
 
 export async function handleTimezoneSelect(interaction, userId) {
+  // ✅ NEW: Check for race condition
+  if (hasActiveInteraction(userId, interaction.id)) {
+    console.log(`[REGISTRATION] Race condition detected for ${userId} at timezone select, ignoring`);
+    return;
+  }
+  
+  // ✅ NEW: Mark this interaction as active
+  setActiveInteraction(userId, interaction.id);
+  
   const state = stateManager.getRegistrationState(userId);
   const timezone = interaction.values[0];
   
@@ -460,9 +534,21 @@ export async function handleTimezoneSelect(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
+  
+  // ✅ NEW: Clear active interaction after successful update
+  clearActiveInteraction(userId);
 }
 
 export async function handleClassSelect(interaction, userId) {
+  // ✅ NEW: Check for race condition
+  if (hasActiveInteraction(userId, interaction.id)) {
+    console.log(`[REGISTRATION] Race condition detected for ${userId} at class select, ignoring`);
+    return;
+  }
+  
+  // ✅ NEW: Mark this interaction as active
+  setActiveInteraction(userId, interaction.id);
+  
   const className = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
   stateManager.setRegistrationState(userId, { ...state, class: className });
@@ -519,9 +605,21 @@ export async function handleClassSelect(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
+  
+  // ✅ NEW: Clear active interaction after successful update
+  clearActiveInteraction(userId);
 }
 
 export async function handleSubclassSelect(interaction, userId) {
+  // ✅ NEW: Check for race condition
+  if (hasActiveInteraction(userId, interaction.id)) {
+    console.log(`[REGISTRATION] Race condition detected for ${userId} at subclass select, ignoring`);
+    return;
+  }
+  
+  // ✅ NEW: Mark this interaction as active
+  setActiveInteraction(userId, interaction.id);
+  
   const subclassName = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
   stateManager.setRegistrationState(userId, { ...state, subclass: subclassName });
@@ -561,9 +659,21 @@ export async function handleSubclassSelect(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
+  
+  // ✅ NEW: Clear active interaction after successful update
+  clearActiveInteraction(userId);
 }
 
 export async function handleAbilityScoreSelect(interaction, userId) {
+  // ✅ NEW: Check for race condition
+  if (hasActiveInteraction(userId, interaction.id)) {
+    console.log(`[REGISTRATION] Race condition detected for ${userId} at ability score select, ignoring`);
+    return;
+  }
+  
+  // ✅ NEW: Mark this interaction as active
+  setActiveInteraction(userId, interaction.id);
+  
   const abilityScore = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
   stateManager.setRegistrationState(userId, { ...state, abilityScore });
@@ -577,6 +687,7 @@ export async function handleAbilityScoreSelect(interaction, userId) {
       const parentChar = await db.getCharacterById(state.parentId);
       
       if (!parentChar) {
+        clearActiveInteraction(userId);
         throw new Error('Parent character not found');
       }
 
@@ -611,9 +722,13 @@ export async function handleAbilityScoreSelect(interaction, userId) {
       });
 
       logger.logAction(interaction.user.tag, `registered ${state.characterType} subclass`, `${state.class} - ${state.subclass}`);
+      
+      // ✅ NEW: Clear active interaction after successful update
+      clearActiveInteraction(userId);
     } catch (error) {
       console.error('[REGISTRATION ERROR]', error);
       logger.error(`Subclass registration error: ${error.message}`, error);
+      clearActiveInteraction(userId);
       await interaction.update({
         content: '❌ Something went wrong. Please try again!',
         components: []
@@ -622,8 +737,7 @@ export async function handleAbilityScoreSelect(interaction, userId) {
     return;
   }
 
-  // ✅ NEW: For main/alt characters, proceed to Battle Imagines
-  // Initialize battle imagine tracking
+  // For main/alt characters, proceed to Battle Imagines
   stateManager.setRegistrationState(userId, { 
     ...state, 
     abilityScore,
@@ -633,9 +747,12 @@ export async function handleAbilityScoreSelect(interaction, userId) {
   
   // Start Battle Imagine flow
   await showBattleImagineSelection(interaction, userId);
+  
+  // ✅ NEW: Clear active interaction after successful update
+  clearActiveInteraction(userId);
 }
 
-// ✅ NEW: Show Battle Imagine selection for current imagine
+// Show Battle Imagine selection for current imagine
 async function showBattleImagineSelection(interaction, userId) {
   const state = stateManager.getRegistrationState(userId);
   const { currentImagineIndex, battleImagines } = state;
@@ -654,9 +771,9 @@ async function showBattleImagineSelection(interaction, userId) {
   // Calculate step number
   let baseStep;
   if (isAlt) {
-    baseStep = 4; // After Score (step 3)
+    baseStep = 4;
   } else {
-    baseStep = 7; // After Score (step 6)
+    baseStep = 7;
   }
   const stepNum = baseStep + currentImagineIndex;
   
@@ -724,8 +841,16 @@ async function showBattleImagineSelection(interaction, userId) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-// ✅ NEW: Handle Battle Imagine tier selection
 export async function handleBattleImagineSelect(interaction, userId) {
+  // ✅ NEW: Check for race condition
+  if (hasActiveInteraction(userId, interaction.id)) {
+    console.log(`[REGISTRATION] Race condition detected for ${userId} at battle imagine select, ignoring`);
+    return;
+  }
+  
+  // ✅ NEW: Mark this interaction as active
+  setActiveInteraction(userId, interaction.id);
+  
   const state = stateManager.getRegistrationState(userId);
   const selectedTier = interaction.values[0];
   const currentImagine = config.battleImagines[state.currentImagineIndex];
@@ -744,9 +869,12 @@ export async function handleBattleImagineSelect(interaction, userId) {
   
   // Show next imagine or proceed to guild
   await showBattleImagineSelection(interaction, userId);
+  
+  // ✅ NEW: Clear active interaction after successful update
+  clearActiveInteraction(userId);
 }
 
-// ✅ NEW: Proceed to guild selection after battle imagines
+// Proceed to guild selection after battle imagines
 async function proceedToGuildSelection(interaction, userId) {
   const state = stateManager.getRegistrationState(userId);
   const scoreLabel = gameData.abilityScores.find(s => s.value === state.abilityScore)?.label || state.abilityScore;
@@ -754,7 +882,7 @@ async function proceedToGuildSelection(interaction, userId) {
   const totalSteps = getTotalSteps(state.characterType || 'main');
   
   // Calculate step number (after all battle imagines)
-  const stepNum = totalSteps - 1; // Guild is second-to-last step
+  const stepNum = totalSteps - 1;
   
   const embed = createRegEmbed(stepNum, totalSteps, '🏰 Choose Your Guild', `**Score:** ${scoreLabel}`);
 
@@ -794,6 +922,15 @@ function formatAbilityScore(score) {
 }
 
 export async function handleGuildSelect(interaction, userId) {
+  // ✅ NEW: Check for race condition
+  if (hasActiveInteraction(userId, interaction.id)) {
+    console.log(`[REGISTRATION] Race condition detected for ${userId} at guild select, ignoring`);
+    return;
+  }
+  
+  // ✅ NEW: Mark this interaction as active
+  setActiveInteraction(userId, interaction.id);
+  
   const guild = interaction.values[0];
   const state = stateManager.getRegistrationState(userId);
   stateManager.setRegistrationState(userId, { ...state, guild });
@@ -823,6 +960,9 @@ export async function handleGuildSelect(interaction, userId) {
   modal.addComponents(row1, row2);
 
   await interaction.showModal(modal);
+  
+  // ✅ NEW: Clear active interaction after showing modal
+  clearActiveInteraction(userId);
 }
 
 export async function handleIGNModal(interaction, userId) {
@@ -835,9 +975,8 @@ export async function handleIGNModal(interaction, userId) {
   console.log('[REGISTRATION] Final state:', JSON.stringify(state, null, 2));
   console.log('[REGISTRATION] Character type will be:', state.characterType || 'main');
 
-  // ✅ FIXED: Validate UID is numbers only
+  // Validate UID is numbers only
   if (!/^\d+$/.test(uid)) {
-    // Store IGN in state so we can pre-fill it on retry
     stateManager.setRegistrationState(userId, { 
       ...state, 
       lastIgnEntered: ign 
@@ -848,7 +987,6 @@ export async function handleIGNModal(interaction, userId) {
       .setDescription('# ❌ **Invalid UID**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**UID must contain only numbers.**\n\nYou entered: `' + uid + '`\n\nPlease click the button below to try again with a valid numeric UID.')
       .setTimestamp();
     
-    // Create retry button (red to indicate error)
     const retryButton = new ButtonBuilder()
       .setCustomId(`retry_ign_uid_${userId}`)
       .setLabel('✏️ Retry Registration')
@@ -881,7 +1019,7 @@ export async function handleIGNModal(interaction, userId) {
 
     const newCharacter = await db.createCharacter(characterData);
     
-    // ✅ NEW: Save Battle Imagines if any were selected
+    // Save Battle Imagines if any were selected
     if (state.battleImagines && state.battleImagines.length > 0) {
       for (const imagine of state.battleImagines) {
         await db.addBattleImagine(newCharacter.id, imagine.name, imagine.tier);
@@ -889,9 +1027,29 @@ export async function handleIGNModal(interaction, userId) {
       console.log(`[REGISTRATION] Saved ${state.battleImagines.length} Battle Imagines`);
     }
     
-    // ✅ NEW: Update Discord nickname if this is a main character (and sync is enabled)
+    // ✅ FIXED: Only sync nickname for main characters AND when sync is enabled
     if (characterData.characterType === 'main' && config.sync.nicknameSyncEnabled) {
-      await updateDiscordNickname(interaction.client, config.discord.guildId, userId, ign);
+      console.log(`[REGISTRATION] Attempting to sync nickname for main character: ${ign}`);
+      
+      try {
+        const result = await updateDiscordNickname(interaction.client, config.discord.guildId, userId, ign);
+        
+        if (result.success) {
+          console.log(`[REGISTRATION] ✅ Nickname synced successfully: ${ign}`);
+        } else {
+          console.log(`[REGISTRATION] ⚠️ Nickname sync failed: ${result.reason}`);
+          // ✅ FIXED: Don't fail registration if nickname sync fails - just log it
+          logger.logWarning('Nickname Sync', `Failed to sync nickname for ${userId}: ${result.reason}`);
+        }
+      } catch (error) {
+        console.error(`[REGISTRATION] ❌ Nickname sync error:`, error);
+        // ✅ FIXED: Don't fail registration if nickname sync throws error
+        logger.logError('Nickname Sync', `Nickname sync threw error for ${userId}`, error);
+      }
+    } else if (characterData.characterType === 'main') {
+      console.log(`[REGISTRATION] Nickname sync is disabled in config`);
+    } else {
+      console.log(`[REGISTRATION] Skipping nickname sync for non-main character`);
     }
     
     stateManager.clearRegistrationState(userId);
@@ -924,13 +1082,12 @@ export async function handleIGNModal(interaction, userId) {
   }
 }
 
-// ✅ NEW: Handle retry button click
 export async function handleRetryIGNUID(interaction, userId) {
   const state = stateManager.getRegistrationState(userId);
   
   if (!state) {
     await interaction.reply({ 
-      content: '❌ Registration session expired. Please start over with `/register-character`.', 
+      content: '❌ Registration session expired. Please start over with `/character`.', 
       ephemeral: true 
     });
     return;
@@ -948,7 +1105,6 @@ export async function handleRetryIGNUID(interaction, userId) {
     .setRequired(true)
     .setMaxLength(50);
   
-  // ✅ FIXED: Pre-fill IGN if it was saved
   if (state.lastIgnEntered) {
     ignInput.setValue(state.lastIgnEntered);
   }
@@ -967,7 +1123,6 @@ export async function handleRetryIGNUID(interaction, userId) {
 
   await interaction.showModal(modal);
 }
-
 
 // Back button handlers
 export async function handleBackToRegion(interaction, userId) {
@@ -1029,7 +1184,6 @@ export async function handleBackToAbilityScore(interaction, userId) {
   await handleSubclassSelect(interaction, userId);
 }
 
-// ✅ NEW: Handle back button from battle imagine selection
 export async function handleBackToBattleImagine(interaction, userId) {
   const state = stateManager.getRegistrationState(userId);
   
