@@ -54,7 +54,7 @@ export default {
   guilds: loadGuilds(),
   battleImagines: loadBattleImagines(),
   sync: {
-    autoInterval: int(process.env.AUTO_SYNC_INTERVAL, 3600000),
+    sheetsInterval: int(process.env.SHEETS_SYNC_INTERVAL, 60000),
     nicknameEnabled: bool(process.env.NICKNAME_SYNC_ENABLED),
     nicknameInterval: int(process.env.NICKNAME_SYNC_INTERVAL, 300000)
   },
