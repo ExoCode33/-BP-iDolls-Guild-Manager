@@ -1027,7 +1027,7 @@ export async function handleIGNModal(interaction, userId) {
       console.log(`[REGISTRATION] Saved ${state.battleImagines.length} Battle Imagines`);
     }
     
-    // ✅ FIXED: Only sync nickname for main characters AND when sync is enabled
+    // ✅ FIXED: Improved nickname sync with proper error handling
     if (characterData.characterType === 'main' && config.sync.nicknameSyncEnabled) {
       console.log(`[REGISTRATION] Attempting to sync nickname for main character: ${ign}`);
       
@@ -1038,33 +1038,35 @@ export async function handleIGNModal(interaction, userId) {
           console.log(`[REGISTRATION] ✅ Nickname synced successfully: ${ign}`);
         } else {
           console.log(`[REGISTRATION] ⚠️ Nickname sync failed: ${result.reason}`);
-          // ✅ FIXED: Properly ping admin role when nickname sync fails
-          if (config.logging?.adminRoleId) {
-            await logger.logWithRolePing(
-              'WARNING', 
-              'Nickname Sync', 
-              `Failed to sync nickname for <@${userId}>: ${result.reason}`,
-              config.logging.adminRoleId,
-              `IGN: ${ign}\nUser ID: ${userId}`
+          
+          // ✅ FIXED: Use proper logger methods - only alert for real issues
+          const shouldAlert = result.reason !== 'Server owner (Discord limitation)';
+          
+          if (shouldAlert) {
+            // Log warning for permission/role issues
+            await logger.logWarning(
+              'Nickname Sync',
+              `Failed to sync nickname for ${interaction.user.username} (${userId})`,
+              `Reason: ${result.reason} | IGN: ${ign}`
             );
           } else {
-            logger.logWarning('Nickname Sync', `Failed to sync nickname for ${userId}: ${result.reason}`);
+            // Just log info for server owner (can't be changed)
+            logger.logInfo(
+              'Nickname Sync Skipped',
+              `Cannot change server owner nickname | User: ${userId} | IGN: ${ign}`
+            );
           }
         }
       } catch (error) {
         console.error(`[REGISTRATION] ❌ Nickname sync error:`, error);
-        // ✅ FIXED: Properly ping admin role when nickname sync throws error
-        if (config.logging?.adminRoleId) {
-          await logger.logWithRolePing(
-            'ERROR',
-            'Nickname Sync',
-            `Nickname sync threw error for <@${userId}>: ${error.message}`,
-            config.logging.adminRoleId,
-            `IGN: ${ign}\nUser ID: ${userId}\nError: ${error.stack}`
-          );
-        } else {
-          logger.logError('Nickname Sync', `Nickname sync threw error for ${userId}`, error);
-        }
+        
+        // ✅ FIXED: Log actual errors with full context
+        await logger.logError(
+          'Nickname Sync',
+          `Nickname sync threw unexpected error for ${interaction.user.username}`,
+          error,
+          { ign, userId, guild: config.discord.guildId }
+        );
       }
     } else if (characterData.characterType === 'main') {
       console.log(`[REGISTRATION] Nickname sync is disabled in config`);
