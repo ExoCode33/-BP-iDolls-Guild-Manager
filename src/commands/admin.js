@@ -2,13 +2,11 @@ import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.
 import config from '../config/index.js';
 import logger from '../services/logger.js';
 import { CharacterRepo, EphemeralRepo } from '../database/repositories.js';
-import { LOG_CATEGORIES, CATEGORY_GROUPS } from '../config/logCategories.js';
+import { LOG_CATEGORIES } from '../config/logCategories.js';
 import { embed, successEmbed, errorEmbed } from '../ui/embeds.js';
 import { syncAllNicknames } from '../services/nickname.js';
 import sheets from '../services/sheets.js';
 import { ActionRowBuilder, StringSelectMenuBuilder } from 'discord.js';
-
-const ephemeralFlag = { flags: MessageFlags.Ephemeral };
 
 const EPHEMERAL_OPTIONS = [
   { id: 'register', label: 'Register Character', emoji: '📝' },
@@ -49,47 +47,44 @@ export async function execute(interaction) {
   const sub = interaction.options.getSubcommand();
   logger.command('admin', interaction.user.username, sub);
 
-  if (sub === 'sync') return handleSync(interaction);
-  if (sub === 'nicknames') return handleNicknames(interaction);
-  if (sub === 'logs') return handleLogs(interaction);
-  if (sub === 'ephemeral') return handleEphemeral(interaction);
-  if (sub === 'stats') return handleStats(interaction);
-  if (sub === 'delete') return handleDelete(interaction);
+  try {
+    if (sub === 'sync') return await handleSync(interaction);
+    if (sub === 'nicknames') return await handleNicknames(interaction);
+    if (sub === 'logs') return await handleLogs(interaction);
+    if (sub === 'ephemeral') return await handleEphemeral(interaction);
+    if (sub === 'stats') return await handleStats(interaction);
+    if (sub === 'delete') return await handleDelete(interaction);
+  } catch (e) {
+    logger.error('Admin', `${sub} failed`, e);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: 'Command failed.', flags: MessageFlags.Ephemeral });
+    }
+  }
 }
 
 async function handleSync(interaction) {
-  await interaction.deferReply(ephemeralFlag);
+  await interaction.deferReply({ ephemeral: true });
 
-  try {
-    const chars = await CharacterRepo.findAll();
-    await sheets.sync(chars, interaction.client);
-    await interaction.editReply({ embeds: [successEmbed(`Synced ${chars.length} characters to Google Sheets.`)] });
-  } catch (e) {
-    logger.error('Admin', 'Sync failed', e);
-    await interaction.editReply({ embeds: [errorEmbed('Sync failed. Check logs.')] });
-  }
+  const chars = await CharacterRepo.findAll();
+  await sheets.sync(chars, interaction.client);
+  await interaction.editReply({ embeds: [successEmbed(`Synced ${chars.length} characters to Google Sheets.`)] });
 }
 
 async function handleNicknames(interaction) {
-  await interaction.deferReply(ephemeralFlag);
+  await interaction.deferReply({ ephemeral: true });
 
-  try {
-    const chars = await CharacterRepo.findAll();
-    const mains = chars.filter(c => c.character_type === 'main');
-    const result = await syncAllNicknames(interaction.client, config.discord.guildId, mains);
+  const chars = await CharacterRepo.findAll();
+  const mains = chars.filter(c => c.character_type === 'main');
+  const result = await syncAllNicknames(interaction.client, config.discord.guildId, mains);
 
-    let msg = `Updated: ${result.updated}, Failed: ${result.failed}`;
-    if (result.failures.length > 0) {
-      const failList = result.failures.slice(0, 5).map(f => `• ${f.ign}: ${f.reason}`).join('\n');
-      msg += `\n\n**Failures:**\n${failList}`;
-      if (result.failures.length > 5) msg += `\n...and ${result.failures.length - 5} more`;
-    }
-
-    await interaction.editReply({ embeds: [successEmbed(msg)] });
-  } catch (e) {
-    logger.error('Admin', 'Nickname sync failed', e);
-    await interaction.editReply({ embeds: [errorEmbed('Nickname sync failed.')] });
+  let msg = `Updated: ${result.updated}, Failed: ${result.failed}`;
+  if (result.failures.length > 0) {
+    const failList = result.failures.slice(0, 5).map(f => `• ${f.ign}: ${f.reason}`).join('\n');
+    msg += `\n\n**Failures:**\n${failList}`;
+    if (result.failures.length > 5) msg += `\n...and ${result.failures.length - 5} more`;
   }
+
+  await interaction.editReply({ embeds: [successEmbed(msg)] });
 }
 
 async function handleLogs(interaction) {
@@ -115,7 +110,7 @@ async function handleLogs(interaction) {
   const e = embed('📋 Log Settings', 
     `Currently logging: **${enabled.length}** categories\n\nSelect which events to log:`);
 
-  await interaction.reply({ embeds: [e], components: [row], ...ephemeralFlag });
+  await interaction.reply({ embeds: [e], components: [row], ephemeral: true });
 }
 
 async function handleEphemeral(interaction) {
@@ -144,7 +139,7 @@ async function handleEphemeral(interaction) {
   const e = embed('👁️ Ephemeral Settings', 
     `**Currently private:** ${currentList}\n\nSelect which responses should be ephemeral (only visible to the user):`);
 
-  await interaction.reply({ embeds: [e], components: [row], ...ephemeralFlag });
+  await interaction.reply({ embeds: [e], components: [row], ephemeral: true });
 }
 
 async function handleStats(interaction) {
@@ -184,7 +179,7 @@ ${topClasses || 'No data'}
 - Uptime: ${formatUptime(process.uptime())}
 `;
 
-  await interaction.reply({ embeds: [embed('Bot Statistics', statsText)], ...ephemeralFlag });
+  await interaction.reply({ embeds: [embed('Bot Statistics', statsText)], ephemeral: true });
 }
 
 async function handleDelete(interaction) {
@@ -192,7 +187,7 @@ async function handleDelete(interaction) {
   const chars = await CharacterRepo.findAllByUser(user.id);
 
   if (chars.length === 0) {
-    return interaction.reply({ embeds: [errorEmbed(`${user.username} has no registered characters.`)], ...ephemeralFlag });
+    return interaction.reply({ embeds: [errorEmbed(`${user.username} has no registered characters.`)], ephemeral: true });
   }
 
   await CharacterRepo.deleteAllByUser(user.id);
@@ -200,7 +195,7 @@ async function handleDelete(interaction) {
 
   await interaction.reply({
     embeds: [successEmbed(`Deleted all data for ${user.username} (${chars.length} characters).`)],
-    ...ephemeralFlag
+    ephemeral: true
   });
 
   sheets.sync(await CharacterRepo.findAll(), interaction.client);
