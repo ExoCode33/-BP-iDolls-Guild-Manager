@@ -1,9 +1,11 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import logger from '../services/logger.js';
 import { isEphemeral } from '../services/ephemeral.js';
 import { CharacterRepo } from '../database/repositories.js';
 import { profileEmbed, errorEmbed } from '../ui/embeds.js';
 import * as ui from '../ui/components.js';
+
+const ephemeralFlag = (isEph) => isEph ? { flags: MessageFlags.Ephemeral } : {};
 
 export const data = new SlashCommandBuilder()
   .setName('character')
@@ -23,20 +25,18 @@ export const data = new SlashCommandBuilder()
     .setDescription('List all registered members'));
 
 export async function execute(interaction) {
-  const sub = interaction.options.getSubcommand();
+  let sub;
+  try {
+    sub = interaction.options.getSubcommand();
+  } catch {
+    sub = 'profile';
+  }
+  
   logger.command('character', interaction.user.username, sub);
 
-  if (sub === 'profile') {
-    return handleProfile(interaction);
-  }
-
-  if (sub === 'register') {
-    return handleRegister(interaction);
-  }
-
-  if (sub === 'list') {
-    return handleList(interaction);
-  }
+  if (sub === 'profile') return handleProfile(interaction);
+  if (sub === 'register') return handleRegister(interaction);
+  if (sub === 'list') return handleList(interaction);
 }
 
 async function handleProfile(interaction) {
@@ -49,7 +49,7 @@ async function handleProfile(interaction) {
   if (!main && !isOwn) {
     return interaction.reply({
       embeds: [errorEmbed(`${targetUser.username} hasn't registered yet.`)],
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -57,18 +57,18 @@ async function handleProfile(interaction) {
   const components = isOwn ? ui.profileButtons(targetUser.id, !!main) : [];
   
   const ephemeralType = isOwn ? 'register' : 'view';
-  const ephemeral = await isEphemeral(interaction.guildId, ephemeralType);
+  const isEph = await isEphemeral(interaction.guildId, ephemeralType);
 
   if (!isOwn) {
     logger.viewProfile(interaction.user.username, targetUser.username);
   }
 
-  await interaction.reply({ embeds: [embed], components, ephemeral });
+  await interaction.reply({ embeds: [embed], components, ...ephemeralFlag(isEph) });
 }
 
 async function handleRegister(interaction) {
   const main = await CharacterRepo.findMain(interaction.user.id);
-  const ephemeral = await isEphemeral(interaction.guildId, 'register');
+  const isEph = await isEphemeral(interaction.guildId, 'register');
 
   if (main) {
     const chars = await CharacterRepo.findAllByUser(interaction.user.id);
@@ -78,18 +78,18 @@ async function handleRegister(interaction) {
       content: 'You already have a main character. Use the buttons to manage.',
       embeds: [embed],
       components,
-      ephemeral
+      ...ephemeralFlag(isEph)
     });
   }
 
   const embed = await profileEmbed(interaction.user, [], interaction);
   const components = ui.profileButtons(interaction.user.id, false);
-  await interaction.reply({ embeds: [embed], components, ephemeral });
+  await interaction.reply({ embeds: [embed], components, ...ephemeralFlag(isEph) });
 }
 
 async function handleList(interaction) {
-  const ephemeral = await isEphemeral(interaction.guildId, 'list');
-  await interaction.deferReply({ ephemeral });
+  const isEph = await isEphemeral(interaction.guildId, 'list');
+  await interaction.deferReply(ephemeralFlag(isEph));
 
   const allChars = await CharacterRepo.findAll();
   const userGroups = {};
@@ -142,7 +142,7 @@ async function handleList(interaction) {
 
     await interaction.editReply({ content: chunks[0] });
     for (let i = 1; i < chunks.length; i++) {
-      await interaction.followUp({ content: chunks[i], ephemeral });
+      await interaction.followUp({ content: chunks[i], ...ephemeralFlag(isEph) });
     }
   } else {
     await interaction.editReply({ content });
