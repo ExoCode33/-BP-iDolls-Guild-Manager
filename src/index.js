@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events } from 'discord.js';
+import { Client, GatewayIntentBits, Events, MessageFlags } from 'discord.js';
 import config from './config/index.js';
 import db from './database/index.js';
 import logger from './services/logger.js';
@@ -27,11 +27,11 @@ client.once(Events.ClientReady, async () => {
 
   logger.startup(client.user.tag, commands.size);
 
-  if (config.sync.autoInterval > 0) {
+  if (config.sync.sheetsInterval > 0) {
     setInterval(async () => {
       const chars = await CharacterRepo.findAll();
       sheets.sync(chars, client);
-    }, config.sync.autoInterval);
+    }, config.sync.sheetsInterval);
   }
 
   if (config.sync.nicknameEnabled && config.sync.nicknameInterval > 0) {
@@ -81,7 +81,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   } catch (e) {
     logger.error('Interaction', `Failed: ${interaction.customId || interaction.commandName}`, e);
 
-    const reply = { content: 'Something went wrong.', ephemeral: true };
+    const reply = { content: 'Something went wrong.', flags: MessageFlags.Ephemeral };
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp(reply).catch(() => {});
     } else {
