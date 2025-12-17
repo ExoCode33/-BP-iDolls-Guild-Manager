@@ -2,7 +2,7 @@
  * Advanced Performance Monitor
  * 
  * Features:
- * - Real-time memory & CPU tracking with trends
+ * - Real-time memory & CPU tracking with accurate readings
  * - Automatic performance optimization
  * - Memory leak detection with root cause analysis
  * - Performance degradation alerts
@@ -17,6 +17,10 @@ class PerformanceMonitor {
     this.maxHistorySize = 120; // 2 hours at 1min intervals
     this.monitorInterval = null;
     this.isMonitoring = false;
+    
+    // Store previous CPU usage for accurate calculation
+    this.previousCPU = null;
+    this.previousTime = null;
     
     // Thresholds (MB)
     this.thresholds = {
@@ -49,7 +53,9 @@ class PerformanceMonitor {
       warnings: 0,
       criticals: 0,
       alerts: [],
-      recommendations: []
+      recommendations: [],
+      uptime: '0s',
+      metricsCollected: 0
     };
     
     // Leak detection
@@ -81,6 +87,10 @@ class PerformanceMonitor {
     this.isMonitoring = true;
     console.log(`[PERFORMANCE] Starting monitor - interval: ${intervalMs/1000}s`);
     console.log(`[PERFORMANCE] Memory thresholds: Warning=${this.thresholds.memory.warning}MB | Critical=${this.thresholds.memory.critical}MB | GC=${this.thresholds.memory.gc}MB`);
+    
+    // Initialize CPU tracking
+    this.previousCPU = process.cpuUsage();
+    this.previousTime = Date.now();
     
     // Initial reading
     this.recordMetrics();
@@ -121,7 +131,7 @@ class PerformanceMonitor {
     const rssMB = Math.round(memUsage.rss / 1024 / 1024);
     const externalMB = Math.round(memUsage.external / 1024 / 1024);
     
-    // Calculate CPU percentage (simplified)
+    // Calculate accurate CPU percentage
     const cpuPercent = this.calculateCPUPercent(cpuUsage);
     
     const metric = {
@@ -143,6 +153,8 @@ class PerformanceMonitor {
     
     // Add to history
     this.metrics.push(metric);
+    this.stats.metricsCollected++;
+    
     if (this.metrics.length > this.maxHistorySize) {
       this.metrics.shift();
     }
@@ -155,6 +167,9 @@ class PerformanceMonitor {
       this.stats.peakCPU = cpuPercent;
     }
     
+    // Update uptime string
+    this.stats.uptime = this.formatUptime(Date.now() - this.stats.startTime);
+    
     // Check thresholds
     this.checkThresholds(metric);
     
@@ -163,18 +178,38 @@ class PerformanceMonitor {
   }
 
   /**
-   * Calculate CPU usage percentage
+   * Calculate accurate CPU usage percentage
    */
-  calculateCPUPercent(cpuUsage) {
-    if (this.metrics.length < 2) return 0;
+  calculateCPUPercent(currentCPU) {
+    if (!this.previousCPU || !this.previousTime) {
+      // First reading, store and return 0
+      this.previousCPU = currentCPU;
+      this.previousTime = Date.now();
+      return 0;
+    }
     
-    const prev = this.metrics[this.metrics.length - 1].cpu;
-    const userDiff = cpuUsage.user - prev.user;
-    const systemDiff = cpuUsage.system - prev.system;
-    const totalDiff = userDiff + systemDiff;
+    const currentTime = Date.now();
     
-    // Convert to percentage (approximate)
-    const cpuPercent = Math.min(Math.round((totalDiff / 1000000) / 6), 100);
+    // Calculate microseconds used
+    const userDiff = currentCPU.user - this.previousCPU.user;
+    const systemDiff = currentCPU.system - this.previousCPU.system;
+    const totalCPUMicros = userDiff + systemDiff;
+    
+    // Calculate wall clock time in microseconds
+    const wallClockMicros = (currentTime - this.previousTime) * 1000;
+    
+    // Calculate percentage (totalCPUMicros / wallClockMicros * 100)
+    let cpuPercent = 0;
+    if (wallClockMicros > 0) {
+      cpuPercent = (totalCPUMicros / wallClockMicros) * 100;
+      // Cap at 100%
+      cpuPercent = Math.min(Math.round(cpuPercent), 100);
+    }
+    
+    // Update previous values
+    this.previousCPU = currentCPU;
+    this.previousTime = currentTime;
+    
     return cpuPercent;
   }
 
@@ -321,7 +356,7 @@ class PerformanceMonitor {
   triggerGarbageCollection(reason = 'manual') {
     if (!global.gc) {
       console.warn('[PERFORMANCE] GC not available (start with --expose-gc flag)');
-      return false;
+      return null;
     }
     
     const beforeMB = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
@@ -336,10 +371,14 @@ class PerformanceMonitor {
       this.stats.gcTriggers++;
       console.log(`[PERFORMANCE] ✓ GC complete - Freed ${freedMB}MB (${beforeMB}MB → ${afterMB}MB)`);
       
-      return true;
+      return {
+        before: beforeMB,
+        after: afterMB,
+        freed: freedMB
+      };
     } catch (error) {
       console.error(`[PERFORMANCE] GC failed: ${error.message}`);
-      return false;
+      return null;
     }
   }
 
@@ -421,6 +460,8 @@ class PerformanceMonitor {
     
     const recent = this.metrics.slice(-20);
     const older = this.metrics.slice(-40, -20);
+    
+    if (older.length === 0) return;
     
     // Memory trend
     const recentAvgMem = this.average(recent.map(m => m.memory.heapUsed));
@@ -546,7 +587,6 @@ class PerformanceMonitor {
     }
     
     const current = this.metrics[this.metrics.length - 1];
-    const uptimeMs = Date.now() - this.stats.startTime;
     
     // Calculate averages
     this.stats.avgMemory = this.average(this.metrics.map(m => m.memory.heapUsed));
@@ -567,11 +607,11 @@ class PerformanceMonitor {
       trends: this.trends,
       thresholds: this.thresholds,
       stats: {
-        uptime: this.formatUptime(uptimeMs),
+        uptime: this.stats.uptime,
         gcTriggers: this.stats.gcTriggers,
         warnings: this.stats.warnings,
         criticals: this.stats.criticals,
-        metricsCollected: this.metrics.length
+        metricsCollected: this.stats.metricsCollected
       },
       alerts: this.stats.alerts.slice(0, 5),
       recommendations: this.stats.recommendations
@@ -583,6 +623,11 @@ class PerformanceMonitor {
    */
   generateReport() {
     const stats = this.getStats();
+    
+    if (stats.error) {
+      console.log('[PERFORMANCE REPORT] ' + stats.error);
+      return stats;
+    }
     
     console.log('');
     console.log('═'.repeat(80));
