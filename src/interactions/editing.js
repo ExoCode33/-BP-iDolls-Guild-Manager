@@ -1,8 +1,11 @@
+import { MessageFlags } from 'discord.js';
 import state from '../services/state.js';
 import logger from '../services/logger.js';
 import config from '../config/index.js';
 import { isEphemeral } from '../services/ephemeral.js';
 import { CharacterRepo } from '../database/repositories.js';
+
+const ephemeralFlag = { flags: MessageFlags.Ephemeral };
 import { embed, errorEmbed, successEmbed, profileEmbed } from '../ui/embeds.js';
 import { updateNickname } from '../services/nickname.js';
 import sheets from '../services/sheets.js';
@@ -226,7 +229,7 @@ export async function handleEditModal(interaction, userId, field) {
   const s = state.get(userId, 'edit');
 
   if (field === 'uid' && !validateUID(value)) {
-    return interaction.reply({ embeds: [errorEmbed('UID must contain only numbers.')], ephemeral: true });
+    return interaction.reply({ embeds: [errorEmbed('UID must contain only numbers.')], ...ephemeralFlag });
   }
 
   const oldVal = field === 'ign' ? s.char.ign : s.char.uid;
@@ -244,8 +247,8 @@ export async function handleEditModal(interaction, userId, field) {
   const profileEmb = await profileEmbed(interaction.user, chars, interaction);
   const buttons = ui.profileButtons(userId, !!main);
 
-  const ephemeral = await isEphemeral(interaction.guildId, 'edit');
-  await interaction.reply({ embeds: [profileEmb], components: buttons, ephemeral });
+  const isEph = await isEphemeral(interaction.guildId, 'edit');
+  await interaction.reply({ embeds: [profileEmb], components: buttons, ...(isEph ? ephemeralFlag : {}) });
   sheets.sync(await CharacterRepo.findAll(), interaction.client);
 }
 
