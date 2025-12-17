@@ -7,7 +7,7 @@ import { EmbedBuilder } from 'discord.js';
  * - Detailed Railway (console) logs with colored ANSI
  * - Discord logs with ANSI colors (single line format)
  * - Configurable Discord logs with multiple levels
- * - Role ping support for errors and warnings (✅ FIXED)
+ * - Role ping support for errors and warnings
  * - Automatic log cleanup (rolling logs)
  * - Rate limiting for Discord sends
  * - Memory-efficient message queuing
@@ -283,7 +283,7 @@ class Logger {
   }
 
   // ============================================================================
-  // ✅ FIXED: RATE-LIMITED DISCORD SENDING WITH WORKING ROLE PINGS
+  // ✅ IMPROVED: RATE-LIMITED DISCORD SENDING
   // ============================================================================
 
   /**
@@ -322,7 +322,7 @@ class Logger {
   }
 
   /**
-   * ✅ FIXED: Internal method to actually send to Discord with working role pings
+   * Internal method to actually send to Discord
    */
   async _sendToDiscordNow(ansiMessage, pingRole = null) {
     if (!this.client || !this.logChannelId) {
@@ -337,14 +337,12 @@ class Logger {
         return;
       }
 
-      // ✅ FIXED: Role ping must be OUTSIDE the code block to work
-      let message;
+      let fullMessage = ansiMessage;
       if (pingRole) {
-        // Put the ping outside the ANSI code block so it actually works
-        message = `<@&${pingRole}> \`\`\`ansi\n${ansiMessage}\n\`\`\``;
-      } else {
-        message = `\`\`\`ansi\n${ansiMessage}\n\`\`\``;
+        fullMessage = `${this.COLORS.RED}[@${this.COLORS.RESET}<@&${pingRole}>${this.COLORS.RED}]${this.COLORS.RESET} ${ansiMessage}`;
       }
+      
+      const message = `\`\`\`ansi\n${fullMessage}\n\`\`\``;
       
       await channel.send(message);
       this.stats.messagesSent++;
@@ -396,6 +394,9 @@ class Logger {
     
     this.isReady = true;
     
+    // ✅ REMOVED: Don't count/cleanup on startup (causes cooldown issues)
+    // Only cleanup on schedule (every hour) or manual trigger
+    
     // Start automatic periodic cleanup
     this.startPeriodicCleanup();
     
@@ -410,6 +411,66 @@ class Logger {
     }
     
     console.log(this.COLORS.GREEN + '[LOGGER INIT] Discord logging initialized successfully!' + this.COLORS.RESET);
+  }
+
+  /**
+   * Count existing messages in log channel on startup
+   */
+  async countExistingMessages() {
+    if (!this.client || !this.logChannelId) return;
+    
+    try {
+      const channel = await this.client.channels.fetch(this.logChannelId);
+      if (!channel || !channel.isTextBased()) return;
+      
+      console.log(this.COLORS.CYAN + '[LOGGER] Counting existing log messages...' + this.COLORS.RESET);
+      
+      // ✅ Clear cache to force fresh fetch
+      channel.messages.cache.clear();
+      
+      let totalMessages = 0;
+      let lastMessageId = null;
+      
+      // Fetch messages in batches of 100 until we get them all
+      while (true) {
+        const options = { 
+          limit: 100,
+          cache: false
+        };
+        if (lastMessageId) {
+          options.before = lastMessageId;
+        }
+        
+        const messages = await channel.messages.fetch(options);
+        
+        if (messages.size === 0) break;
+        
+        totalMessages += messages.size;
+        lastMessageId = messages.last().id;
+        
+        // If we got less than 100, we're done
+        if (messages.size < 100) break;
+        
+        // Small delay between fetches
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      console.log(this.COLORS.CYAN + `[LOGGER] Found ${totalMessages} existing messages` + this.COLORS.RESET);
+      
+      // If over limit, trigger cleanup immediately
+      if (totalMessages > this.maxLogMessages) {
+        const excess = totalMessages - this.maxLogMessages;
+        console.log(this.COLORS.YELLOW + `[LOGGER] Excess messages detected: ${excess}. Triggering cleanup...` + this.COLORS.RESET);
+        
+        // Trigger cleanup after 10 seconds
+        setTimeout(() => {
+          this.cleanupOldLogs();
+        }, 10000);
+      }
+      
+    } catch (error) {
+      console.error(this.COLORS.RED + `[LOGGER] Failed to count existing messages: ${error.message}` + this.COLORS.RESET);
+    }
   }
 
   /**
@@ -1057,34 +1118,6 @@ class Logger {
     } else {
       this.logSheetsSync(type, count, duration, success);
     }
-  }
-
-  // ✅ NEW: Special method for logging with role pings (used by registration.js)
-  async logWithRolePing(level, category, message, roleId, details = null) {
-    // Console: Show readable version (no actual ping in console)
-    console.log('');
-    const timestamp = this.getTimestamp();
-    const color = level === 'ERROR' ? this.COLORS.RED : level === 'WARNING' ? this.COLORS.YELLOW : this.COLORS.BLUE;
-    console.log(color + `[${level}] ` + this.COLORS.RESET + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
-    console.log(color + '├─ ' + this.COLORS.RESET + 'Category: ' + this.COLORS.MAGENTA + category + this.COLORS.RESET);
-    console.log(color + '├─ ' + this.COLORS.RESET + 'Message: ' + this.COLORS.WHITE + message + this.COLORS.RESET);
-    console.log(color + '├─ ' + this.COLORS.RESET + 'Will ping role: ' + this.COLORS.YELLOW + roleId + this.COLORS.RESET);
-    if (details) {
-      console.log(color + '├─ ' + this.COLORS.RESET + 'Details: ' + this.COLORS.GRAY + details + this.COLORS.RESET);
-    }
-    console.log(color + '└─ ' + this.COLORS.RESET + 'Time: ' + this.COLORS.GRAY + timestamp + this.COLORS.RESET);
-    
-    // Discord: Send with actual ping OUTSIDE the code block
-    const time = this.getShortTimestamp();
-    const emoji = level === 'ERROR' ? '❌' : level === 'WARNING' ? '⚠️' : 'ℹ️';
-    const levelColor = level === 'ERROR' ? this.COLORS.RED : level === 'WARNING' ? this.COLORS.YELLOW : this.COLORS.BLUE;
-    let ansiMsg = `${levelColor}[${time}] ${emoji} ${level}${this.COLORS.RESET} [${this.COLORS.MAGENTA}${category}${this.COLORS.RESET}] ${this.COLORS.WHITE}${message}${this.COLORS.RESET}`;
-    
-    if (details) {
-      ansiMsg += `\n${levelColor}└─${this.COLORS.RESET} ${details}`;
-    }
-    
-    await this.sendToDiscord(ansiMsg, roleId);
   }
 }
 
