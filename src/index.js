@@ -313,11 +313,34 @@ client.once(Events.ClientReady, async () => {
           if (failedUsers.length > 0) {
             console.log(`[NICKNAME SYNC] Failed users:`, failedUsers);
             
-            // Log to Discord if there are failures
+            // ✅ FIXED: Log to Discord with role ping for nickname sync failures
             const failureDetails = failedUsers
+              .slice(0, 10) // Limit to first 10 to avoid message length issues
               .map(f => `• <@${f.userId}> (${f.username || 'Unknown'}) - IGN: ${f.ign} - Current: ${f.currentNickname || 'None'} - Reason: ${f.reason}`)
               .join('\n');
 
+            // Get admin role from environment variable
+            const adminRoleId = process.env.ADMIN_ROLE_ID;
+            
+            if (adminRoleId) {
+              // Send direct Discord message with role ping and role name
+              try {
+                const logChannel = await client.channels.fetch(process.env.LOG_CHANNEL_ID);
+                if (logChannel && logChannel.isTextBased()) {
+                  // Fetch the role to get its name
+                  const role = await guild.roles.fetch(adminRoleId);
+                  const roleName = role ? role.name : 'Admin';
+                  
+                  await logChannel.send({
+                    content: `<@&${adminRoleId}> ⚠️ **[@${roleName}] Nickname Sync Alert**\n\n**${failed} nickname sync failure${failed > 1 ? 's' : ''} detected:**\n${failureDetails}${failedUsers.length > 10 ? `\n\n...and ${failedUsers.length - 10} more` : ''}`
+                  });
+                }
+              } catch (error) {
+                console.error('[NICKNAME SYNC] Failed to send Discord ping:', error.message);
+              }
+            }
+            
+            // Also log through logger for console/records
             await logger.logWarning(
               'Periodic Nickname Sync',
               `${failed} nickname sync failure${failed > 1 ? 's' : ''} detected`,
