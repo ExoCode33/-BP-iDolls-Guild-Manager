@@ -1,6 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { CLASSES, ABILITY_SCORES, REGIONS, TIERS } from '../config/game.js';
 import config from '../config/index.js';
+import { formatScore } from './utils.js';
 
 export function profileButtons(userId, hasMain) {
   if (!hasMain) {
@@ -164,17 +165,41 @@ export function addTypeSelect(userId, subCount) {
       .setCustomId(`add_type_${userId}`)
       .setPlaceholder('➕ What to add?')
       .addOptions([
-        { label: 'Alt Character', value: 'alt', emoji: '🎭' },
-        { label: `Subclass (${subCount}/3)`, value: 'subclass', emoji: '📊' }
+        { label: 'Alt Character', value: 'alt', description: 'Register a new alt character', emoji: '🎭' },
+        { label: `Subclass (${subCount}/3)`, value: 'subclass', description: 'Add subclass to existing character', emoji: '📊' }
       ])
   );
 }
 
-export function editTypeSelect(userId, hasMain, hasAlts, hasSubs) {
+export function editTypeSelect(userId, main, alts, subs) {
   const options = [];
-  if (hasMain) options.push({ label: 'Main Character', value: 'main', emoji: '⭐' });
-  if (hasSubs) options.push({ label: 'Subclass', value: 'subclass', emoji: '📊' });
-  if (hasAlts) options.push({ label: 'Alt Character', value: 'alt', emoji: '🎭' });
+  
+  if (main) {
+    options.push({ 
+      label: 'Main Character', 
+      value: 'main', 
+      description: `${main.ign} - ${main.class}`,
+      emoji: '⭐' 
+    });
+  }
+  
+  if (subs.length > 0) {
+    options.push({ 
+      label: 'Subclass', 
+      value: 'subclass', 
+      description: `Edit one of ${subs.length} subclass${subs.length > 1 ? 'es' : ''}`,
+      emoji: '📊' 
+    });
+  }
+  
+  if (alts.length > 0) {
+    options.push({ 
+      label: 'Alt Character', 
+      value: 'alt', 
+      description: `Edit one of ${alts.length} alt${alts.length > 1 ? 's' : ''}`,
+      emoji: '🎭' 
+    });
+  }
   
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -184,11 +209,35 @@ export function editTypeSelect(userId, hasMain, hasAlts, hasSubs) {
   );
 }
 
-export function removeTypeSelect(userId, hasMain, hasAlts, hasSubs) {
+export function removeTypeSelect(userId, main, alts, subs) {
   const options = [];
-  if (hasSubs) options.push({ label: 'Subclass', value: 'subclass', emoji: '📊' });
-  if (hasAlts) options.push({ label: 'Alt Character', value: 'alt', emoji: '🎭' });
-  if (hasMain) options.push({ label: '⚠️ Main Character', value: 'main', emoji: '⭐' });
+  
+  if (subs.length > 0) {
+    options.push({ 
+      label: 'Subclass', 
+      value: 'subclass', 
+      description: `Remove one of ${subs.length} subclass${subs.length > 1 ? 'es' : ''}`,
+      emoji: '📊' 
+    });
+  }
+  
+  if (alts.length > 0) {
+    options.push({ 
+      label: 'Alt Character', 
+      value: 'alt', 
+      description: `Remove one of ${alts.length} alt${alts.length > 1 ? 's' : ''}`,
+      emoji: '🎭' 
+    });
+  }
+  
+  if (main) {
+    options.push({ 
+      label: '⚠️ Delete All Data', 
+      value: 'main', 
+      description: 'Remove main and all characters',
+      emoji: '⭐' 
+    });
+  }
   
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -198,40 +247,111 @@ export function removeTypeSelect(userId, hasMain, hasAlts, hasSubs) {
   );
 }
 
-export function characterListSelect(userId, characters, action) {
-  const options = characters.map((c, i) => ({
-    label: `${c.character_type === 'alt' ? 'Alt' : 'Subclass'} ${i + 1}: ${c.ign || c.class}`,
-    value: String(c.id),
-    description: `${c.class} - ${c.subclass}`,
-    emoji: c.character_type === 'alt' ? '🎭' : '📊'
+export function altListSelect(userId, alts, action) {
+  const options = alts.map((alt, i) => ({
+    label: `Alt ${i + 1}: ${alt.ign}`,
+    value: String(alt.id),
+    description: `${alt.class} - ${alt.subclass}`,
+    emoji: '🎭'
   }));
   
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(`${action}_char_${userId}`)
-      .setPlaceholder(`Select character`)
+      .setCustomId(`${action}_alt_${userId}`)
+      .setPlaceholder(`Select alt`)
       .addOptions(options)
   );
 }
 
-export function editFieldSelect(userId, type) {
-  const options = [
-    { label: 'Class & Subclass', value: 'class', emoji: '🎭' },
-    { label: 'Ability Score', value: 'score', emoji: '💪' }
-  ];
+export function subclassListSelect(userId, subs, action) {
+  const options = subs.map((sub, i) => ({
+    label: `Subclass ${i + 1}: ${sub.class}`,
+    value: String(sub.id),
+    description: `${sub.subclass} - ${formatScore(sub.ability_score)}`,
+    emoji: '📊'
+  }));
+  
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`${action}_subclass_${userId}`)
+      .setPlaceholder(`Select subclass`)
+      .addOptions(options)
+  );
+}
 
+export function editFieldSelect(userId, char, type, battleImagines = []) {
+  const options = [];
+  
   if (type !== 'subclass') {
-    options.unshift(
-      { label: 'IGN', value: 'ign', emoji: '🎮' },
-      { label: 'UID', value: 'uid', emoji: '🆔' }
+    options.push(
+      { label: 'IGN', value: 'ign', description: `Current: ${char.ign}`, emoji: '🎮' },
+      { label: 'UID', value: 'uid', description: `Current: ${char.uid || 'Not set'}`, emoji: '🆔' }
     );
-    options.push({ label: 'Guild', value: 'guild', emoji: '🏰' });
+  }
+  
+  options.push(
+    { label: 'Class & Subclass', value: 'class', description: `${char.class} - ${char.subclass}`, emoji: '🎭' },
+    { label: 'Ability Score', value: 'score', description: `Current: ${formatScore(char.ability_score)}`, emoji: '💪' }
+  );
+  
+  if (type !== 'subclass') {
+    options.push(
+      { label: 'Guild', value: 'guild', description: `Current: ${char.guild || 'None'}`, emoji: '🏰' }
+    );
+    
+    if (config.battleImagines.length > 0) {
+      const biCount = battleImagines.length;
+      options.push({
+        label: 'Battle Imagines',
+        value: 'battle_imagines',
+        description: biCount > 0 ? `${biCount} configured` : 'Not set',
+        emoji: '⚔️'
+      });
+    }
   }
 
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`edit_field_${userId}`)
       .setPlaceholder('✏️ What to edit?')
+      .addOptions(options)
+  );
+}
+
+export function editBattleImagineListSelect(userId, currentImagines) {
+  const options = config.battleImagines.map(bi => {
+    const current = currentImagines.find(ci => ci.imagine_name === bi.name);
+    return {
+      label: bi.name,
+      value: bi.name,
+      description: current ? `Current: ${current.tier}` : 'Not set',
+      emoji: bi.logo ? { id: bi.logo } : '⚔️'
+    };
+  });
+  
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`edit_bi_select_${userId}`)
+      .setPlaceholder('⚔️ Select Battle Imagine to edit')
+      .addOptions(options)
+  );
+}
+
+export function editBattleImagineTierSelect(userId, imagine, currentTier = null) {
+  const options = [
+    { label: 'Remove / Don\'t own', value: 'remove', emoji: '❌', default: !currentTier },
+    ...TIERS.map(t => ({
+      label: t,
+      value: t,
+      emoji: imagine.logo ? { id: imagine.logo } : '⭐',
+      default: currentTier === t
+    }))
+  ];
+  
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`edit_bi_tier_${userId}`)
+      .setPlaceholder(`Set tier for ${imagine.name}`)
       .addOptions(options)
   );
 }
@@ -260,14 +380,19 @@ export function editModal(userId, field, currentValue = '') {
 
 export function parentSelect(userId, main, alts) {
   const options = [
-    { label: `Main: ${main.ign}`, value: `main_${main.id}`, emoji: '⭐' },
-    ...alts.map(a => ({ label: `Alt: ${a.ign}`, value: `alt_${a.id}`, emoji: '🎭' }))
+    { label: `Main: ${main.ign}`, value: `main_${main.id}`, description: `${main.class} - ${main.subclass}`, emoji: '⭐' },
+    ...alts.map(a => ({ 
+      label: `Alt: ${a.ign}`, 
+      value: `alt_${a.id}`, 
+      description: `${a.class} - ${a.subclass}`,
+      emoji: '🎭' 
+    }))
   ];
   
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`parent_${userId}`)
-      .setPlaceholder('📊 Which character?')
+      .setPlaceholder('📊 Which character is this subclass for?')
       .addOptions(options)
   );
 }
