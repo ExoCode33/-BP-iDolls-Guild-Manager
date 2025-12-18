@@ -113,10 +113,3 @@ export async function profileEmbed(user, characters, interaction = null) {
 
   return e;
 }
-```
-
-Now it uses `.setAuthor()` with the emoji as an icon image URL - this is more reliable than inline emoji syntax. The author line will show:
-```
-🔴 Join Heal                    ← icon image + text
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-...
