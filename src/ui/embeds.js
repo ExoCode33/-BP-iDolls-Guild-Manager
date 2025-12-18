@@ -48,7 +48,7 @@ export async function profileEmbed(user, characters, interaction = null) {
   if (!main) {
     return new EmbedBuilder()
       .setColor(COLORS.PRIMARY)
-      .setDescription(`# <:HelloThere:1451244468881591427> **Join Heal**\n\`\`\`ansi\n\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\n    \u001b[1;34m♡₊˚\u001b[0m \u001b[1;34mWelcome\u001b[0m \u001b[33m${displayName}\u001b[0m \u001b[1;34m˚₊♡\u001b[0m\n\n    \u001b[1;34mNo character yet? No worries~\u001b[0m\n\n    \u001b[1;34m✿ Tap the button below\u001b[0m\n    \u001b[1;34m✿ We'll set you up in no time!\u001b[0m\n\n\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\`\`\``)
+      .setDescription(`<:HelloThere:1451244468881591427> **Join Heal**\n\`\`\`ansi\n\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\n    \u001b[1;34m♡₊˚\u001b[0m \u001b[1;34mWelcome\u001b[0m \u001b[33m${displayName}\u001b[0m \u001b[1;34m˚₊♡\u001b[0m\n\n    \u001b[1;34mNo character yet? No worries~\u001b[0m\n\n    \u001b[1;34m✿ Tap the button below\u001b[0m\n    \u001b[1;34m✿ We'll set you up in no time!\u001b[0m\n\n\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\`\`\``)
       .setTimestamp();
   }
 
@@ -62,53 +62,4 @@ export async function profileEmbed(user, characters, interaction = null) {
   mainSection += `\u001b[1;34m🎭 Class:\u001b[0m ${main.class} • ${main.subclass} ${roleEmoji}\n`;
   mainSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatScore(main.ability_score)}\n`;
 
-  const mainBI = await BattleImagineRepo.findByCharacter(main.id);
-  if (mainBI.length > 0) {
-    mainSection += `\u001b[1;34m⚔️ Battle Imagines:\u001b[0m ${mainBI.map(b => `${b.imagine_name} ${b.tier}`).join(', ')}\n`;
-  }
-
-  mainSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${main.guild || 'None'}\n`;
-  mainSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-  mainSection += '```';
-
-  const e = new EmbedBuilder()
-    .setColor(COLORS.PRIMARY)
-    .setDescription(`# __**Join ${guildName} • ${displayName}'s Profile**__ ${classEmoji}${timeText}\n${mainSection}`)
-    .setTimestamp();
-
-  if (subs.length > 0) {
-    let subSection = '```ansi\n';
-    subs.forEach((sub, i) => {
-      const subRoleEmoji = getRoleEmoji(sub.role);
-      subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-      subSection += `\u001b[1;34m🎭 Class:\u001b[0m ${sub.class} • ${sub.subclass} ${subRoleEmoji}\n`;
-      subSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatScore(sub.ability_score)}\n`;
-    });
-    subSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-    subSection += '```';
-    e.addFields({ name: `📊 Subclass${subs.length > 1 ? 'es' : ''} (${subs.length})`, value: subSection, inline: false });
-  }
-
-  if (alts.length > 0) {
-    let altSection = '```ansi\n';
-    for (const alt of alts) {
-      const altRoleEmoji = getRoleEmoji(alt.role);
-      altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-      altSection += `\u001b[1;34m🎮 IGN:\u001b[0m ${alt.ign}  \u001b[1;34m🆔 UID:\u001b[0m ${alt.uid}\n`;
-      altSection += `\u001b[1;34m🎭 Class:\u001b[0m ${alt.class} • ${alt.subclass} ${altRoleEmoji}\n`;
-      altSection += `\u001b[1;34m💪 Score:\u001b[0m ${formatScore(alt.ability_score)}\n`;
-
-      const altBI = await BattleImagineRepo.findByCharacter(alt.id);
-      if (altBI.length > 0) {
-        altSection += `\u001b[1;34m⚔️ Battle Imagines:\u001b[0m ${altBI.map(b => `${b.imagine_name} ${b.tier}`).join(', ')}\n`;
-      }
-
-      altSection += `\u001b[1;34m🏰 Guild:\u001b[0m ${alt.guild || 'None'}\n`;
-    }
-    altSection += `\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n`;
-    altSection += '```';
-    e.addFields({ name: `🎭 Alts (${alts.length})`, value: altSection, inline: false });
-  }
-
-  return e;
-}
+  const mainBI = await BattleImagineRepo.findByCharacter(
