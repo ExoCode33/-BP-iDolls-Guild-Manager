@@ -1,9 +1,9 @@
-import { Client, GatewayIntentBits, Events, MessageFlags } from 'discord.js';
+import { Client, GatewayIntentBits, Events, MessageFlags, REST, Routes } from 'discord.js';
 import config from './config/index.js';
 import db from './database/index.js';
 import logger from './services/logger.js';
 import sheets from './services/sheets.js';
-import { loadCommands } from './commands/index.js';
+import { loadCommands, getCommandData } from './commands/index.js';
 import { route, routeSelectMenu, routeModal } from './interactions/router.js';
 import { handleLogSelect, handleLogChannelSelect, handleLogBatchSelect, handleLogCategoriesSelect, handleEphemeralSelect } from './commands/admin.js';
 import { CharacterRepo } from './database/repositories.js';
@@ -18,9 +18,34 @@ const client = new Client({
 
 const commands = loadCommands();
 
+// Auto-deploy commands on startup
+async function deployCommands() {
+  try {
+    const rest = new REST().setToken(config.discord.token);
+    const commandData = getCommandData();
+    
+    if (config.discord.guildId) {
+      await rest.put(
+        Routes.applicationGuildCommands(config.discord.clientId, config.discord.guildId),
+        { body: commandData }
+      );
+      console.log(`[DEPLOY] ${commandData.length} commands deployed to guild`);
+    } else {
+      await rest.put(
+        Routes.applicationCommands(config.discord.clientId),
+        { body: commandData }
+      );
+      console.log(`[DEPLOY] ${commandData.length} commands deployed globally`);
+    }
+  } catch (e) {
+    console.error('[DEPLOY] Failed:', e.message);
+  }
+}
+
 client.once(Events.ClientReady, async () => {
   console.log(`[BOT] Logged in as ${client.user.tag}`);
 
+  await deployCommands();
   await db.initialize();
   await logger.init(client);
   await sheets.init();
