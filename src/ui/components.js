@@ -20,6 +20,23 @@ export function profileButtons(userId, hasMain) {
   )];
 }
 
+export function adminProfileButtons(userId, hasMain) {
+  if (!hasMain) {
+    return [new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`admin_reg_start_${userId}`)
+        .setLabel('📝 Register Main Character')
+        .setStyle(ButtonStyle.Primary)
+    )];
+  }
+
+  return [new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`admin_add_${userId}`).setLabel('➕ Add').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`admin_edit_${userId}`).setLabel('✏️ Edit').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`admin_remove_${userId}`).setLabel('🗑️ Remove').setStyle(ButtonStyle.Danger)
+  )];
+}
+
 export function backButton(customId, label = '◀️ Back') {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(customId).setLabel(label).setStyle(ButtonStyle.Secondary)
@@ -212,6 +229,15 @@ export function editTypeSelect(userId, main, alts, subs) {
 export function removeTypeSelect(userId, main, alts, subs) {
   const options = [];
   
+  if (main) {
+    options.push({ 
+      label: 'Main Character', 
+      value: 'main', 
+      description: `${main.ign} - Remove main only`,
+      emoji: '⭐' 
+    });
+  }
+  
   if (subs.length > 0) {
     options.push({ 
       label: 'Subclass', 
@@ -230,12 +256,12 @@ export function removeTypeSelect(userId, main, alts, subs) {
     });
   }
   
-  if (main) {
+  if (main || alts.length > 0 || subs.length > 0) {
     options.push({ 
       label: '⚠️ Delete All Data', 
-      value: 'main', 
-      description: 'Remove main and all characters',
-      emoji: '⭐' 
+      value: 'all', 
+      description: 'Remove everything',
+      emoji: '🗑️' 
     });
   }
   
