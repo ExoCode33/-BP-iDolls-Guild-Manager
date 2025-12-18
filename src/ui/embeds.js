@@ -48,7 +48,8 @@ export async function profileEmbed(user, characters, interaction = null) {
   if (!main) {
     return new EmbedBuilder()
       .setColor(COLORS.PRIMARY)
-      .setDescription('```ansi\n\u001b[0;31mNo main character registered\u001b[0m\n```');
+      .setDescription(`# 👤 **${displayName}**\n\`\`\`ansi\n\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\n   \u001b[33m⚠️  No main character registered\u001b[0m\n\n   \u001b[37mClick the button below to get started!\u001b[0m\n\n\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\`\`\``)
+      .setTimestamp();
   }
 
   const roleEmoji = getRoleEmoji(main.role);
