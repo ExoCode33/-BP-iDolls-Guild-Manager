@@ -79,11 +79,10 @@ export function regionSelect(userId) {
 export function countrySelect(userId, region) {
   const countries = Object.keys(REGIONS[region]);
   const options = countries.map(c => {
-    // Extract emoji from country string if it exists (check first character)
-    const firstChar = c.charCodeAt(0);
-    // Flag emoji range is typically 0x1F1E6 to 0x1F1FF (regional indicator symbols)
-    const emoji = (firstChar >= 0x1F1E6 && firstChar <= 0x1F1FF) ? c.substring(0, 2) : '🏳️';
-    const countryName = c.substring(2).trim(); // Remove emoji if present
+    // Extract emoji from country string if it exists
+    const emojiMatch = c.match(/^([🇦-🇿])/);
+    const emoji = emojiMatch ? emojiMatch[1] : '🏳️';
+    const countryName = c.replace(/^[🇦-🇿]\s+/, ''); // Remove emoji if present
     
     return {
       label: countryName,
