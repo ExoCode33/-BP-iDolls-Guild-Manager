@@ -27,7 +27,6 @@ function getStepInfo(type, step) {
 
 export async function start(interaction, userId, type = 'main') {
   state.set(userId, 'reg', { type, step: 'region', battleImagines: [], biIndex: 0 });
-  logger.regStart(interaction.user.username);
 
   if (type === 'alt') {
     const existingTz = await TimezoneRepo.get(userId);
@@ -238,7 +237,7 @@ export async function handleIGN(interaction, userId) {
     }
 
     state.clear(userId, 'reg');
-    logger.regComplete(interaction.user.username, s.type, ign, s.className);
+    logger.register(interaction.user.username, s.type, ign, s.className);
 
     const chars = await CharacterRepo.findAllByUser(userId);
     const embed = await profileEmbed(interaction.user, chars, interaction);
@@ -274,7 +273,7 @@ async function completeSubclass(interaction, userId) {
     });
 
     state.clear(userId, 'reg');
-    logger.regComplete(interaction.user.username, 'subclass', s.className, s.subclass);
+    logger.register(interaction.user.username, 'subclass', s.className, s.subclass);
 
     const chars = await CharacterRepo.findAllByUser(userId);
     const embed = await profileEmbed(interaction.user, chars, interaction);
@@ -284,7 +283,7 @@ async function completeSubclass(interaction, userId) {
     sheets.sync(await CharacterRepo.findAll(), interaction.client);
   } catch (e) {
     logger.error('Registration', 'Failed to create subclass', e);
-    await interaction.reply({ embeds: [errorEmbed('Failed to save subclass.')], ...ephemeralFlag });
+    await interaction.reply({ embeds: [errorEmbed('Failed to save subclass.')], ephemeral: true });
   }
 }
 
