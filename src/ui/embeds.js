@@ -61,7 +61,7 @@ export async function profileEmbed(user, characters, interaction = null) {
 
     return new EmbedBuilder()
       .setColor(COLORS.PRIMARY)
-      .setDescription(`## 🩷 **Join Heal**\n\`\`\`ansi\n${welcomeText}\n\`\`\``)
+      .setDescription('## 🩷 **Join Heal**\n```ansi\n' + welcomeText + '\n```')
       .setTimestamp();
   }
 
@@ -86,7 +86,7 @@ export async function profileEmbed(user, characters, interaction = null) {
 
   const e = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
-    .setDescription(`# __**Join ${guildName} • ${displayName}'s Profile**__ ${classEmoji}${timeText}\n${mainSection}`)
+    .setDescription('# __**Join ' + guildName + ' • ' + displayName + '\'s Profile**__ ' + classEmoji + timeText + '\n' + mainSection)
     .setTimestamp();
 
   if (subs.length > 0) {
@@ -99,7 +99,7 @@ export async function profileEmbed(user, characters, interaction = null) {
     });
     subSection += '\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n';
     subSection += '```';
-    e.addFields({ name: `📊 Subclass${subs.length > 1 ? 'es' : ''} (${subs.length})`, value: subSection, inline: false });
+    e.addFields({ name: '📊 Subclass' + (subs.length > 1 ? 'es' : '') + ' (' + subs.length + ')', value: subSection, inline: false });
   }
 
   if (alts.length > 0) {
@@ -120,23 +120,8 @@ export async function profileEmbed(user, characters, interaction = null) {
     }
     altSection += '\u001b[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n';
     altSection += '```';
-    e.addFields({ name: `🎭 Alts (${alts.length})`, value: altSection, inline: false });
+    e.addFields({ name: '🎭 Alts (' + alts.length + ')', value: altSection, inline: false });
   }
 
   return e;
 }
-```
-
-Now shows:
-```
-🩷 Join Heal
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-          ♡₊˚ Welcome Ems ˚₊♡
-
-    No character yet? No worries~
-
-    • Tap the button below
-    • We'll set you up in no time!
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
