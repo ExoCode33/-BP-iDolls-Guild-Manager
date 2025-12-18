@@ -10,50 +10,17 @@ export const embed = (title, description) => {
     .setTimestamp();
 };
 
-// ✨ UPDATED: Animated HP bar that fills progressively
-export const stepEmbed = (step, total, title, description, animationFrame = 0) => {
-  const percentage = Math.round((step / total) * 100);
-  const targetFilled = Math.ceil((step / total) * 10);
-  
-  // Animation frames - progressively fill the bar
-  // Creates the effect of bar "healing" or filling up
-  const animationFrames = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-  const currentFrame = Math.min(animationFrame, targetFilled);
-  
-  // Color progression for healing effect: Red → Yellow → Green
-  let barColor;
-  if (percentage < 33) {
-    barColor = '\u001b[1;31m'; // Bright Red (low health)
-  } else if (percentage < 66) {
-    barColor = '\u001b[1;33m'; // Bright Yellow (medium health)
-  } else {
-    barColor = '\u001b[1;32m'; // Bright Green (high health)
-  }
-  
-  // Create pulsing effect with alternating symbols
-  const pulseSymbols = ['█', '▓', '▒', '▓'];
-  const pulseIndex = animationFrame % pulseSymbols.length;
-  const pulseSymbol = pulseSymbols[pulseIndex];
-  
-  // Build the bar - filled portion uses animated symbol, empty uses empty symbol
-  const filledPortion = barColor + pulseSymbol.repeat(currentFrame);
-  const emptyPortion = '\u001b[0m░'.repeat(10 - currentFrame);
-  const hpBar = filledPortion + emptyPortion;
-  
-  // Add sparkle effects - STATIC (no rotating emoji)
-  const staticSparkle = '✨';
-
+// ✨ NEW: Centered cute registration embeds
+export const stepEmbed = (step, total, title, description) => {
   const ansiText = [
-    '\u001b[35m✨ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ✨\u001b[0m',
-    '',
-    `\u001b[1;34m${title}\u001b[0m`,
-    '',
-    `\u001b[0;36m${description}\u001b[0m`,
-    '',
     '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
-    `${staticSparkle} ${hpBar} ${staticSparkle} \u001b[1;33m${percentage}%\u001b[0m`,
-    `\u001b[0;36m⚡ Step ${step}/${total} ⚡\u001b[0m`,
-    '\u001b[35m✨ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ✨\u001b[0m'
+    `\u001b[1;34m${title}\u001b[0m`,
+    '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
+    '',
+    description,
+    '',
+    `\u001b[0;36m✨ Step ${step} of ${total}\u001b[0m`,
+    '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
   ].join('\n');
 
   return new EmbedBuilder()
