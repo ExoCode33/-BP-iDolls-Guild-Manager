@@ -143,7 +143,7 @@ class SheetsService {
       });
 
       const duration = Date.now() - start;
-      logger.syncSheets(rows.length, duration);
+      logger.sheetsSync(rows.length, duration);
     } catch (e) {
       logger.error('Sheets', 'Sync failed', e);
     }
