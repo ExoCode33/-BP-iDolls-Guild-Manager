@@ -48,7 +48,7 @@ export async function profileEmbed(user, characters, interaction = null) {
   if (!main) {
     return new EmbedBuilder()
       .setColor(COLORS.PRIMARY)
-      .setDescription(`## 🩷 **Join Heal**\n\`\`\`ansi\n\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\n       \u001b[1;34m♡₊˚\u001b[0m \u001b[1;34mWelcome\u001b[0m \u001b[33m${displayName}\u001b[0m \u001b[1;34m˚₊♡\u001b[0m\n\n    \u001b[1;34mNo character yet? No worries~\u001b[0m\n\n    \u001b[1;34m• Tap the button below\u001b[0m\n    \u001b[1;34m• We'll set you up in no time!\u001b[0m\n\n\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\`\`\``)
+      .setDescription(`## 🩷 **Join Heal**\n\`\`\`ansi\n\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\n\u001b[1;34m          ♡₊˚ Welcome\u001b[0m \u001b[33m${displayName}\u001b[0m \u001b[1;34m˚₊♡\u001b[0m\n\n\u001b[1;34m        No character yet? No worries~\u001b[0m\n\n\u001b[1;34m           • Tap the button below\u001b[0m\n\u001b[1;34m         • We'll set you up in no time!\u001b[0m\n\n\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\`\`\``)
       .setTimestamp();
   }
 
@@ -112,3 +112,18 @@ export async function profileEmbed(user, characters, interaction = null) {
 
   return e;
 }
+```
+
+Now it should look like:
+```
+🩷 Join Heal
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+          ♡₊˚ Welcome Ems ˚₊♡
+
+        No character yet? No worries~
+
+           • Tap the button below
+         • We'll set you up in no time!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
