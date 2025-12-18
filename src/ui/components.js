@@ -50,22 +50,13 @@ export function confirmButtons(userId, action) {
   )];
 }
 
-// ✨ UPDATED: Added emoji and better descriptions
+// ✨ UPDATED: Added descriptions and emojis
 export function regionSelect(userId) {
-  const regionEmojis = {
-    'North America': '🇺🇸',
-    'South America': '🇧🇷',
-    'Europe': '🇪🇺',
-    'Asia': '🇯🇵',
-    'Oceania': '🇦🇺',
-    'Africa': '🇿🇦'
-  };
-
   const options = Object.keys(REGIONS).map(r => ({
     label: r,
     value: r,
-    emoji: regionEmojis[r] || '🌍',
-    description: 'Select your region'
+    emoji: '🌍',
+    description: 'Where you\'re playing from'
   }));
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -75,22 +66,14 @@ export function regionSelect(userId) {
   );
 }
 
-// ✨ UPDATED: Added emoji and better descriptions
+// ✨ UPDATED: Added descriptions
 export function countrySelect(userId, region) {
   const countries = Object.keys(REGIONS[region]);
-  const options = countries.map(c => {
-    // Extract emoji from country string if it exists
-    const emojiMatch = c.match(/^([🇦-🇿])/);
-    const emoji = emojiMatch ? emojiMatch[1] : '🏳️';
-    const countryName = c.replace(/^[🇦-🇿]\s+/, ''); // Remove emoji if present
-    
-    return {
-      label: countryName,
-      value: c,
-      emoji: emoji,
-      description: 'Choose location'
-    };
-  });
+  const options = countries.map(c => ({
+    label: c,
+    value: c,
+    description: 'Select your location'
+  }));
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`reg_country_${userId}`)
@@ -99,20 +82,15 @@ export function countrySelect(userId, region) {
   );
 }
 
-// ✨ UPDATED: Added emoji and better descriptions
+// ✨ UPDATED: Added descriptions and emojis
 export function timezoneSelect(userId, region, country) {
   const timezones = REGIONS[region][country];
-  const options = Object.entries(timezones).map(([label, value]) => {
-    // Extract timezone code from label like "EST (Eastern)" -> "EST"
-    const tzCode = label.split(' ')[0];
-    
-    return {
-      label: tzCode,
-      value,
-      description: label.split('(')[1]?.replace(')', '') || label,
-      emoji: '🕐'
-    };
-  });
+  const options = Object.entries(timezones).map(([label, value]) => ({
+    label,
+    value,
+    description: label.split('(')[1]?.replace(')', '') || 'Timezone',
+    emoji: '🕐'
+  }));
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`reg_timezone_${userId}`)
@@ -154,12 +132,12 @@ export function subclassSelect(userId, className) {
   );
 }
 
-// ✨ UPDATED: Added emoji and better descriptions
+// ✨ UPDATED: Added descriptions and emojis
 export function scoreSelect(userId) {
   const options = ABILITY_SCORES.map(s => ({
     label: s.label,
     value: s.value,
-    description: 'Ability power level',
+    description: 'Your ability score range',
     emoji: '💪'
   }));
   return new ActionRowBuilder().addComponents(
