@@ -25,36 +25,6 @@ function getStepInfo(type, step) {
   return { current: idx + 1, total: steps.length };
 }
 
-// ✨ Animation helper - updates embed multiple times to create filling effect
-async function animateStepEmbed(interaction, step, total, title, description, components) {
-  const targetFilled = Math.ceil((step / total) * 10);
-  
-  // Animate from 0 to target, then back oscillating for healing effect
-  const animationSequence = [
-    ...Array.from({ length: targetFilled }, (_, i) => i + 1),  // Fill up: 1, 2, 3...
-    ...Array.from({ length: targetFilled - 1 }, (_, i) => targetFilled - i - 1).reverse(), // Pulse back down
-    targetFilled // Final resting position
-  ];
-
-  for (let frame = 0; frame < animationSequence.length; frame++) {
-    const currentFrame = animationSequence[frame];
-    const embed = stepEmbed(step, total, title, description, currentFrame);
-    
-    // First frame: use update, subsequent frames: use editReply for animation
-    if (frame === 0) {
-      await interaction.update({ embeds: [embed], components });
-    } else {
-      // Small delay between animation frames for smooth effect
-      await new Promise(resolve => setTimeout(resolve, 80));
-      try {
-        await interaction.editReply({ embeds: [embed] });
-      } catch (e) {
-        // Ignore errors if interaction expires
-      }
-    }
-  }
-}
-
 export async function start(interaction, userId, type = 'main') {
   state.set(userId, 'reg', { type, step: 'region', battleImagines: [], biIndex: 0 });
 
@@ -72,19 +42,12 @@ export async function start(interaction, userId, type = 'main') {
   }
 
   const { total } = getStepInfo(type, 'region');
+  const embed = stepEmbed(1, total, '🌍 Choose Your Region', 'Where are you playing from?');
   const row = ui.regionSelect(userId);
   const back = ui.backButton(`back_profile_${userId}`, '❌ Cancel');
-  const components = [row, back];
   
-  // ✨ Use animation for initial step
-  await animateStepEmbed(
-    interaction,
-    1,
-    total,
-    '🌍 Choose Your Region',
-    'Where are you playing from? 🎯',
-    components
-  );
+  // ✅ UPDATED: Use .update() instead of .reply()
+  await interaction.update({ embeds: [embed], components: [row, back] });
 }
 
 export async function handleRegion(interaction, userId) {
@@ -93,19 +56,12 @@ export async function handleRegion(interaction, userId) {
   state.update(userId, 'reg', { region, step: 'country' });
 
   const { current, total } = getStepInfo(s.type, 'country');
+  const embed = stepEmbed(current, total, '🏳️ Choose Your Country', `**Region:** ${region}`);
   const row = ui.countrySelect(userId, region);
   const back = ui.backButton(`back_region_${userId}`);
-  const components = [row, back];
 
-  // ✨ Use animation for step transition
-  await animateStepEmbed(
-    interaction, 
-    current, 
-    total, 
-    '🏳️ Choose Your Country', 
-    `You selected: **${region}** 🎯`,
-    components
-  );
+  // ✅ UPDATED: Use .update() instead of .reply()
+  await interaction.update({ embeds: [embed], components: [row, back] });
 }
 
 export async function handleCountry(interaction, userId) {
@@ -114,19 +70,12 @@ export async function handleCountry(interaction, userId) {
   state.update(userId, 'reg', { country, step: 'timezone' });
 
   const { current, total } = getStepInfo(s.type, 'timezone');
+  const embed = stepEmbed(current, total, '🕐 Choose Your Timezone', `**Country:** ${country}`);
   const row = ui.timezoneSelect(userId, s.region, country);
   const back = ui.backButton(`back_country_${userId}`);
-  const components = [row, back];
 
-  // ✨ Use animation
-  await animateStepEmbed(
-    interaction,
-    current,
-    total,
-    '🕐 Choose Your Timezone',
-    `Location: **${country}** 📍`,
-    components
-  );
+  // ✅ UPDATED: Use .update() instead of .reply()
+  await interaction.update({ embeds: [embed], components: [row, back] });
 }
 
 export async function handleTimezone(interaction, userId) {
@@ -143,26 +92,19 @@ async function showClass(interaction, userId, type) {
   const s = state.get(userId, 'reg');
   const { current, total } = getStepInfo(type, 'class');
   
-  let desc = 'What\'s your fighting style? ⚔️';
+  let desc = 'Pick your class:';
   if (s.timezone) {
     const abbr = TIMEZONE_ABBR[s.timezone] || s.timezone;
-    desc = `📍 **${abbr}**\n\n${desc}`;
+    desc = `**Timezone:** ${abbr}\n\n${desc}`;
   }
 
+  const embed = stepEmbed(current, total, '🎭 Choose Your Class', desc);
   const row = ui.classSelect(userId);
   const backId = type === 'main' ? `back_timezone_${userId}` : `back_profile_${userId}`;
   const back = ui.backButton(backId, type === 'main' ? '◀️ Back' : '❌ Cancel');
-  const components = [row, back];
 
-  // ✨ Use animation
-  await animateStepEmbed(
-    interaction,
-    current,
-    total,
-    '🎭 Choose Your Class',
-    desc,
-    components
-  );
+  // ✅ UPDATED: Use .update() instead of .reply()
+  await interaction.update({ embeds: [embed], components: [row, back] });
 }
 
 export async function handleClass(interaction, userId) {
@@ -171,19 +113,12 @@ export async function handleClass(interaction, userId) {
   state.update(userId, 'reg', { className, step: 'subclass' });
 
   const { current, total } = getStepInfo(s.type, 'subclass');
+  const embed = stepEmbed(current, total, '📋 Choose Your Subclass', `**Class:** ${className}`);
   const row = ui.subclassSelect(userId, className);
   const back = ui.backButton(`back_class_${userId}`);
-  const components = [row, back];
 
-  // ✨ Use animation
-  await animateStepEmbed(
-    interaction,
-    current,
-    total,
-    '📋 Choose Your Subclass',
-    `Class: **${className}**\n\nPick your playstyle~ 🎮`,
-    components
-  );
+  // ✅ UPDATED: Use .update() instead of .reply()
+  await interaction.update({ embeds: [embed], components: [row, back] });
 }
 
 export async function handleSubclass(interaction, userId) {
@@ -192,19 +127,12 @@ export async function handleSubclass(interaction, userId) {
   state.update(userId, 'reg', { subclass, step: 'score' });
 
   const { current, total } = getStepInfo(s.type, 'score');
+  const embed = stepEmbed(current, total, '💪 Choose Your Score', `**Subclass:** ${subclass}`);
   const row = ui.scoreSelect(userId);
   const back = ui.backButton(`back_subclass_${userId}`);
-  const components = [row, back];
 
-  // ✨ Use animation
-  await animateStepEmbed(
-    interaction,
-    current,
-    total,
-    '💪 Choose Your Score',
-    `Subclass: **${subclass}**\n\nHow strong are you? 💪`,
-    components
-  );
+  // ✅ UPDATED: Use .update() instead of .reply()
+  await interaction.update({ embeds: [embed], components: [row, back] });
 }
 
 export async function handleScore(interaction, userId) {
@@ -239,19 +167,14 @@ async function showBattleImagine(interaction, userId) {
   const total = STEPS[s.type].length;
 
   const logo = imagine.logo ? `<:bi:${imagine.logo}>` : '⚔️';
+  const embed = stepEmbed(stepNum, total, `${logo} Battle Imagine - ${imagine.name}`, 
+    `Do you own **${imagine.name}**?\n\nSelect the highest tier you own:`);
+  
   const row = ui.battleImagineSelect(userId, imagine);
   const back = ui.backButton(idx === 0 ? `back_score_${userId}` : `back_bi_${userId}`);
-  const components = [row, back];
 
-  // ✨ Use animation
-  await animateStepEmbed(
-    interaction,
-    stepNum,
-    total,
-    `${logo} Battle Imagine - ${imagine.name}`,
-    `Do you own **${imagine.name}**? 🎯\n\nSelect your highest tier~ ⭐`,
-    components
-  );
+  // ✅ UPDATED: Use .update() instead of .reply()
+  await interaction.update({ embeds: [embed], components: [row, back] });
 }
 
 export async function handleBattleImagine(interaction, userId) {
@@ -274,19 +197,12 @@ async function showGuild(interaction, userId, type) {
   const s = state.get(userId, 'reg');
   const { current, total } = getStepInfo(type, 'guild');
   
+  const embed = stepEmbed(current, total, '🏰 Choose Your Guild', 'Which guild are you in?');
   const row = ui.guildSelect(userId);
   const back = ui.backButton(`back_bi_${userId}`);
-  const components = [row, back];
 
-  // ✨ Use animation
-  await animateStepEmbed(
-    interaction,
-    current,
-    total,
-    '🏰 Choose Your Guild',
-    'Which guild is your home? 🎪',
-    components
-  );
+  // ✅ UPDATED: Use .update() instead of .reply()
+  await interaction.update({ embeds: [embed], components: [row, back] });
 }
 
 export async function handleGuild(interaction, userId) {
@@ -337,6 +253,7 @@ export async function handleIGN(interaction, userId) {
 
     const isEph = await isEphemeral(interaction.guildId, 'character');
     
+    // ✅ OK: Final profile uses .reply() to create new message
     await interaction.reply({ embeds: [embed], components: buttons, ...(isEph ? ephemeralFlag : {}) });
 
     sheets.sync(await CharacterRepo.findAll(), interaction.client);
@@ -372,6 +289,7 @@ async function completeSubclass(interaction, userId) {
     const embed = await profileEmbed(interaction.user, chars, interaction);
     const buttons = ui.profileButtons(userId, true);
 
+    // ✅ UPDATED: Use .update() instead of .reply()
     await interaction.update({ embeds: [embed], components: buttons });
     sheets.sync(await CharacterRepo.findAll(), interaction.client);
   } catch (e) {
