@@ -46,8 +46,11 @@ export async function profileEmbed(user, characters, interaction = null) {
   const timeText = tz ? `\n🌍 ${formatTime(tz)}` : '';
 
   if (!main) {
-    const joinHealEmoji = interaction?.guild?.emojis.cache.find(e => e.name === 'HelloThere');
-    const emojiStr = joinHealEmoji ? `${joinHealEmoji} ` : '';
+    let emojiStr = '';
+    if (interaction?.guild) {
+      const joinHealEmoji = interaction.guild.emojis.cache.find(e => e.name === 'HelloThere');
+      if (joinHealEmoji) emojiStr = joinHealEmoji.toString() + ' ';
+    }
     
     return new EmbedBuilder()
       .setColor(COLORS.PRIMARY)
