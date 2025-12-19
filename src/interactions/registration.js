@@ -18,15 +18,13 @@ import { updateNickname } from '../services/nickname.js';
 import { profileEmbed } from '../ui/embeds.js';
 import * as ui from '../ui/components.js';
 
-// ✅ NEW: Track active interactions to prevent race conditions
+// ✅ Track active interactions to prevent race conditions
 const activeInteractions = new Map();
 
-// ✅ NEW: Helper to check if user has active interaction
 function hasActiveInteraction(userId, interactionId) {
   const active = activeInteractions.get(userId);
   if (!active) return false;
   
-  // Clean up stale interactions (older than 3 seconds)
   if (Date.now() - active.timestamp > 3000) {
     activeInteractions.delete(userId);
     return false;
@@ -35,7 +33,6 @@ function hasActiveInteraction(userId, interactionId) {
   return active.id !== interactionId;
 }
 
-// ✅ NEW: Mark interaction as active
 function setActiveInteraction(userId, interactionId) {
   activeInteractions.set(userId, {
     id: interactionId,
@@ -43,12 +40,11 @@ function setActiveInteraction(userId, interactionId) {
   });
 }
 
-// ✅ NEW: Clear active interaction
 function clearActiveInteraction(userId) {
   activeInteractions.delete(userId);
 }
 
-// ✨ UPDATED: Helper to create centered, cute embeds with ANSI codes
+// ✨ Create cute registration embeds with ANSI formatting
 function createRegEmbed(step, total, title, description) {
   const ansiText = [
     '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
@@ -67,7 +63,125 @@ function createRegEmbed(step, total, title, description) {
     .setTimestamp();
 }
 
-// Helper to get class icon emoji ID (hardcoded Discord emoji IDs)
+// Cute text suggestions for each step
+const cuteTexts = {
+  region: [
+    "Where is your adventure taking you? 🌍",
+    "Pick your home region, adventurer! 🗺️",
+    "Which part of the world calls to you? 🌏",
+    "Let's find your timezone! 🧭",
+    "Ready to explore? Pick your region! 🚀",
+    "Your adventure starts here! 🌎",
+    "Where should we begin? 🎯",
+    "Pick a region and let's go! ✨",
+    "Which realm are you from? 🏰",
+    "Your home awaits... 💫"
+  ],
+  country: [
+    "Now, which country is home? 🏠",
+    "Let's get more specific! Which country? 🗺️",
+    "Pick your country, hero! 🌟",
+    "Where do you call home? 🏡",
+    "Choose your homeland! 🎨",
+    "Which country speaks to your heart? 💖",
+    "Your country of origin? 🌺",
+    "Select where your journey begins! 🌸",
+    "Pick your country! 🎭",
+    "Which place feels like home? 🌷"
+  ],
+  timezone: [
+    "What time is it where you are? 🕐",
+    "Pick your timezone! ⏰",
+    "When do you play? Choose your timezone! 🌙",
+    "Your local time zone? 🕰️",
+    "Where are you in the world right now? 🌍",
+    "Pick when you play! ⭐",
+    "Your timezone, please! 🎪",
+    "What time zone are you in? 🎨",
+    "Choose your timezone and let's sync! 💫",
+    "Time to set your clock! 🕐"
+  ],
+  class: [
+    "Which class calls to your soul? 🎭",
+    "Pick a class and become a legend! ⚔️",
+    "What's your fighting style? 🛡️",
+    "Choose your path to power! 💪",
+    "Which class will you master? 🌟",
+    "Pick your role and shine! ✨",
+    "What's your specialty? 🎯",
+    "Choose wisely, adventurer! 🧙",
+    "Your class awaits! 🏆",
+    "Pick your power! 💥"
+  ],
+  subclass: [
+    "Which subclass resonates with you? ✨",
+    "Pick your specialty! 🎯",
+    "Your subclass choice? 🌟",
+    "Which path calls to you? 🛤️",
+    "Choose your advanced path! 🚀",
+    "Pick your subclass power! ⚡",
+    "Which subclass suits you? 💖",
+    "Your specialty awaits! 🎨",
+    "Pick your unique power! 🔮",
+    "Which subclass feels right? 🌈"
+  ],
+  score: [
+    "How powerful are you? 💪",
+    "What's your combat power? ⚔️",
+    "Pick your ability score! 🌟",
+    "Your power level? 🔥",
+    "Choose your strength! 💎",
+    "What's your combat potential? ✨",
+    "Pick your power level! 🚀",
+    "How strong do you fight? 💫",
+    "Your combat power? 🏆",
+    "Choose your might! ⚡"
+  ],
+  battleImagine: [
+    "Do you own this Battle Imagine? ⚔️",
+    "Which tier do you have? 🎯",
+    "Your Battle Imagine tier? ✨",
+    "Pick your highest tier! 🌟",
+    "Do you have this power? 💫",
+    "Select your battle strength! ⚡",
+    "Which tier is yours? 🔥",
+    "Your imagination tier? 🎨",
+    "Battle power level? 💪",
+    "Pick your tier! 👑"
+  ],
+  guild: [
+    "Which guild will you join? 🏰",
+    "Pick your guild home! 🎪",
+    "Your guild choice? 🏆",
+    "Which guild calls you? 👑",
+    "Where do you belong? 🌟",
+    "Pick your guild family! 💖",
+    "Which guild feels right? ✨",
+    "Your guild destiny? 🚀",
+    "Join your guild! 🎯",
+    "Pick your guild path! 🌈"
+  ],
+  ign: [
+    "What's your in-game name? 🎮",
+    "Your character's name? ✨",
+    "What will they call you? 🌟",
+    "Your hero's name? 💫",
+    "Pick your IGN! 🎭",
+    "What's your gaming alias? 🏆",
+    "Your legendary name? 👑",
+    "Choose your legend! ⭐",
+    "Your character awaits! 🎨",
+    "What's your power name? 💥"
+  ]
+};
+
+// Get random cute text
+function getRandomCute(type) {
+  const texts = cuteTexts[type] || cuteTexts.region;
+  return texts[Math.floor(Math.random() * texts.length)];
+}
+
+// Get class icon emoji ID
 function getClassIconId(className) {
   const iconMap = {
     'Beat Performer': '1448837920931840021',
@@ -87,7 +201,6 @@ function getTimezoneAbbr(timezoneLabel) {
   return match ? match[1] : timezoneLabel;
 }
 
-// Calculate total steps dynamically
 function getTotalSteps(characterType) {
   const baseSteps = {
     'main': 7,
@@ -106,13 +219,11 @@ function getTotalSteps(characterType) {
 }
 
 export async function start(interaction, userId, characterType = 'main') {
-  // ✅ NEW: Check for race condition
   if (hasActiveInteraction(userId, interaction.id)) {
     console.log(`[REGISTRATION] Race condition detected for ${userId}, ignoring duplicate interaction`);
     return;
   }
   
-  // ✅ NEW: Mark this interaction as active
   setActiveInteraction(userId, interaction.id);
   
   const currentState = state.get(userId, 'reg') || {};
@@ -120,7 +231,6 @@ export async function start(interaction, userId, characterType = 'main') {
   console.log('[REGISTRATION] Starting registration for user:', userId);
   console.log('[REGISTRATION] State:', JSON.stringify(currentState, null, 2));
   
-  // Check if adding alt and user already has timezone
   const existingTimezone = await TimezoneRepo.get(userId);
   const isAlt = characterType === 'alt' || currentState.characterType === 'alt';
   
@@ -157,18 +267,17 @@ export async function start(interaction, userId, characterType = 'main') {
     });
     
     const totalSteps = getTotalSteps('alt');
-    const embed = createRegEmbed(1, totalSteps, '🎭 Choose Your Class', `**Timezone:** ${timezoneAbbr} • ${timeString}`);
+    const cuteText = getRandomCute('class');
+    const embed = createRegEmbed(1, totalSteps, '🎭 Choose Your Class', `**${timezoneAbbr}** ${timeString}\n\n${cuteText}`);
     
     const classOptions = Object.keys(CLASSES).map(className => {
       const iconId = getClassIconId(className);
-      const option = {
+      return {
         label: className,
         value: className,
         description: CLASSES[className].role,
         emoji: iconId ? { id: iconId } : CLASSES[className].emoji
       };
-      
-      return option;
     });
     
     const selectMenu = new StringSelectMenuBuilder()
@@ -190,16 +299,15 @@ export async function start(interaction, userId, characterType = 'main') {
       await interaction.update({ embeds: [embed], components: [row1, row2] });
     }
     
-    // ✅ NEW: Clear active interaction after successful update
     clearActiveInteraction(userId);
     return;
   }
   
-  // Main character registration - start with region
   state.set(userId, 'reg', { characterType });
   
   const totalSteps = getTotalSteps('main');
-  const embed = createRegEmbed(1, totalSteps, '🌍 Choose Your Region', 'Where are you playing from?');
+  const cuteText = getRandomCute('region');
+  const embed = createRegEmbed(1, totalSteps, '🌍 Choose Your Region', cuteText);
 
   const regionOptions = Object.keys(REGIONS).map(region => ({
     label: region,
@@ -227,16 +335,11 @@ export async function start(interaction, userId, characterType = 'main') {
     await interaction.update({ embeds: [embed], components: [row1, row2] });
   }
   
-  // ✅ NEW: Clear active interaction after successful update
   clearActiveInteraction(userId);
 }
 
 export async function handleRegion(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at region select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const region = interaction.values[0];
@@ -244,14 +347,20 @@ export async function handleRegion(interaction, userId) {
   state.set(userId, 'reg', { ...currentState, region });
 
   const totalSteps = getTotalSteps('main');
-  const embed = createRegEmbed(2, totalSteps, '🏳️ Choose Your Country', `**Region:** ${region}`);
+  const cuteText = getRandomCute('country');
+  const embed = createRegEmbed(2, totalSteps, '🏳️ Choose Your Country', `**${region}**\n\n${cuteText}`);
 
   const countries = Object.keys(REGIONS[region]);
-  const countryOptions = countries.map(country => ({
-    label: country,
-    value: country,
-    description: 'Select your location'
-  }));
+  const countryOptions = countries.map(country => {
+    // Extract flag emoji from country name (e.g., "🇺🇸 United States" -> "🇺🇸")
+    const flag = country.split(' ')[0] || '🏳️';
+    return {
+      label: country,
+      value: country,
+      description: `${country.substring(0, 50)}`,
+      emoji: flag
+    };
+  });
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_country_${userId}`)
@@ -267,16 +376,11 @@ export async function handleRegion(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-  
   clearActiveInteraction(userId);
 }
 
 export async function handleCountry(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at country select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const currentState = state.get(userId, 'reg');
@@ -284,7 +388,8 @@ export async function handleCountry(interaction, userId) {
   state.set(userId, 'reg', { ...currentState, country });
 
   const totalSteps = getTotalSteps('main');
-  const embed = createRegEmbed(3, totalSteps, '🕐 Choose Your Timezone', `**Country:** ${country}`);
+  const cuteText = getRandomCute('timezone');
+  const embed = createRegEmbed(3, totalSteps, '🕐 Choose Your Timezone', `**${country}**\n\n${cuteText}`);
 
   const timezones = REGIONS[currentState.region][country];
   
@@ -309,16 +414,11 @@ export async function handleCountry(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-  
   clearActiveInteraction(userId);
 }
 
 export async function handleTimezone(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at timezone select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const currentState = state.get(userId, 'reg');
@@ -345,18 +445,17 @@ export async function handleTimezone(interaction, userId) {
   });
 
   const totalSteps = getTotalSteps('main');
-  const embed = createRegEmbed(4, totalSteps, '🎭 Choose Your Class', `**Timezone:** ${timezoneAbbr} • ${timeString}`);
+  const cuteText = getRandomCute('class');
+  const embed = createRegEmbed(4, totalSteps, '🎭 Choose Your Class', `**${timezoneAbbr}** ${timeString}\n\n${cuteText}`);
 
   const classOptions = Object.keys(CLASSES).map(className => {
     const iconId = getClassIconId(className);
-    const option = {
+    return {
       label: className,
       value: className,
       description: CLASSES[className].role,
       emoji: iconId ? { id: iconId } : CLASSES[className].emoji
     };
-    
-    return option;
   });
 
   const selectMenu = new StringSelectMenuBuilder()
@@ -373,16 +472,11 @@ export async function handleTimezone(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-  
   clearActiveInteraction(userId);
 }
 
 export async function handleClass(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at class select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const className = interaction.values[0];
@@ -392,7 +486,6 @@ export async function handleClass(interaction, userId) {
   const subclasses = CLASSES[className].subclasses;
   const classRole = CLASSES[className].role;
   
-  // Determine step numbers based on whether it's an alt or subclass
   const isAlt = currentState.characterType === 'alt';
   const isSubclass = currentState.type === 'subclass';
   const totalSteps = getTotalSteps(currentState.characterType || 'main');
@@ -406,20 +499,19 @@ export async function handleClass(interaction, userId) {
     stepNum = 5;
   }
   
-  const embed = createRegEmbed(stepNum, totalSteps, '📋 Choose Your Subclass', `**Class:** ${className}`);
+  const cuteText = getRandomCute('subclass');
+  const embed = createRegEmbed(stepNum, totalSteps, '📋 Choose Your Subclass', `**${className}**\n\n${cuteText}`);
 
   const subclassOptions = subclasses.map(subclassName => {
     const roleEmoji = classRole === 'Tank' ? '🛡️' : classRole === 'DPS' ? '⚔️' : '💚';
     const iconId = getClassIconId(className);
     
-    const option = {
+    return {
       label: subclassName,
       value: subclassName,
       description: classRole,
       emoji: iconId ? { id: iconId } : roleEmoji
     };
-    
-    return option;
   });
 
   const selectMenu = new StringSelectMenuBuilder()
@@ -436,23 +528,17 @@ export async function handleClass(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-  
   clearActiveInteraction(userId);
 }
 
 export async function handleSubclass(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at subclass select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const subclassName = interaction.values[0];
   const currentState = state.get(userId, 'reg');
   state.set(userId, 'reg', { ...currentState, subclass: subclassName });
   
-  // Determine step numbers based on whether it's an alt or subclass
   const isAlt = currentState.characterType === 'alt';
   const isSubclass = currentState.type === 'subclass';
   const totalSteps = getTotalSteps(currentState.characterType || 'main');
@@ -466,18 +552,19 @@ export async function handleSubclass(interaction, userId) {
     stepNum = 6;
   }
   
-  const embed = createRegEmbed(stepNum, totalSteps, '💪 Choose Your Score', `**Subclass:** ${subclassName}`);
+  const cuteText = getRandomCute('score');
+  const embed = createRegEmbed(stepNum, totalSteps, '💪 Choose Your Combat Power', `**${currentState.class}** - ${subclassName}\n\n${cuteText}`);
 
   const scoreOptions = ABILITY_SCORES.map(score => ({
     label: score.label,
     value: score.value,
-    description: 'Your ability score range',
+    description: 'Your combat power range',
     emoji: '💪'
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_ability_score_${userId}`)
-    .setPlaceholder('💪 Pick your score')
+    .setPlaceholder('💪 Pick your power')
     .addOptions(scoreOptions);
 
   const backButton = new ButtonBuilder()
@@ -489,27 +576,20 @@ export async function handleSubclass(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-  
   clearActiveInteraction(userId);
 }
 
 export async function handleScore(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at score select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const abilityScore = interaction.values[0];
   const currentState = state.get(userId, 'reg');
   state.set(userId, 'reg', { ...currentState, abilityScore });
 
-  // Check if this is a subclass registration
   const isSubclass = currentState.type === 'subclass';
   
   if (isSubclass) {
-    // For subclasses, skip battle imagines and guild selection, complete registration
     try {
       const parentChar = await CharacterRepo.findById(currentState.parentId);
       
@@ -559,7 +639,6 @@ export async function handleScore(interaction, userId) {
     return;
   }
 
-  // For main/alt characters, proceed to Battle Imagines
   state.set(userId, 'reg', { 
     ...currentState, 
     abilityScore,
@@ -567,20 +646,15 @@ export async function handleScore(interaction, userId) {
     currentImagineIndex: 0
   });
   
-  // Start Battle Imagine flow
   await showBattleImagineSelection(interaction, userId);
-  
   clearActiveInteraction(userId);
 }
 
-// Show Battle Imagine selection for current imagine
 async function showBattleImagineSelection(interaction, userId) {
   const currentState = state.get(userId, 'reg');
   const { currentImagineIndex, battleImagines } = currentState;
   
-  // Check if we've shown all battle imagines
   if (currentImagineIndex >= config.battleImagines.length) {
-    // All battle imagines done, proceed to guild selection
     await proceedToGuildSelection(interaction, userId);
     return;
   }
@@ -589,7 +663,6 @@ async function showBattleImagineSelection(interaction, userId) {
   const isAlt = currentState.characterType === 'alt';
   const totalSteps = getTotalSteps(currentState.characterType || 'main');
   
-  // Calculate step number
   let baseStep;
   if (isAlt) {
     baseStep = 4;
@@ -598,32 +671,30 @@ async function showBattleImagineSelection(interaction, userId) {
   }
   const stepNum = baseStep + currentImagineIndex;
   
-  // Use custom emoji in title if available
+  const cuteText = getRandomCute('battleImagine');
   const titleEmoji = currentImagine.logo ? `<:bi:${currentImagine.logo}>` : '⚔️';
   
   const embed = createRegEmbed(
     stepNum, 
     totalSteps, 
-    `${titleEmoji} Battle Imagine - ${currentImagine.name}`, 
-    `Do you own **${currentImagine.name}**?\n\nSelect the highest tier you own:`
+    `${titleEmoji} ${currentImagine.name}`, 
+    `${cuteText}\n\nSelect your highest tier:`
   );
   
-  // Build tier options with custom emoji
   const tierOptions = [
     {
       label: 'Skip / I don\'t own this',
       value: 'skip',
-      description: 'I don\'t have this Battle Imagine',
+      description: 'Don\'t have this one',
       emoji: '⏭️'
     }
   ];
   
-  // Add tier options T0-T5
   for (const tier of TIERS) {
     const option = {
       label: tier,
       value: tier,
-      description: tier === 'T5' ? 'Tier Five (Max)' : `Tier ${tier.substring(1)}`,
+      description: tier === 'T5' ? 'Maximum tier!' : `Level ${tier.substring(1)}`,
       emoji: currentImagine.logo ? { id: currentImagine.logo } : '⭐'
     };
     
@@ -647,18 +718,13 @@ async function showBattleImagineSelection(interaction, userId) {
 }
 
 export async function handleBattleImagine(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at battle imagine select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const currentState = state.get(userId, 'reg');
   const selectedTier = interaction.values[0];
   const currentImagine = config.battleImagines[currentState.currentImagineIndex];
   
-  // If not skipped, add to battle imagines array
   if (selectedTier !== 'skip') {
     currentState.battleImagines.push({
       name: currentImagine.name,
@@ -666,32 +732,27 @@ export async function handleBattleImagine(interaction, userId) {
     });
   }
   
-  // Move to next imagine
   currentState.currentImagineIndex++;
   state.set(userId, 'reg', currentState);
   
-  // Show next imagine or proceed to guild
   await showBattleImagineSelection(interaction, userId);
-  
   clearActiveInteraction(userId);
 }
 
-// Proceed to guild selection after battle imagines
 async function proceedToGuildSelection(interaction, userId) {
   const currentState = state.get(userId, 'reg');
   const scoreLabel = ABILITY_SCORES.find(s => s.value === currentState.abilityScore)?.label || currentState.abilityScore;
-  const isAlt = currentState.characterType === 'alt';
   const totalSteps = getTotalSteps(currentState.characterType || 'main');
   
-  // Calculate step number (after all battle imagines)
   const stepNum = totalSteps - 1;
   
-  const embed = createRegEmbed(stepNum, totalSteps, '🏰 Choose Your Guild', `**Score:** ${scoreLabel}`);
+  const cuteText = getRandomCute('guild');
+  const embed = createRegEmbed(stepNum, totalSteps, '🏰 Choose Your Guild', `**Power:** ${scoreLabel}\n\n${cuteText}`);
 
   const guildOptions = config.guilds.map(guild => ({
     label: guild.name,
     value: guild.name,
-    description: 'Choose your guild',
+    description: 'Choose your family',
     emoji: '🏰'
   }));
 
@@ -712,11 +773,7 @@ async function proceedToGuildSelection(interaction, userId) {
 }
 
 export async function handleGuild(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at guild select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const guild = interaction.values[0];
@@ -725,7 +782,7 @@ export async function handleGuild(interaction, userId) {
 
   const modal = new ModalBuilder()
     .setCustomId(`ign_modal_${userId}`)
-    .setTitle('Enter Character Details');
+    .setTitle('Character Details');
 
   const ignInput = new TextInputBuilder()
     .setCustomId('ign')
@@ -737,9 +794,9 @@ export async function handleGuild(interaction, userId) {
 
   const uidInput = new TextInputBuilder()
     .setCustomId('uid')
-    .setLabel('UID (User ID)')
+    .setLabel('UID (Numbers only)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Your game UID (required)')
+    .setPlaceholder('Your game UID')
     .setRequired(true)
     .setMaxLength(50);
 
@@ -748,7 +805,6 @@ export async function handleGuild(interaction, userId) {
   modal.addComponents(row1, row2);
 
   await interaction.showModal(modal);
-  
   clearActiveInteraction(userId);
 }
 
@@ -761,7 +817,6 @@ export async function handleIGN(interaction, userId) {
   console.log('[REGISTRATION] UID entered:', uid);
   console.log('[REGISTRATION] Final state:', JSON.stringify(currentState, null, 2));
 
-  // Validate UID is numbers only
   if (!/^\d+$/.test(uid)) {
     state.set(userId, 'reg', { 
       ...currentState, 
@@ -770,11 +825,11 @@ export async function handleIGN(interaction, userId) {
     
     const errorEmbed = new EmbedBuilder()
       .setColor('#FF0000')
-      .setDescription('# ❌ **Invalid UID**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**UID must contain only numbers.**\n\nYou entered: `' + uid + '`\n\nPlease click the button below to try again with a valid numeric UID.');
+      .setDescription('# ❌ **Invalid UID**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**UID must contain only numbers.**\n\nYou entered: `' + uid + '`\n\n✨ Please try again with a numeric UID!');
     
     const retryButton = new ButtonBuilder()
       .setCustomId(`retry_ign_uid_${userId}`)
-      .setLabel('✏️ Retry Registration')
+      .setLabel('✏️ Retry')
       .setStyle(ButtonStyle.Danger);
     
     const row = new ActionRowBuilder().addComponents(retryButton);
@@ -801,7 +856,6 @@ export async function handleIGN(interaction, userId) {
       parentId: null
     });
     
-    // Save Battle Imagines if any were selected
     if (currentState.battleImagines && currentState.battleImagines.length > 0) {
       for (const imagine of currentState.battleImagines) {
         await BattleImagineRepo.add(character.id, imagine.name, imagine.tier);
@@ -809,7 +863,6 @@ export async function handleIGN(interaction, userId) {
       console.log(`[REGISTRATION] Saved ${currentState.battleImagines.length} Battle Imagines`);
     }
     
-    // Sync nickname for main character
     if (currentState.characterType === 'main' && config.sync.nicknameEnabled) {
       try {
         await updateNickname(interaction.client, config.discord.guildId, userId, ign);
@@ -856,7 +909,7 @@ export async function retryIGN(interaction, userId) {
   
   const modal = new ModalBuilder()
     .setCustomId(`ign_modal_${userId}`)
-    .setTitle('Enter Character Details');
+    .setTitle('Character Details');
 
   const ignInput = new TextInputBuilder()
     .setCustomId('ign')
@@ -872,9 +925,9 @@ export async function retryIGN(interaction, userId) {
 
   const uidInput = new TextInputBuilder()
     .setCustomId('uid')
-    .setLabel('UID (User ID) - Numbers only!')
+    .setLabel('UID (Numbers only)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Enter numeric UID (e.g. 123456789)')
+    .setPlaceholder('Enter numeric UID')
     .setRequired(true)
     .setMaxLength(50);
 
@@ -953,17 +1006,14 @@ export async function backToBattleImagine(interaction, userId) {
     return;
   }
   
-  // If we're at the first battle imagine, go back to ability score
   if (currentState.currentImagineIndex === 0) {
-    interaction.values = [currentState.subclass];
-    await handleSubclass(interaction, userId);
+    interaction.values = [currentState.abilityScore];
+    await handleScore(interaction, userId);
     return;
   }
   
-  // Otherwise, go back to previous battle imagine
   currentState.currentImagineIndex--;
   
-  // Remove the last added imagine if user is going back
   if (currentState.battleImagines && currentState.battleImagines.length > 0) {
     currentState.battleImagines.pop();
   }
