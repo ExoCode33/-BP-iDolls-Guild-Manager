@@ -1,35 +1,27 @@
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { formatScore } from './utils.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
-export function createApplicationEmbed(user, character, application) {
+// This function adds vote count footer to existing profile embed
+export function addVotingFooter(profileEmbed, application) {
   const acceptVotes = application.accept_votes || [];
   const denyVotes = application.deny_votes || [];
   
   const acceptList = acceptVotes.length > 0 
     ? acceptVotes.map(id => `<@${id}>`).join(', ')
-    : '*None yet*';
+    : '*None*';
   
   const denyList = denyVotes.length > 0 
     ? denyVotes.map(id => `<@${id}>`).join(', ')
-    : '*None yet*';
+    : '*None*';
 
-  return new EmbedBuilder()
-    .setColor('#EC4899')
-    .setTitle('🏰 Guild Application - iDolls')
-    .setDescription(`**${user.username}** has applied to join **iDolls**!`)
-    .addFields(
-      { name: '👤 Discord User', value: `<@${user.id}>`, inline: true },
-      { name: '🎮 IGN', value: character.ign, inline: true },
-      { name: '🆔 UID', value: character.uid || 'Not set', inline: true },
-      { name: '🎭 Class', value: `${character.class}\n${character.subclass}`, inline: true },
-      { name: '💪 Score', value: formatScore(character.ability_score), inline: true },
-      { name: '🏰 Applied Guild', value: application.guild_name, inline: true },
-      { name: '\u200b', value: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
-      { name: `✅ Accept (${acceptVotes.length}/2)`, value: acceptList, inline: true },
-      { name: `❌ Deny (${denyVotes.length}/2)`, value: denyList, inline: true }
-    )
-    .setFooter({ text: `Application ID: ${application.id} | 2 votes needed to approve/deny` })
-    .setTimestamp(new Date(application.created_at));
+  // Add voting fields to the profile embed
+  profileEmbed.addFields(
+    { name: '\u200b', value: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
+    { name: '🏰 Guild Application', value: `Applied to: **${application.guild_name}**`, inline: false },
+    { name: `✅ Accept Votes (${acceptVotes.length}/2)`, value: acceptList, inline: true },
+    { name: `❌ Deny Votes (${denyVotes.length}/2)`, value: denyList, inline: true }
+  );
+
+  return profileEmbed;
 }
 
 export function createApplicationButtons(applicationId) {
