@@ -310,7 +310,12 @@ export async function handleEditGuild(interaction, userId) {
       const member = await guildObj.members.fetch(userId);
       
       if (guild === 'Visitor') {
-        // Switching TO Visitor
+        // ✅ FIX: Remove guild role when switching TO Visitor
+        if (config.roles.guild1 && member.roles.cache.has(config.roles.guild1)) {
+          await member.roles.remove(config.roles.guild1);
+          console.log(`[EDIT] Removed guild role from ${userId}`);
+        }
+        
         if (config.roles.visitor) {
           await member.roles.add(config.roles.visitor);
           console.log(`[EDIT] Added Visitor role to ${userId}`);
