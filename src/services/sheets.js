@@ -930,7 +930,7 @@ class GoogleSheetsService {
                   foregroundColor: discordColor,
                   bold: true
                 },
-                horizontalAlignment: 'LEFT',
+                horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
                 padding: {
                   left: 14,
@@ -965,7 +965,7 @@ class GoogleSheetsService {
                   bold: true,
                   italic: meta.isSubclass
                 },
-                horizontalAlignment: 'LEFT',
+                horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
                 padding: {
                   left: 14,
@@ -1000,7 +1000,7 @@ class GoogleSheetsService {
                   bold: true,
                   italic: meta.isSubclass
                 },
-                horizontalAlignment: 'LEFT',
+                horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
                 padding: {
                   left: 14,
