@@ -43,8 +43,16 @@ export async function syncAllNicknames(client, guildId, mainCharacters) {
     } else {
       failed++;
       failures.push({ userId: char.user_id, ign: char.ign, reason: result.reason });
+      console.log(`⚠️  [NICKNAME] Failed to update ${char.ign}: ${result.reason}`);
     }
     await new Promise(r => setTimeout(r, 100));
+  }
+
+  if (failed > 0) {
+    console.log(`❌ [NICKNAME] ${failed} nickname(s) failed to sync:`);
+    failures.forEach(f => {
+      console.log(`   • ${f.ign}: ${f.reason}`);
+    });
   }
 
   logger.nicknameSync(updated, failed);
