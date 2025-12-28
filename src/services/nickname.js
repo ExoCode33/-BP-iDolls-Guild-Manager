@@ -47,6 +47,6 @@ export async function syncAllNicknames(client, guildId, mainCharacters) {
     await new Promise(r => setTimeout(r, 100));
   }
 
-  logger.syncNickname(updated, failed);
+  logger.nicknameSync(updated, failed);
   return { updated, failed, failures };
 }
