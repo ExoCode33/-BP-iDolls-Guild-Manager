@@ -36,6 +36,13 @@ export async function route(interaction) {
     const appId = parseInt(customId.split('_')[3]);
     return applicationService.handleVote(interaction, appId, 'deny');
   }
+  
+  // ✅ FIX: Handle the main "Admin Override" button click
+  if (customId.startsWith('app_override_') && !customId.includes('accept') && !customId.includes('deny') && !customId.includes('cancel')) {
+    const appId = parseInt(customId.split('_')[2]);
+    return applicationService.showOverrideMenu(interaction, appId);
+  }
+  
   if (customId.startsWith('app_override_accept_')) {
     const appId = parseInt(customId.split('_')[3]);
     return applicationService.handleOverride(interaction, appId, 'accept');
@@ -45,7 +52,7 @@ export async function route(interaction) {
     return applicationService.handleOverride(interaction, appId, 'deny');
   }
   if (customId.startsWith('app_override_') && customId.includes('cancel')) {
-    return interaction.update({ content: '❌ Override cancelled.', components: [] });
+    return interaction.update({ content: '❌ Override cancelled.', components: [], flags: MessageFlags.Ephemeral });
   }
 
   // Check ownership - admins can bypass for admin_ prefixed actions
