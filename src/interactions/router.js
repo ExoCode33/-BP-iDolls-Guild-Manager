@@ -1,5 +1,3 @@
-// /app/src/interactions/router.js
-
 import { MessageFlags } from 'discord.js';
 import logger from '../services/logger.js';
 import state from '../services/state.js';
@@ -27,31 +25,40 @@ export async function route(interaction) {
   const userId = extractUserId(customId);
   const isAdminAction = customId.startsWith('admin_');
 
-  // Application handlers - FIRST, before ownership checks
+  // ✅ APPLICATION HANDLERS - FIRST, before ownership checks
   if (customId.startsWith('app_vote_accept_')) {
     const appId = parseInt(customId.split('_')[3]);
+    console.log(`[ROUTER] Accept vote button clicked, appId: ${appId}, customId: ${customId}`);
     return applicationService.handleVote(interaction, appId, 'accept');
   }
+  
   if (customId.startsWith('app_vote_deny_')) {
     const appId = parseInt(customId.split('_')[3]);
+    console.log(`[ROUTER] Deny vote button clicked, appId: ${appId}, customId: ${customId}`);
     return applicationService.handleVote(interaction, appId, 'deny');
   }
   
-  // ✅ FIX: Handle the main "Admin Override" button click
+  // Handle the main "Admin Override" button click (shows menu)
   if (customId.startsWith('app_override_') && !customId.includes('accept') && !customId.includes('deny') && !customId.includes('cancel')) {
     const appId = parseInt(customId.split('_')[2]);
+    console.log(`[ROUTER] Override menu button clicked, appId: ${appId}, customId: ${customId}`);
     return applicationService.showOverrideMenu(interaction, appId);
   }
   
   if (customId.startsWith('app_override_accept_')) {
     const appId = parseInt(customId.split('_')[3]);
+    console.log(`[ROUTER] Override accept button clicked, appId: ${appId}, customId: ${customId}`);
     return applicationService.handleOverride(interaction, appId, 'accept');
   }
+  
   if (customId.startsWith('app_override_deny_')) {
     const appId = parseInt(customId.split('_')[3]);
+    console.log(`[ROUTER] Override deny button clicked, appId: ${appId}, customId: ${customId}`);
     return applicationService.handleOverride(interaction, appId, 'deny');
   }
-  if (customId.startsWith('app_override_') && customId.includes('cancel')) {
+  
+  if (customId.startsWith('app_override_cancel')) {
+    console.log(`[ROUTER] Override cancel button clicked, customId: ${customId}`);
     return interaction.update({ content: '❌ Override cancelled.', components: [], flags: MessageFlags.Ephemeral });
   }
 
@@ -144,7 +151,6 @@ export async function routeSelectMenu(interaction) {
   logger.interaction('select', customId, interaction.user.username);
 
   try {
-    // Registration select menus - these need to be routed to registration handlers
     if (customId.startsWith('select_region_')) return reg.handleRegion(interaction, userId);
     if (customId.startsWith('select_country_')) return reg.handleCountry(interaction, userId);
     if (customId.startsWith('select_timezone_')) return reg.handleTimezone(interaction, userId);
@@ -178,7 +184,6 @@ export async function routeSelectMenu(interaction) {
       return reg.handleGuild(interaction, userId);
     }
 
-    // Edit character type selections
     if (customId.startsWith('add_type_')) return edit.handleAddType(interaction, userId);
     if (customId.startsWith('edit_type_')) return edit.handleEditType(interaction, userId);
     if (customId.startsWith('remove_type_')) return edit.handleRemoveType(interaction, userId);
@@ -205,12 +210,10 @@ export async function routeModal(interaction) {
   logger.interaction('modal', customId, interaction.user.username);
 
   try {
-    // Registration modals
     if (customId.startsWith('ign_modal_')) {
       return reg.handleIGN(interaction, userId);
     }
 
-    // Edit modals
     if (customId.startsWith('edit_ign_')) {
       return edit.handleEditModal(interaction, userId, 'ign');
     }
