@@ -3,7 +3,7 @@ import state from '../services/state.js';
 import logger from '../services/logger.js';
 import config from '../config/index.js';
 import { isEphemeral } from '../services/ephemeral.js';
-import { CharacterRepo, BattleImagineRepo } from '../database/repositories.js';
+import { CharacterRepo, BattleImagineRepo, ApplicationRepo } from '../database/repositories.js';
 import applicationService from '../services/applications.js';
 
 const ephemeralFlag = { flags: MessageFlags.Ephemeral };
@@ -327,7 +327,29 @@ export async function handleEditGuild(interaction, userId) {
           console.log(`[EDIT] Removed Registered role from ${userId}`);
         }
       } else if (guild === 'iDolls' && config.roles.guild1) {
-        // ✅ TRIGGER APPLICATION SYSTEM when changing to iDolls
+        // ✅ DELETE OLD APPLICATION FIRST to avoid duplicate
+        const existingApps = await ApplicationRepo.findPending();
+        const oldApp = existingApps.find(app => 
+          app.user_id === userId && app.character_id === s.charId
+        );
+        
+        if (oldApp) {
+          console.log(`[EDIT] Deleting old pending application ID ${oldApp.id}`);
+          if (oldApp.message_id && config.channels.admin) {
+            try {
+              const adminChannel = await interaction.client.channels.fetch(config.channels.admin);
+              const oldMessage = await adminChannel.messages.fetch(oldApp.message_id);
+              await oldMessage.delete();
+              console.log(`[EDIT] Deleted old message ${oldApp.message_id}`);
+            } catch (e) {
+              console.log(`[EDIT] Could not delete old message: ${e.message}`);
+            }
+          }
+          await ApplicationRepo.delete(oldApp.id);
+          console.log(`[EDIT] Deleted old application from database`);
+        }
+        
+        // Add roles
         if (config.roles.registered) {
           await member.roles.add(config.roles.registered);
           console.log(`[EDIT] Added Registered role to ${userId}`);
@@ -338,9 +360,9 @@ export async function handleEditGuild(interaction, userId) {
           console.log(`[EDIT] Removed Visitor role from ${userId}`);
         }
         
-        // Create application with voting system
+        // Create NEW application with voting system
         await applicationService.createApplication(userId, s.charId, guild);
-        console.log(`[EDIT] Created application for ${userId} to join ${guild}`);
+        console.log(`[EDIT] Created NEW application for ${userId} to join ${guild}`);
       } else {
         // Other guilds (not iDolls, not Visitor)
         if (config.roles.registered) {
