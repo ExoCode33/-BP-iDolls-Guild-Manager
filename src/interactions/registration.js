@@ -217,8 +217,8 @@ function getTimezoneCities(tzLabel) {
 }
 
 async function assignRoles(client, userId, guildName) {
-  if (!config.roles?.registered || !config.discord?.guildId) {
-    console.log('[REGISTRATION] Role assignment not configured');
+  if (!config.discord?.guildId) {
+    console.log('[REGISTRATION] Guild ID not configured');
     return;
   }
 
@@ -226,21 +226,38 @@ async function assignRoles(client, userId, guildName) {
     const guild = await client.guilds.fetch(config.discord.guildId);
     const member = await guild.members.fetch(userId);
 
-    // Add Registered role
-    if (config.roles.registered) {
-      await member.roles.add(config.roles.registered);
-      console.log(`[REGISTRATION] Added Registered role to ${userId}`);
-    }
+    // If they chose Visitor guild, only give Visitor role
+    if (guildName === 'Visitor') {
+      // Add Visitor role
+      if (config.roles.visitor) {
+        await member.roles.add(config.roles.visitor);
+        console.log(`[REGISTRATION] Added Visitor role to ${userId}`);
+      }
+      
+      // Remove Registered role if they have it
+      if (config.roles.registered && member.roles.cache.has(config.roles.registered)) {
+        await member.roles.remove(config.roles.registered);
+        console.log(`[REGISTRATION] Removed Registered role from ${userId}`);
+      }
+    } else {
+      // They chose an actual guild (iDolls, etc.)
+      
+      // Add Registered role
+      if (config.roles.registered) {
+        await member.roles.add(config.roles.registered);
+        console.log(`[REGISTRATION] Added Registered role to ${userId}`);
+      }
 
-    // Remove Visitor role if they have it
-    if (config.roles.visitor && member.roles.cache.has(config.roles.visitor)) {
-      await member.roles.remove(config.roles.visitor);
-      console.log(`[REGISTRATION] Removed Visitor role from ${userId}`);
-    }
+      // Remove Visitor role if they have it
+      if (config.roles.visitor && member.roles.cache.has(config.roles.visitor)) {
+        await member.roles.remove(config.roles.visitor);
+        console.log(`[REGISTRATION] Removed Visitor role from ${userId}`);
+      }
 
-    // Check if guild is iDolls and add guild role
-    if (guildName === 'iDolls' && config.roles.guild1) {
-      await notifyAdminForGuildRole(client, member, guildName);
+      // Check if guild is iDolls and notify admins for guild role
+      if (guildName === 'iDolls' && config.roles.guild1) {
+        await notifyAdminForGuildRole(client, member, guildName);
+      }
     }
 
   } catch (error) {
