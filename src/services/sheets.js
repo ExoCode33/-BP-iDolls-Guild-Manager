@@ -1,14 +1,14 @@
 import { google } from 'googleapis';
-import dotenv from 'dotenv';
-import db from './database.js';
-
-dotenv.config();
+import config from '../config/index.js';
+import { TIMEZONE_ABBR, CLASSES } from '../config/game.js';
+import { TimezoneRepo, BattleImagineRepo } from '../database/repositories.js';
+import logger from './logger.js';
 
 class GoogleSheetsService {
   constructor() {
     this.auth = null;
     this.sheets = null;
-    this.spreadsheetId = process.env.GOOGLE_SHEETS_ID;
+    this.spreadsheetId = config.sheets.id;
     
     // Rate limiting
     this.lastSyncTime = 0;
@@ -35,21 +35,21 @@ class GoogleSheetsService {
     console.log('🚀 [SHEETS] initialize() called');
     try {
       console.log('🔍 [SHEETS] Checking environment variables...');
-      console.log(`  GOOGLE_SHEETS_ID: ${process.env.GOOGLE_SHEETS_ID ? '✅ Set' : '❌ Missing'}`);
-      console.log(`  GOOGLE_SERVICE_ACCOUNT_EMAIL: ${process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ? '✅ Set' : '❌ Missing'}`);
-      console.log(`  GOOGLE_PRIVATE_KEY: ${process.env.GOOGLE_PRIVATE_KEY ? '✅ Set' : '❌ Missing'}`);
+      console.log(`  GOOGLE_SHEETS_ID: ${config.sheets.id ? '✅ Set' : '❌ Missing'}`);
+      console.log(`  GOOGLE_SERVICE_ACCOUNT_EMAIL: ${config.sheets.email ? '✅ Set' : '❌ Missing'}`);
+      console.log(`  GOOGLE_PRIVATE_KEY: ${config.sheets.key ? '✅ Set' : '❌ Missing'}`);
       
-      if (!process.env.GOOGLE_SHEETS_ID || !process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+      if (!config.sheets.id || !config.sheets.email || !config.sheets.key) {
         console.log('⚠️  Google Sheets credentials not configured - skipping');
         return false;
       }
 
       console.log('🔧 [SHEETS] Creating Google Auth...');
-      const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+      const privateKey = config.sheets.key?.replace(/\\n/g, '\n');
 
       this.auth = new google.auth.GoogleAuth({
         credentials: {
-          client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+          client_email: config.sheets.email,
           private_key: privateKey,
         },
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -1340,6 +1340,14 @@ class GoogleSheetsService {
 
   async syncAllCharacters(allCharactersWithSubclasses) {
     return await this.fullSync(allCharactersWithSubclasses);
+  }
+
+  async init() {
+    return await this.initialize();
+  }
+
+  async sync(characters, client) {
+    return await this.fullSync(characters);
   }
 }
 
