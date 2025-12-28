@@ -4,6 +4,7 @@ import logger from '../services/logger.js';
 import config from '../config/index.js';
 import { isEphemeral } from '../services/ephemeral.js';
 import { CharacterRepo, BattleImagineRepo } from '../database/repositories.js';
+import applicationService from '../services/applications.js';
 
 const ephemeralFlag = { flags: MessageFlags.Ephemeral };
 import { embed, errorEmbed, successEmbed, profileEmbed } from '../ui/embeds.js';
@@ -325,9 +326,8 @@ export async function handleEditGuild(interaction, userId) {
           await member.roles.remove(config.roles.registered);
           console.log(`[EDIT] Removed Registered role from ${userId}`);
         }
-      } else {
-        // Switching FROM Visitor to actual guild (like iDolls)
-        // Only handle registered/visitor roles - NOT guild role
+      } else if (guild === 'iDolls' && config.roles.guild1) {
+        // ✅ TRIGGER APPLICATION SYSTEM when changing to iDolls
         if (config.roles.registered) {
           await member.roles.add(config.roles.registered);
           console.log(`[EDIT] Added Registered role to ${userId}`);
@@ -338,11 +338,23 @@ export async function handleEditGuild(interaction, userId) {
           console.log(`[EDIT] Removed Visitor role from ${userId}`);
         }
         
-        // Guild role must be assigned manually or through application system
-        console.log(`[EDIT] Guild changed to ${guild} - guild role requires manual assignment`);
+        // Create application with voting system
+        await applicationService.createApplication(userId, s.charId, guild);
+        console.log(`[EDIT] Created application for ${userId} to join ${guild}`);
+      } else {
+        // Other guilds (not iDolls, not Visitor)
+        if (config.roles.registered) {
+          await member.roles.add(config.roles.registered);
+          console.log(`[EDIT] Added Registered role to ${userId}`);
+        }
+        
+        if (config.roles.visitor && member.roles.cache.has(config.roles.visitor)) {
+          await member.roles.remove(config.roles.visitor);
+          console.log(`[EDIT] Removed Visitor role from ${userId}`);
+        }
       }
     } catch (error) {
-      console.error('[EDIT] Role error:', error.message);
+      console.error('[EDIT] Role/application error:', error.message);
     }
   }
 
