@@ -6,7 +6,8 @@ import {
   TextInputStyle,
   EmbedBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  MessageFlags
 } from 'discord.js';
 import logger from '../services/logger.js';
 import { CharacterRepo, BattleImagineRepo, TimezoneRepo } from '../database/repositories.js';
@@ -17,6 +18,7 @@ import { formatScore } from '../ui/utils.js';
 import { updateNickname } from '../services/nickname.js';
 import { profileEmbed } from '../ui/embeds.js';
 import * as ui from '../ui/components.js';
+import applicationService from '../services/applications.js';
 
 const activeInteractions = new Map();
 
@@ -226,37 +228,25 @@ async function assignRoles(client, userId, guildName, characterData = null) {
     const guild = await client.guilds.fetch(config.discord.guildId);
     const member = await guild.members.fetch(userId);
 
-    // If they chose Visitor guild, only give Visitor role
     if (guildName === 'Visitor') {
-      // Add Visitor role
       if (config.roles.visitor) {
         await member.roles.add(config.roles.visitor);
         console.log(`[REGISTRATION] Added Visitor role to ${userId}`);
       }
       
-      // Remove Registered role if they have it
       if (config.roles.registered && member.roles.cache.has(config.roles.registered)) {
         await member.roles.remove(config.roles.registered);
         console.log(`[REGISTRATION] Removed Registered role from ${userId}`);
       }
     } else {
-      // They chose an actual guild (iDolls, etc.)
-      
-      // Add Registered role
       if (config.roles.registered) {
         await member.roles.add(config.roles.registered);
         console.log(`[REGISTRATION] Added Registered role to ${userId}`);
       }
 
-      // Remove Visitor role if they have it
       if (config.roles.visitor && member.roles.cache.has(config.roles.visitor)) {
         await member.roles.remove(config.roles.visitor);
         console.log(`[REGISTRATION] Removed Visitor role from ${userId}`);
-      }
-
-      // Check if guild is iDolls and notify admins for guild role
-      if (guildName === 'iDolls' && config.roles.guild1 && characterData) {
-        await notifyAdminForGuildRole(client, member, guildName, characterData);
       }
     }
 
@@ -275,13 +265,11 @@ async function removeRoles(client, userId) {
     const guild = await client.guilds.fetch(config.discord.guildId);
     const member = await guild.members.fetch(userId);
 
-    // Remove Registered role
     if (config.roles.registered && member.roles.cache.has(config.roles.registered)) {
       await member.roles.remove(config.roles.registered);
       console.log(`[REGISTRATION] Removed Registered role from ${userId}`);
     }
 
-    // Add Visitor role
     if (config.roles.visitor) {
       await member.roles.add(config.roles.visitor);
       console.log(`[REGISTRATION] Added Visitor role to ${userId}`);
@@ -289,41 +277,6 @@ async function removeRoles(client, userId) {
 
   } catch (error) {
     console.error('[REGISTRATION] Role removal error:', error.message);
-  }
-}
-
-async function notifyAdminForGuildRole(client, member, guildName, characterData) {
-  if (!config.channels?.admin) {
-    console.log('[REGISTRATION] Admin channel not configured');
-    return;
-  }
-
-  try {
-    const adminChannel = await client.channels.fetch(config.channels.admin);
-    
-    const embed = new EmbedBuilder()
-      .setColor('#EC4899')
-      .setTitle('🏰 New iDolls Member - Guild Role Needed')
-      .setDescription(`**${member.user.username}** needs the **iDolls** guild role!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-      .addFields(
-        { name: '👤 Discord User', value: `<@${member.id}>`, inline: true },
-        { name: '🎮 IGN', value: characterData.ign, inline: true },
-        { name: '🎭 Class', value: `${characterData.class}\n${characterData.subclass}`, inline: true },
-        { name: '💪 Score', value: formatScore(characterData.abilityScore), inline: true },
-        { name: '🏰 Guild', value: guildName, inline: true },
-        { name: '📅 Registered', value: 'Just now', inline: true }
-      )
-      .setFooter({ text: 'Please assign the iDolls guild role' })
-      .setTimestamp();
-
-    await adminChannel.send({ 
-      content: `<@&${config.roles.guild1}> **Action Required:** Assign guild role to <@${member.id}>`,
-      embeds: [embed] 
-    });
-
-    console.log(`[REGISTRATION] Notified admins about guild role for ${member.user.username}`);
-  } catch (error) {
-    console.error('[REGISTRATION] Admin notification error:', error.message);
   }
 }
 
@@ -935,7 +888,7 @@ export async function handleGuild(interaction, userId) {
     clearActiveInteraction(userId);
     await interaction.reply({
       content: '❌ Registration session expired. Please start over with `/character`.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1000,7 +953,7 @@ export async function handleIGN(interaction, userId) {
     await interaction.reply({ 
       embeds: [errorEmbed], 
       components: [row],
-      ephemeral: true 
+      flags: MessageFlags.Ephemeral
     });
     
     return;
@@ -1039,8 +992,12 @@ export async function handleIGN(interaction, userId) {
       }
     }
 
-    // Assign roles after successful registration
-    await assignRoles(interaction.client, userId, currentState.guild, character);
+    // Check if applying to iDolls - create application instead of auto-assign
+    if (currentState.guild === 'iDolls' && config.roles.guild1) {
+      await applicationService.createApplication(userId, character.id, currentState.guild);
+    } else {
+      await assignRoles(interaction.client, userId, currentState.guild, character);
+    }
     
     state.clear(userId, 'reg');
 
@@ -1062,20 +1019,18 @@ export async function handleIGN(interaction, userId) {
     logger.error('Registration', `Registration error: ${error.message}`, error);
     await interaction.reply({
       content: '❌ Something went wrong. Please try again!',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 }
 
 export async function handleDelete(interaction, userId, characterId) {
   try {
-    // Check if this is the user's last main character
     const allChars = await CharacterRepo.findAllByUser(userId);
     const mainChars = allChars.filter(c => c.character_type === 'main');
     
     const charToDelete = allChars.find(c => c.id === characterId);
     
-    // If deleting the last main character, remove registered role and add visitor role
     if (charToDelete && charToDelete.character_type === 'main' && mainChars.length === 1) {
       await removeRoles(interaction.client, userId);
     }
@@ -1091,7 +1046,7 @@ export async function retryIGN(interaction, userId) {
   if (!currentState) {
     await interaction.reply({ 
       content: '❌ Registration session expired. Please start over with `/character`.', 
-      ephemeral: true 
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
