@@ -43,11 +43,13 @@ function clearActiveInteraction(userId) {
   activeInteractions.delete(userId);
 }
 
+function centerText(text, width = 42) {
+  return text.padStart((text.length + width) / 2).padEnd(width);
+}
+
 function createRegEmbed(step, total, title, description) {
-  const titleLine = title.padStart((title.length + 42) / 2).padEnd(42);
-  const descLines = description.split('\n').map(line => 
-    line.padStart((line.length + 42) / 2).padEnd(42)
-  );
+  const titleLine = centerText(title);
+  const descLines = description.split('\n').map(line => centerText(line));
   
   const ansiText = [
     '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
@@ -56,7 +58,7 @@ function createRegEmbed(step, total, title, description) {
     '',
     ...descLines.map(line => `\u001b[0;37m${line}\u001b[0m`),
     '',
-    `\u001b[0;36m${'✨ Step ' + step + ' of ' + total}`.padStart(((('✨ Step ' + step + ' of ' + total).length + 42) / 2)).padEnd(42) + '\u001b[0m',
+    `\u001b[0;36m${centerText('✨ Step ' + step + ' of ' + total)}\u001b[0m`,
     '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
   ].join('\n');
 
@@ -212,6 +214,95 @@ function getTimezoneCities(tzLabel) {
     'PST (Pacific)': 'Tijuana, Mexicali'
   };
   return cityExamples[tzLabel] || tzLabel.split('(')[1]?.replace(')', '') || tzLabel;
+}
+
+async function assignRoles(client, userId, guildName) {
+  if (!config.roles?.registered || !config.discord?.guildId) {
+    console.log('[REGISTRATION] Role assignment not configured');
+    return;
+  }
+
+  try {
+    const guild = await client.guilds.fetch(config.discord.guildId);
+    const member = await guild.members.fetch(userId);
+
+    // Add Registered role
+    if (config.roles.registered) {
+      await member.roles.add(config.roles.registered);
+      console.log(`[REGISTRATION] Added Registered role to ${userId}`);
+    }
+
+    // Remove Visitor role if they have it
+    if (config.roles.visitor && member.roles.cache.has(config.roles.visitor)) {
+      await member.roles.remove(config.roles.visitor);
+      console.log(`[REGISTRATION] Removed Visitor role from ${userId}`);
+    }
+
+    // Check if guild is iDolls and add guild role
+    if (guildName === 'iDolls' && config.roles.guild1) {
+      await notifyAdminForGuildRole(client, member, guildName);
+    }
+
+  } catch (error) {
+    console.error('[REGISTRATION] Role assignment error:', error.message);
+  }
+}
+
+async function removeRoles(client, userId) {
+  if (!config.roles?.registered || !config.discord?.guildId) {
+    console.log('[REGISTRATION] Role removal not configured');
+    return;
+  }
+
+  try {
+    const guild = await client.guilds.fetch(config.discord.guildId);
+    const member = await guild.members.fetch(userId);
+
+    // Remove Registered role
+    if (config.roles.registered && member.roles.cache.has(config.roles.registered)) {
+      await member.roles.remove(config.roles.registered);
+      console.log(`[REGISTRATION] Removed Registered role from ${userId}`);
+    }
+
+    // Add Visitor role
+    if (config.roles.visitor) {
+      await member.roles.add(config.roles.visitor);
+      console.log(`[REGISTRATION] Added Visitor role to ${userId}`);
+    }
+
+  } catch (error) {
+    console.error('[REGISTRATION] Role removal error:', error.message);
+  }
+}
+
+async function notifyAdminForGuildRole(client, member, guildName) {
+  if (!config.channels?.admin) {
+    console.log('[REGISTRATION] Admin channel not configured');
+    return;
+  }
+
+  try {
+    const adminChannel = await client.channels.fetch(config.channels.admin);
+    
+    const embed = new EmbedBuilder()
+      .setColor('#EC4899')
+      .setTitle('🏰 New Guild Member Needs Role')
+      .setDescription(`**${member.user.username}** (${member.user.tag}) has registered and chosen **${guildName}**.\n\nPlease assign the guild role: <@&${config.roles.guild1}>`)
+      .addFields(
+        { name: 'User', value: `<@${member.id}>`, inline: true },
+        { name: 'Guild', value: guildName, inline: true }
+      )
+      .setTimestamp();
+
+    await adminChannel.send({ 
+      content: `<@&${config.roles.guild1}> role needed for <@${member.id}>`,
+      embeds: [embed] 
+    });
+
+    console.log(`[REGISTRATION] Notified admins about guild role for ${member.user.username}`);
+  } catch (error) {
+    console.error('[REGISTRATION] Admin notification error:', error.message);
+  }
 }
 
 export async function start(interaction, userId, characterType = 'main') {
@@ -920,6 +1011,9 @@ export async function handleIGN(interaction, userId) {
         console.error('[REGISTRATION] Nickname sync warning:', e.message);
       }
     }
+
+    // Assign roles after successful registration
+    await assignRoles(interaction.client, userId, currentState.guild);
     
     state.clear(userId, 'reg');
 
@@ -943,6 +1037,24 @@ export async function handleIGN(interaction, userId) {
       content: '❌ Something went wrong. Please try again!',
       ephemeral: true
     });
+  }
+}
+
+export async function handleDelete(interaction, userId, characterId) {
+  try {
+    // Check if this is the user's last main character
+    const allChars = await CharacterRepo.findAllByUser(userId);
+    const mainChars = allChars.filter(c => c.character_type === 'main');
+    
+    const charToDelete = allChars.find(c => c.id === characterId);
+    
+    // If deleting the last main character, remove registered role and add visitor role
+    if (charToDelete && charToDelete.character_type === 'main' && mainChars.length === 1) {
+      await removeRoles(interaction.client, userId);
+    }
+    
+  } catch (error) {
+    console.error('[REGISTRATION] Error handling character deletion:', error.message);
   }
 }
 
@@ -1083,6 +1195,7 @@ export default {
   handleGuild,
   handleIGN,
   retryIGN,
+  handleDelete,
   backToRegion,
   backToCountry,
   backToTimezone,
