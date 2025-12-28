@@ -1,5 +1,3 @@
-// /app/src/services/applications.js
-
 import { ApplicationRepo, CharacterRepo } from '../database/repositories.js';
 import { addVotingFooter, createApplicationButtons, createOverrideButtons } from '../ui/applications.js';
 import { profileEmbed } from '../ui/embeds.js';
@@ -23,26 +21,25 @@ class ApplicationService {
     }
 
     try {
+      // ✅ Step 1: Create DB entry FIRST to get real ID
+      const application = await ApplicationRepo.create({
+        userId,
+        characterId,
+        guildName,
+        messageId: null, // Will update after message is created
+        channelId: config.channels.admin
+      });
+
       const channel = await this.client.channels.fetch(config.channels.admin);
       const user = await this.client.users.fetch(userId);
       const characters = await CharacterRepo.findAllByUser(userId);
       
       const guild = await this.client.guilds.fetch(config.discord.guildId);
 
-      // ✅ FIX: Create DB entry FIRST to get the real ID
-      const application = await ApplicationRepo.create({
-        userId,
-        characterId,
-        guildName,
-        messageId: null, // Will update after message creation
-        channelId: channel.id
-      });
-
-      console.log(`[APP] Created application with ID: ${application.id}`);
-
+      // ✅ Step 2: Create Discord message with REAL application ID
       const embed = await profileEmbed(user, characters, { guild });
       const applicationEmbed = addVotingFooter(embed, application);
-      const buttons = createApplicationButtons(application.id); // Use REAL ID
+      const buttons = createApplicationButtons(application.id); // Real ID, not 'temp'
 
       const message = await channel.send({
         content: `<@&${config.roles.guild1}> **New Guild Application**`,
@@ -50,9 +47,8 @@ class ApplicationService {
         components: buttons
       });
 
-      // ✅ Update the application with the message ID
+      // ✅ Step 3: Update DB with message ID
       await ApplicationRepo.update(application.id, { messageId: message.id });
-      console.log(`[APP] Updated application ${application.id} with message ID ${message.id}`);
 
       logger.info('Application created', `${user.username} -> ${guildName}`);
       return application;
@@ -63,11 +59,6 @@ class ApplicationService {
   }
 
   async handleVote(interaction, applicationId, voteType) {
-    if (isNaN(applicationId)) {
-      console.error(`[APP] Invalid application ID: ${applicationId}`);
-      return interaction.reply({ content: '❌ Invalid application.', ephemeral: true });
-    }
-
     try {
       const application = await ApplicationRepo.findById(applicationId);
       if (!application) {
@@ -104,11 +95,6 @@ class ApplicationService {
   }
 
   async showOverrideMenu(interaction, applicationId) {
-    if (isNaN(applicationId)) {
-      console.error(`[APP] Invalid application ID: ${applicationId}`);
-      return interaction.reply({ content: '❌ Invalid application.', ephemeral: true });
-    }
-
     if (!interaction.member.permissions.has('Administrator') && 
         !interaction.member.roles.cache.has(config.logging.adminRoleId)) {
       return interaction.reply({ content: '❌ You need Administrator permission for overrides.', ephemeral: true });
@@ -137,14 +123,9 @@ class ApplicationService {
   }
 
   async handleOverride(interaction, applicationId, decision) {
-    if (isNaN(applicationId)) {
-      console.error(`[APP] Invalid application ID: ${applicationId}`);
-      return interaction.update({ content: '❌ Invalid application.', components: [] });
-    }
-
     if (!interaction.member.permissions.has('Administrator') && 
         !interaction.member.roles.cache.has(config.logging.adminRoleId)) {
-      return interaction.update({ content: '❌ You need Administrator permission for overrides.', components: [] });
+      return interaction.reply({ content: '❌ You need Administrator permission for overrides.', ephemeral: true });
     }
 
     try {
@@ -210,12 +191,13 @@ class ApplicationService {
       const guild = await this.client.guilds.fetch(config.discord.guildId);
       const member = await guild.members.fetch(application.user_id);
 
-      if (config.roles.visitor) {
-        await member.roles.add(config.roles.visitor);
-      }
-
       if (config.roles.guild1 && member.roles.cache.has(config.roles.guild1)) {
         await member.roles.remove(config.roles.guild1);
+        console.log(`[APP] Removed guild role from ${application.user_id}`);
+      }
+
+      if (config.roles.visitor) {
+        await member.roles.add(config.roles.visitor);
       }
 
       if (config.roles.registered && member.roles.cache.has(config.roles.registered)) {
@@ -279,43 +261,35 @@ class ApplicationService {
       if (pending.length === 0) return;
 
       const channel = await this.client.channels.fetch(config.channels.admin);
-      const messages = await channel.messages.fetch({ limit: 100 });
       const guild = await this.client.guilds.fetch(config.discord.guildId);
 
       for (const app of pending) {
         try {
-          // Delete old application from DB first
-          await ApplicationRepo.delete(app.id);
-          console.log(`[APP] Deleted old application ID ${app.id}`);
-
-          // Delete old Discord message
-          try {
-            const oldMessage = messages.get(app.message_id);
-            if (oldMessage) {
+          if (app.message_id) {
+            try {
+              const oldMessage = await channel.messages.fetch(app.message_id);
               await oldMessage.delete();
               console.log(`[APP] Deleted old message ${app.message_id}`);
+            } catch (e) {
+              console.log(`[APP] Old message ${app.message_id} not found (already deleted)`);
             }
-          } catch (e) {
-            console.log(`[APP] Old message ${app.message_id} already deleted`);
           }
 
-          // Fetch user and characters
+          // ✅ FIX: Fetch the FULL application with votes from findById
+          const fullApp = await ApplicationRepo.findById(app.id);
+          
+          if (!fullApp) {
+            console.log(`[APP] Could not find full app data for ID ${app.id}`);
+            continue;
+          }
+          
           const user = await this.client.users.fetch(app.user_id);
           const characters = await CharacterRepo.findAllByUser(app.user_id);
-
-          // Create new DB entry first
-          const newApp = await ApplicationRepo.create({
-            userId: app.user_id,
-            characterId: app.character_id,
-            guildName: app.guild_name,
-            messageId: null,
-            channelId: channel.id
-          });
-
-          // Create new embed and message with REAL ID
+          
+          // Create new embed with PRESERVED votes from fullApp
           const embed = await profileEmbed(user, characters, { guild });
-          const applicationEmbed = addVotingFooter(embed, newApp);
-          const buttons = createApplicationButtons(newApp.id);
+          const applicationEmbed = addVotingFooter(embed, fullApp);
+          const buttons = createApplicationButtons(fullApp.id);
 
           const newMessage = await channel.send({
             content: `<@&${config.roles.guild1}> **Pending Application**`,
@@ -323,10 +297,10 @@ class ApplicationService {
             components: buttons
           });
 
-          // Update with message ID
-          await ApplicationRepo.update(newApp.id, { messageId: newMessage.id });
+          // UPDATE the existing application with new message ID
+          await ApplicationRepo.update(fullApp.id, { messageId: newMessage.id });
 
-          console.log(`[APP] Recreated application ID ${newApp.id} with message ${newMessage.id}`);
+          console.log(`[APP] Updated application ID ${fullApp.id} with new message ${newMessage.id}, preserved ${fullApp.accept_votes?.length || 0} accept votes, ${fullApp.deny_votes?.length || 0} deny votes`);
         } catch (error) {
           console.error(`[APP] Error restoring application ${app.id}:`, error.message);
         }
