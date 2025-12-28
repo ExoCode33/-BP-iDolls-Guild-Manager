@@ -65,7 +65,6 @@ class Database {
       )
     `);
 
-    // Add new columns for existing installations
     await this.query(`
       DO $$ 
       BEGIN 
@@ -86,9 +85,28 @@ class Database {
       )
     `);
 
+    await this.query(`
+      CREATE TABLE IF NOT EXISTS guild_applications (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(20) NOT NULL,
+        character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+        guild_name VARCHAR(100) NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        message_id VARCHAR(20) UNIQUE,
+        channel_id VARCHAR(20),
+        accept_votes TEXT[] DEFAULT '{}',
+        deny_votes TEXT[] DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, character_id)
+      )
+    `);
+
     await this.query(`CREATE INDEX IF NOT EXISTS idx_char_user ON characters(user_id)`);
     await this.query(`CREATE INDEX IF NOT EXISTS idx_char_type ON characters(character_type)`);
     await this.query(`CREATE INDEX IF NOT EXISTS idx_bi_char ON battle_imagines(character_id)`);
+    await this.query(`CREATE INDEX IF NOT EXISTS idx_app_status ON guild_applications(status)`);
+    await this.query(`CREATE INDEX IF NOT EXISTS idx_app_message ON guild_applications(message_id)`);
 
     console.log('[DB] Tables initialized');
   }
