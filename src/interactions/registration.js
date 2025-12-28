@@ -102,6 +102,118 @@ function getTotalSteps(characterType) {
   return baseSteps[type] + battleImagineSteps;
 }
 
+function getCountryEmoji(countryName) {
+  const emojiMap = {
+    'United States': '🇺🇸',
+    'Canada': '🇨🇦',
+    'Mexico': '🇲🇽',
+    'Brazil': '🇧🇷',
+    'Argentina': '🇦🇷',
+    'Chile': '🇨🇱',
+    'Colombia': '🇨🇴',
+    'Peru': '🇵🇪',
+    'United Kingdom': '🇬🇧',
+    'France': '🇫🇷',
+    'Germany': '🇩🇪',
+    'Italy': '🇮🇹',
+    'Spain': '🇪🇸',
+    'Netherlands': '🇳🇱',
+    'Belgium': '🇧🇪',
+    'Austria': '🇦🇹',
+    'Poland': '🇵🇱',
+    'Sweden': '🇸🇪',
+    'Greece': '🇬🇷',
+    'Turkey': '🇹🇷',
+    'Russia': '🇷🇺',
+    'Japan': '🇯🇵',
+    'South Korea': '🇰🇷',
+    'China': '🇨🇳',
+    'Hong Kong': '🇭🇰',
+    'Taiwan': '🇹🇼',
+    'Singapore': '🇸🇬',
+    'Thailand': '🇹🇭',
+    'Vietnam': '🇻🇳',
+    'Philippines': '🇵🇭',
+    'Indonesia': '🇮🇩',
+    'India': '🇮🇳',
+    'UAE': '🇦🇪',
+    'Saudi Arabia': '🇸🇦',
+    'Australia': '🇦🇺',
+    'New Zealand': '🇳🇿',
+    'Fiji': '🇫🇯',
+    'South Africa': '🇿🇦',
+    'Egypt': '🇪🇬',
+    'Nigeria': '🇳🇬',
+    'Kenya': '🇰🇪',
+    'Morocco': '🇲🇦'
+  };
+  return emojiMap[countryName] || '🌍';
+}
+
+function getTimezoneCities(tzLabel) {
+  const cityExamples = {
+    'EST (Eastern)': 'New York, Toronto, Miami',
+    'CST (Central)': 'Chicago, Mexico City, Winnipeg',
+    'MST (Mountain)': 'Denver, Phoenix, Edmonton',
+    'PST (Pacific)': 'Los Angeles, Vancouver, Seattle',
+    'AKST (Alaska)': 'Anchorage, Juneau',
+    'HST (Hawaii)': 'Honolulu, Hilo',
+    'AST (Atlantic)': 'Halifax, San Juan',
+    'GMT (London)': 'London, Dublin, Lisbon',
+    'CET (Paris)': 'Paris, Berlin, Rome',
+    'CET (Berlin)': 'Berlin, Amsterdam, Brussels',
+    'CET (Rome)': 'Rome, Vienna, Stockholm',
+    'CET (Madrid)': 'Madrid, Barcelona',
+    'CET (Amsterdam)': 'Amsterdam, Copenhagen',
+    'CET (Brussels)': 'Brussels, Luxembourg',
+    'CET (Vienna)': 'Vienna, Prague',
+    'CET (Warsaw)': 'Warsaw, Budapest',
+    'CET (Stockholm)': 'Stockholm, Oslo',
+    'EET (Athens)': 'Athens, Helsinki, Cairo',
+    'TRT (Istanbul)': 'Istanbul, Ankara',
+    'MSK (Moscow)': 'Moscow, St. Petersburg',
+    'YEKT (Yekaterinburg)': 'Yekaterinburg',
+    'NOVT (Novosibirsk)': 'Novosibirsk',
+    'VLAT (Vladivostok)': 'Vladivostok',
+    'JST (Tokyo)': 'Tokyo, Osaka, Seoul',
+    'KST (Seoul)': 'Seoul, Busan',
+    'CST (Beijing)': 'Beijing, Shanghai, Hong Kong',
+    'HKT (Hong Kong)': 'Hong Kong, Macau',
+    'CST (Taipei)': 'Taipei, Kaohsiung',
+    'SGT (Singapore)': 'Singapore, Kuala Lumpur',
+    'ICT (Bangkok)': 'Bangkok, Hanoi, Jakarta',
+    'ICT (Ho Chi Minh)': 'Ho Chi Minh, Phnom Penh',
+    'PST (Manila)': 'Manila, Cebu',
+    'WIB (Jakarta)': 'Jakarta, Bandung',
+    'WITA (Bali)': 'Bali, Makassar',
+    'IST (New Delhi)': 'New Delhi, Mumbai, Bangalore',
+    'GST (Dubai)': 'Dubai, Abu Dhabi',
+    'AST (Riyadh)': 'Riyadh, Jeddah',
+    'AEDT (Sydney)': 'Sydney, Melbourne',
+    'AEST (Brisbane)': 'Brisbane, Gold Coast',
+    'ACDT (Adelaide)': 'Adelaide',
+    'AWST (Perth)': 'Perth',
+    'ACST (Darwin)': 'Darwin',
+    'NZDT (Auckland)': 'Auckland, Wellington',
+    'FJT (Suva)': 'Suva, Nadi',
+    'SAST (Johannesburg)': 'Johannesburg, Cape Town',
+    'EET (Cairo)': 'Cairo, Alexandria',
+    'WAT (Lagos)': 'Lagos, Accra',
+    'EAT (Nairobi)': 'Nairobi, Kampala',
+    'WET (Casablanca)': 'Casablanca, Rabat',
+    'BRT (Brasília)': 'São Paulo, Rio de Janeiro',
+    'AMT (Amazon)': 'Manaus',
+    'ART (Buenos Aires)': 'Buenos Aires, Córdoba',
+    'CLT (Santiago)': 'Santiago, Valparaíso',
+    'COT (Bogotá)': 'Bogotá, Medellín',
+    'PET (Lima)': 'Lima, Cusco',
+    'CST (Central)': 'Mexico City, Guadalajara',
+    'MST (Mountain)': 'Chihuahua, Hermosillo',
+    'PST (Pacific)': 'Tijuana, Mexicali'
+  };
+  return cityExamples[tzLabel] || tzLabel.split('(')[1]?.replace(')', '') || tzLabel;
+}
+
 export async function start(interaction, userId, characterType = 'main') {
   if (hasActiveInteraction(userId, interaction.id)) {
     console.log(`[REGISTRATION] Race condition detected for ${userId}, ignoring duplicate interaction`);
@@ -197,7 +309,7 @@ export async function start(interaction, userId, characterType = 'main') {
     label: region,
     value: region,
     emoji: '🌍',
-    description: 'Where you\'re playing from'
+    description: 'Select your region'
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
@@ -240,10 +352,12 @@ export async function handleRegion(interaction, userId) {
   const countries = Object.keys(REGIONS[region]);
   const countryOptions = countries.map(country => {
     const countryName = country.replace(/^[\u{1F1E6}-\u{1F1FF}]{2}\s*/u, '');
+    const emoji = getCountryEmoji(countryName);
     return {
       label: countryName,
       value: country,
-      description: region
+      description: emoji + ' ' + region,
+      emoji: emoji
     };
   });
 
@@ -284,74 +398,13 @@ export async function handleCountry(interaction, userId) {
   const timezones = REGIONS[currentState.region][country];
   
   const timezoneOptions = Object.keys(timezones).map(tzLabel => {
-    const cityMap = {
-      'EST (Eastern)': 'New York',
-      'CST (Central)': 'Chicago',
-      'MST (Mountain)': 'Denver',
-      'PST (Pacific)': 'Los Angeles',
-      'AKST (Alaska)': 'Anchorage',
-      'HST (Hawaii)': 'Honolulu',
-      'AST (Atlantic)': 'Halifax',
-      'GMT (London)': 'London',
-      'CET (Paris)': 'Paris',
-      'CET (Berlin)': 'Berlin',
-      'CET (Rome)': 'Rome',
-      'CET (Madrid)': 'Madrid',
-      'CET (Amsterdam)': 'Amsterdam',
-      'CET (Brussels)': 'Brussels',
-      'CET (Vienna)': 'Vienna',
-      'CET (Warsaw)': 'Warsaw',
-      'CET (Stockholm)': 'Stockholm',
-      'EET (Athens)': 'Athens',
-      'TRT (Istanbul)': 'Istanbul',
-      'MSK (Moscow)': 'Moscow',
-      'YEKT (Yekaterinburg)': 'Yekaterinburg',
-      'NOVT (Novosibirsk)': 'Novosibirsk',
-      'VLAT (Vladivostok)': 'Vladivostok',
-      'JST (Tokyo)': 'Tokyo',
-      'KST (Seoul)': 'Seoul',
-      'CST (Beijing)': 'Beijing',
-      'HKT (Hong Kong)': 'Hong Kong',
-      'CST (Taipei)': 'Taipei',
-      'SGT (Singapore)': 'Singapore',
-      'ICT (Bangkok)': 'Bangkok',
-      'ICT (Ho Chi Minh)': 'Ho Chi Minh',
-      'PST (Manila)': 'Manila',
-      'WIB (Jakarta)': 'Jakarta',
-      'WITA (Bali)': 'Bali',
-      'IST (New Delhi)': 'New Delhi',
-      'GST (Dubai)': 'Dubai',
-      'AST (Riyadh)': 'Riyadh',
-      'AEDT (Sydney)': 'Sydney',
-      'AEST (Brisbane)': 'Brisbane',
-      'ACDT (Adelaide)': 'Adelaide',
-      'AWST (Perth)': 'Perth',
-      'ACST (Darwin)': 'Darwin',
-      'NZDT (Auckland)': 'Auckland',
-      'FJT (Suva)': 'Suva',
-      'SAST (Johannesburg)': 'Johannesburg',
-      'EET (Cairo)': 'Cairo',
-      'WAT (Lagos)': 'Lagos',
-      'EAT (Nairobi)': 'Nairobi',
-      'WET (Casablanca)': 'Casablanca',
-      'BRT (Brasília)': 'São Paulo',
-      'AMT (Amazon)': 'Manaus',
-      'ART (Buenos Aires)': 'Buenos Aires',
-      'CLT (Santiago)': 'Santiago',
-      'COT (Bogotá)': 'Bogotá',
-      'PET (Lima)': 'Lima',
-      'CST (Central)': 'Mexico City',
-      'MST (Mountain)': 'Chihuahua',
-      'PST (Pacific)': 'Tijuana'
-    };
-    
-    const cityName = cityMap[tzLabel] || tzLabel.split('(')[1]?.replace(')', '') || tzLabel;
+    const cities = getTimezoneCities(tzLabel);
     const abbr = tzLabel.split(' ')[0];
     
     return {
-      label: cityName,
+      label: abbr,
       value: timezones[tzLabel],
-      description: abbr,
+      description: cities,
       emoji: '🕐'
     };
   });
@@ -764,6 +817,16 @@ export async function handleGuild(interaction, userId) {
   
   const guild = interaction.values[0];
   const currentState = state.get(userId, 'reg');
+  
+  if (!currentState) {
+    clearActiveInteraction(userId);
+    await interaction.reply({
+      content: '❌ Registration session expired. Please start over with `/character`.',
+      ephemeral: true
+    });
+    return;
+  }
+  
   state.set(userId, 'reg', { ...currentState, guild });
 
   const modal = new ModalBuilder()
