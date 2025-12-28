@@ -312,10 +312,7 @@ export async function handleEditGuild(interaction, userId) {
       
       // ✅ DELETE ANY EXISTING APPLICATION (approved, denied, or pending) when changing guilds
       if (oldVal === 'iDolls' || guild === 'iDolls') {
-        const allApps = await ApplicationRepo.findPending();
-        const existingApp = allApps.find(app => 
-          app.user_id === userId && app.character_id === s.charId
-        );
+        const existingApp = await ApplicationRepo.findAllByUserAndCharacter(userId, s.charId);
         
         if (existingApp) {
           console.log(`[EDIT] Deleting existing application ID ${existingApp.id} (status: ${existingApp.status})`);
