@@ -1,5 +1,6 @@
 import { ApplicationRepo, CharacterRepo } from '../database/repositories.js';
-import { createApplicationEmbed, createApplicationButtons } from '../ui/applications.js';
+import { addVotingFooter, createApplicationButtons } from '../ui/applications.js';
+import { profileEmbed } from '../ui/embeds.js';
 import config from '../config/index.js';
 import logger from './logger.js';
 
@@ -22,20 +23,23 @@ class ApplicationService {
     try {
       const channel = await this.client.channels.fetch(config.channels.admin);
       const user = await this.client.users.fetch(userId);
-      const character = await CharacterRepo.findById(characterId);
+      const characters = await CharacterRepo.findAllByUser(userId);
 
-      const embed = createApplicationEmbed(user, character, {
+      // Create profile embed (same as /character command)
+      const embed = await profileEmbed(user, characters, { guild: { members: { fetch: async () => ({ nickname: null }) } } });
+      
+      // Add voting footer
+      const applicationEmbed = addVotingFooter(embed, {
         id: 'pending',
         guild_name: guildName,
         accept_votes: [],
-        deny_votes: [],
-        created_at: new Date()
+        deny_votes: []
       });
 
       const buttons = createApplicationButtons('temp');
       const message = await channel.send({
-        content: `<@&${config.roles.guild1}> **New Application**`,
-        embeds: [embed],
+        content: `<@&${config.roles.guild1}> **New Guild Application**`,
+        embeds: [applicationEmbed],
         components: buttons
       });
 
@@ -47,9 +51,11 @@ class ApplicationService {
         channelId: channel.id
       });
 
-      const finalEmbed = createApplicationEmbed(user, character, application);
+      // Update with real application ID
+      const finalEmbed = await profileEmbed(user, characters, { guild: { members: { fetch: async () => ({ nickname: null }) } } });
+      const finalApplicationEmbed = addVotingFooter(finalEmbed, application);
       const finalButtons = createApplicationButtons(application.id);
-      await message.edit({ embeds: [finalEmbed], components: finalButtons });
+      await message.edit({ embeds: [finalApplicationEmbed], components: finalButtons });
 
       logger.info('Application created', `${user.username} -> ${guildName}`);
       return application;
@@ -187,27 +193,31 @@ class ApplicationService {
       const channel = await this.client.channels.fetch(application.channel_id);
       const message = await channel.messages.fetch(application.message_id);
       const user = await this.client.users.fetch(application.user_id);
-      const character = await CharacterRepo.findById(application.character_id);
+      const characters = await CharacterRepo.findAllByUser(application.user_id);
 
       if (finalStatus) {
         const color = finalStatus === 'approved' ? '#00FF00' : '#FF0000';
-        const title = finalStatus === 'approved' ? '✅ Application Approved' : '❌ Application Denied';
+        const statusText = finalStatus === 'approved' ? '✅ APPROVED' : '❌ DENIED';
         const description = overrideBy 
           ? `Admin override by <@${overrideBy}>`
           : finalStatus === 'approved' 
             ? 'Approved with 2+ votes' 
             : 'Denied with 2+ votes';
 
-        const finalEmbed = createApplicationEmbed(user, character, application)
-          .setColor(color)
-          .setTitle(title)
-          .setDescription(description);
+        // Use profile embed with status
+        const embed = await profileEmbed(user, characters, { guild: { members: { fetch: async () => ({ nickname: null }) } } });
+        embed.addFields(
+          { name: '\u200b', value: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
+          { name: `🏰 Application ${statusText}`, value: description, inline: false }
+        );
+        embed.setColor(color);
 
-        await message.edit({ embeds: [finalEmbed], components: [] });
+        await message.edit({ embeds: [embed], components: [] });
       } else {
-        const embed = createApplicationEmbed(user, character, application);
+        const embed = await profileEmbed(user, characters, { guild: { members: { fetch: async () => ({ nickname: null }) } } });
+        const applicationEmbed = addVotingFooter(embed, application);
         const buttons = createApplicationButtons(application.id);
-        await message.edit({ embeds: [embed], components: buttons });
+        await message.edit({ embeds: [applicationEmbed], components: buttons });
       }
     } catch (error) {
       console.error('[APP] Update message error:', error);
@@ -235,14 +245,15 @@ class ApplicationService {
         }
 
         const user = await this.client.users.fetch(app.user_id);
-        const character = await CharacterRepo.findById(app.character_id);
+        const characters = await CharacterRepo.findAllByUser(app.user_id);
         
-        const embed = createApplicationEmbed(user, character, app);
+        const embed = await profileEmbed(user, characters, { guild: { members: { fetch: async () => ({ nickname: null }) } } });
+        const applicationEmbed = addVotingFooter(embed, app);
         const buttons = createApplicationButtons(app.id);
 
         const newMessage = await channel.send({
           content: `<@&${config.roles.guild1}> **Pending Application**`,
-          embeds: [embed],
+          embeds: [applicationEmbed],
           components: buttons
         });
 
