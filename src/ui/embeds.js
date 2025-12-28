@@ -10,25 +10,6 @@ export const embed = (title, description) => {
     .setTimestamp();
 };
 
-// ✨ NEW: Centered cute registration embeds
-export const stepEmbed = (step, total, title, description) => {
-  const ansiText = [
-    '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
-    `\u001b[1;34m${title}\u001b[0m`,
-    '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
-    '',
-    description,
-    '',
-    `\u001b[0;36m✨ Step ${step} of ${total}\u001b[0m`,
-    '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
-  ].join('\n');
-
-  return new EmbedBuilder()
-    .setColor(COLORS.PRIMARY)
-    .setDescription(`\`\`\`ansi\n${ansiText}\n\`\`\``)
-    .setTimestamp();
-};
-
 export const errorEmbed = (message) => {
   return new EmbedBuilder()
     .setColor(COLORS.ERROR)
@@ -56,7 +37,6 @@ export async function profileEmbed(user, characters, interaction = null) {
     } catch (e) {}
   }
 
-  const guildName = main?.guild || 'heal';
   const tz = await TimezoneRepo.get(user.id);
   const timeText = tz ? `\n🌍 ${formatTime(tz)}` : '';
 
@@ -64,19 +44,19 @@ export async function profileEmbed(user, characters, interaction = null) {
     const welcomeText = [
       '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
       '',
-      '\u001b[1;34m          \u2661\u208A\u02DA Welcome\u001b[0m \u001b[33m' + displayName + '\u001b[0m \u001b[1;34m\u02DA\u208A\u2661\u001b[0m',
+      '\u001b[1;34m♡₊˚ Welcome\u001b[0m \u001b[33m' + displayName + '\u001b[0m \u001b[1;34m˚₊♡\u001b[0m',
       '',
-      '\u001b[1;34m    No character yet? No worries~\u001b[0m',
+      '\u001b[1;34mNo character yet? No worries~\u001b[0m',
       '',
-      '\u001b[1;34m    \u2022 Tap the button below\u001b[0m',
-      '\u001b[1;34m    \u2022 We\'ll set you up in no time!\u001b[0m',
+      '\u001b[1;34m• Tap the button below\u001b[0m',
+      '\u001b[1;34m• We\'ll set you up in no time!\u001b[0m',
       '',
       '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
     ].join('\n');
 
     return new EmbedBuilder()
       .setColor(COLORS.PRIMARY)
-      .setDescription('## 🩷 **Join Heal**\n```ansi\n' + welcomeText + '\n```')
+      .setDescription('## 🩷 **iDolls 💫**\n```ansi\n' + welcomeText + '\n```')
       .setTimestamp();
   }
 
@@ -101,7 +81,7 @@ export async function profileEmbed(user, characters, interaction = null) {
 
   const e = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
-    .setDescription('# __**Join ' + guildName + ' • ' + displayName + '\'s Profile**__ ' + classEmoji + timeText + '\n' + mainSection)
+    .setDescription('# __**iDolls 💫 • ' + displayName + '\'s Profile**__ ' + classEmoji + timeText + '\n' + mainSection)
     .setTimestamp();
 
   if (subs.length > 0) {
