@@ -310,6 +310,33 @@ export async function handleEditGuild(interaction, userId) {
       const guildObj = await interaction.client.guilds.fetch(config.discord.guildId);
       const member = await guildObj.members.fetch(userId);
       
+      // ✅ DELETE ANY EXISTING APPLICATION (approved, denied, or pending) when changing guilds
+      if (oldVal === 'iDolls' || guild === 'iDolls') {
+        const allApps = await ApplicationRepo.findPending();
+        const existingApp = allApps.find(app => 
+          app.user_id === userId && app.character_id === s.charId
+        );
+        
+        if (existingApp) {
+          console.log(`[EDIT] Deleting existing application ID ${existingApp.id} (status: ${existingApp.status})`);
+          
+          // Delete the Discord message if it exists
+          if (existingApp.message_id && config.channels.admin) {
+            try {
+              const adminChannel = await interaction.client.channels.fetch(config.channels.admin);
+              const oldMessage = await adminChannel.messages.fetch(existingApp.message_id);
+              await oldMessage.delete();
+              console.log(`[EDIT] Deleted message ${existingApp.message_id}`);
+            } catch (e) {
+              console.log(`[EDIT] Could not delete message: ${e.message}`);
+            }
+          }
+          
+          await ApplicationRepo.delete(existingApp.id);
+          console.log(`[EDIT] Deleted application from database`);
+        }
+      }
+      
       if (guild === 'Visitor') {
         // Remove guild role when switching TO Visitor
         if (config.roles.guild1 && member.roles.cache.has(config.roles.guild1)) {
@@ -327,28 +354,6 @@ export async function handleEditGuild(interaction, userId) {
           console.log(`[EDIT] Removed Registered role from ${userId}`);
         }
       } else if (guild === 'iDolls' && config.roles.guild1) {
-        // ✅ DELETE OLD APPLICATION FIRST to avoid duplicate
-        const existingApps = await ApplicationRepo.findPending();
-        const oldApp = existingApps.find(app => 
-          app.user_id === userId && app.character_id === s.charId
-        );
-        
-        if (oldApp) {
-          console.log(`[EDIT] Deleting old pending application ID ${oldApp.id}`);
-          if (oldApp.message_id && config.channels.admin) {
-            try {
-              const adminChannel = await interaction.client.channels.fetch(config.channels.admin);
-              const oldMessage = await adminChannel.messages.fetch(oldApp.message_id);
-              await oldMessage.delete();
-              console.log(`[EDIT] Deleted old message ${oldApp.message_id}`);
-            } catch (e) {
-              console.log(`[EDIT] Could not delete old message: ${e.message}`);
-            }
-          }
-          await ApplicationRepo.delete(oldApp.id);
-          console.log(`[EDIT] Deleted old application from database`);
-        }
-        
         // Add roles
         if (config.roles.registered) {
           await member.roles.add(config.roles.registered);
