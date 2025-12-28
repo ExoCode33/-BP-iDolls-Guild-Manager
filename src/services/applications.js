@@ -102,7 +102,6 @@ class ApplicationService {
     }
   }
 
-  // ✅ NEW: Show override confirmation menu
   async showOverrideMenu(interaction, applicationId) {
     if (!interaction.member.permissions.has('Administrator') && 
         !interaction.member.roles.cache.has(config.logging.adminRoleId)) {
@@ -278,3 +277,34 @@ class ApplicationService {
         }
 
         const user = await this.client.users.fetch(app.user_id);
+        const characters = await CharacterRepo.findAllByUser(app.user_id);
+        
+        const embed = await profileEmbed(user, characters, { guild });
+        const applicationEmbed = addVotingFooter(embed, app);
+        const buttons = createApplicationButtons(app.id);
+
+        const newMessage = await channel.send({
+          content: `<@&${config.roles.guild1}> **Pending Application**`,
+          embeds: [applicationEmbed],
+          components: buttons
+        });
+
+        await ApplicationRepo.create({
+          userId: app.user_id,
+          characterId: app.character_id,
+          guildName: app.guild_name,
+          messageId: newMessage.id,
+          channelId: channel.id
+        });
+
+        await ApplicationRepo.delete(app.id);
+      }
+
+      console.log(`[APP] Restored ${pending.length} pending applications`);
+    } catch (error) {
+      console.error('[APP] Restore error:', error);
+    }
+  }
+}
+
+export default new ApplicationService();
