@@ -216,7 +216,7 @@ function getTimezoneCities(tzLabel) {
   return cityExamples[tzLabel] || tzLabel.split('(')[1]?.replace(')', '') || tzLabel;
 }
 
-async function assignRoles(client, userId, guildName) {
+async function assignRoles(client, userId, guildName, characterData = null) {
   if (!config.discord?.guildId) {
     console.log('[REGISTRATION] Guild ID not configured');
     return;
@@ -255,8 +255,8 @@ async function assignRoles(client, userId, guildName) {
       }
 
       // Check if guild is iDolls and notify admins for guild role
-      if (guildName === 'iDolls' && config.roles.guild1) {
-        await notifyAdminForGuildRole(client, member, guildName);
+      if (guildName === 'iDolls' && config.roles.guild1 && characterData) {
+        await notifyAdminForGuildRole(client, member, guildName, characterData);
       }
     }
 
@@ -292,7 +292,7 @@ async function removeRoles(client, userId) {
   }
 }
 
-async function notifyAdminForGuildRole(client, member, guildName) {
+async function notifyAdminForGuildRole(client, member, guildName, characterData) {
   if (!config.channels?.admin) {
     console.log('[REGISTRATION] Admin channel not configured');
     return;
@@ -303,16 +303,21 @@ async function notifyAdminForGuildRole(client, member, guildName) {
     
     const embed = new EmbedBuilder()
       .setColor('#EC4899')
-      .setTitle('🏰 New Guild Member Needs Role')
-      .setDescription(`**${member.user.username}** (${member.user.tag}) has registered and chosen **${guildName}**.\n\nPlease assign the guild role: <@&${config.roles.guild1}>`)
+      .setTitle('🏰 New iDolls Member - Guild Role Needed')
+      .setDescription(`**${member.user.username}** needs the **iDolls** guild role!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
       .addFields(
-        { name: 'User', value: `<@${member.id}>`, inline: true },
-        { name: 'Guild', value: guildName, inline: true }
+        { name: '👤 Discord User', value: `<@${member.id}>`, inline: true },
+        { name: '🎮 IGN', value: characterData.ign, inline: true },
+        { name: '🎭 Class', value: `${characterData.class}\n${characterData.subclass}`, inline: true },
+        { name: '💪 Score', value: formatScore(characterData.abilityScore), inline: true },
+        { name: '🏰 Guild', value: guildName, inline: true },
+        { name: '📅 Registered', value: 'Just now', inline: true }
       )
+      .setFooter({ text: 'Please assign the iDolls guild role' })
       .setTimestamp();
 
     await adminChannel.send({ 
-      content: `<@&${config.roles.guild1}> role needed for <@${member.id}>`,
+      content: `<@&${config.roles.guild1}> **Action Required:** Assign guild role to <@${member.id}>`,
       embeds: [embed] 
     });
 
@@ -1035,7 +1040,7 @@ export async function handleIGN(interaction, userId) {
     }
 
     // Assign roles after successful registration
-    await assignRoles(interaction.client, userId, currentState.guild);
+    await assignRoles(interaction.client, userId, currentState.guild, character);
     
     state.clear(userId, 'reg');
 
