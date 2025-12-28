@@ -1006,9 +1006,14 @@ export async function handleIGN(interaction, userId) {
     
     if (currentState.characterType === 'main' && config.sync.nicknameEnabled) {
       try {
-        await updateNickname(interaction.client, config.discord.guildId, userId, ign);
+        const result = await updateNickname(interaction.client, config.discord.guildId, userId, ign);
+        if (result.success) {
+          console.log(`✅ [REGISTRATION] Nickname synced: ${ign}`);
+        } else {
+          console.error(`❌ [REGISTRATION] Nickname sync failed: ${result.reason}`);
+        }
       } catch (e) {
-        console.error('[REGISTRATION] Nickname sync warning:', e.message);
+        console.error('[REGISTRATION] Nickname sync error:', e.message);
       }
     }
 
