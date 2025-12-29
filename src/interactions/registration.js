@@ -233,13 +233,13 @@ async function assignRoles(client, userId, guildName, characterData = null) {
         console.log(`[REGISTRATION] Added Visitor role to ${userId}`);
       }
       
-      if (config.roles.registered && member.roles.cache.has(config.roles.registered)) {
-        await member.roles.remove(config.roles.registered);
+      if (config.roles.verified && member.roles.cache.has(config.roles.verified)) {
+        await member.roles.remove(config.roles.verified);
         console.log(`[REGISTRATION] Removed Registered role from ${userId}`);
       }
     } else {
-      if (config.roles.registered) {
-        await member.roles.add(config.roles.registered);
+      if (config.roles.verified) {
+        await member.roles.add(config.roles.verified);
         console.log(`[REGISTRATION] Added Registered role to ${userId}`);
       }
 
@@ -264,8 +264,8 @@ async function removeRoles(client, userId) {
     const guild = await client.guilds.fetch(config.discord.guildId);
     const member = await guild.members.fetch(userId);
 
-    if (config.roles.registered && member.roles.cache.has(config.roles.registered)) {
-      await member.roles.remove(config.roles.registered);
+    if (config.roles.verified && member.roles.cache.has(config.roles.verified)) {
+      await member.roles.remove(config.roles.verified);
       console.log(`[REGISTRATION] Removed Registered role from ${userId}`);
     }
 
