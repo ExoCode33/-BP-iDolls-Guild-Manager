@@ -153,7 +153,16 @@ export async function route(interaction) {
   logger.interaction(interaction.isButton() ? 'button' : 'select', customId, interaction.user.username);
 
   try {
+    // Verification button (no user ID needed, uses interaction.user.id)
+    if (customId === 'verification_register') {
+      return await reg.start(interaction, interaction.user.id, 'main');
+    }
+
     // Admin actions (operate on other users)
+    if (customId.startsWith('admin_settings_back_')) {
+      const admin = await import('../commands/admin.js');
+      return await admin.handleSettingsBackButton(interaction);
+    }
     if (customId.startsWith('admin_reg_start_')) return await reg.start(interaction, userId, 'main');
     if (customId.startsWith('admin_add_')) return await edit.showAddMenu(interaction, userId);
     if (customId.startsWith('admin_edit_')) return await edit.showEditMenu(interaction, userId);
@@ -162,7 +171,8 @@ export async function route(interaction) {
     // Registration - START
     if (customId.startsWith('reg_start_')) return await reg.start(interaction, userId, 'main');
 
-    // Back buttons
+    // Back buttons - handle all variations
+    if (customId.startsWith('back_profile_')) return await edit.backToProfile(interaction, userId);
     if (customId.startsWith('back_to_profile_')) return await edit.backToProfile(interaction, userId);
     if (customId.startsWith('back_to_region_')) return await reg.backToRegion(interaction, userId);
     if (customId.startsWith('back_to_country_')) return await reg.backToCountry(interaction, userId);
@@ -176,27 +186,28 @@ export async function route(interaction) {
     // Add character
     if (customId.startsWith('add_type_')) return await edit.handleAddType(interaction, userId);
     if (customId.startsWith('add_')) return await edit.showAddMenu(interaction, userId);
-    if (customId.startsWith('parent_')) return await edit.handleParentSelect(interaction, userId);
 
-    // Edit character - back buttons
+    // Edit character - back buttons (MUST come before edit_ general handler)
     if (customId.startsWith('edit_type_back_')) return await edit.backToEditType(interaction, userId);
     if (customId.startsWith('edit_field_back_')) return await edit.backToFieldSelect(interaction, userId);
     if (customId.startsWith('edit_class_back_')) return await edit.backToClassSelect(interaction, userId);
     if (customId.startsWith('edit_bi_back_')) return await edit.backToBattleImagineList(interaction, userId);
     
-    // Edit character - selections
+    // Edit character - type selections (must come after specific back buttons)
     if (customId.startsWith('edit_type_')) return await edit.handleEditType(interaction, userId);
-    if (customId.startsWith('edit_alt_')) return await edit.handleEditAltSelect(interaction, userId);
     if (customId.startsWith('edit_subclass_')) return await edit.handleEditSubclassSelect(interaction, userId);
     if (customId.startsWith('edit_field_')) return await edit.handleFieldSelect(interaction, userId);
     if (customId.startsWith('edit_bi_select_')) return await edit.handleEditBattleImagineSelect(interaction, userId);
     if (customId.startsWith('edit_bi_tier_')) return await edit.handleEditBattleImagineTier(interaction, userId);
+    
+    // Edit general button - goes back to edit type menu (must come LAST after all edit_* patterns)
     if (customId.startsWith('edit_')) return await edit.showEditMenu(interaction, userId);
 
-    // Remove character
+    // Remove character - specific patterns first
     if (customId.startsWith('remove_type_')) return await edit.handleRemoveType(interaction, userId);
-    if (customId.startsWith('remove_alt_')) return await edit.handleRemoveAltSelect(interaction, userId);
     if (customId.startsWith('remove_subclass_')) return await edit.handleRemoveSubclassSelect(interaction, userId);
+    
+    // Remove general button - goes back to remove type menu (must come LAST)
     if (customId.startsWith('remove_')) return await edit.showRemoveMenu(interaction, userId);
 
     // Confirm/cancel
@@ -241,9 +252,37 @@ export async function routeSelectMenu(interaction) {
   logger.interaction('select', customId, interaction.user.username);
 
   try {
+    // Admin settings menus (check these first, before userId validation)
+    if (customId.startsWith('admin_settings_menu_')) {
+      const admin = await import('../commands/admin.js');
+      return await admin.handleSettingsMenuSelect(interaction);
+    }
+    if (customId.startsWith('admin_verification_channel_')) {
+      const admin = await import('../commands/admin.js');
+      return await admin.handleVerificationChannelSelect(interaction);
+    }
+    if (customId.startsWith('admin_logs_channel_')) {
+      const admin = await import('../commands/admin.js');
+      return await admin.handleLogChannelSelect(interaction);
+    }
+    if (customId.startsWith('admin_logs_batch_')) {
+      const admin = await import('../commands/admin.js');
+      return await admin.handleLogBatchSelect(interaction);
+    }
+    if (customId.startsWith('admin_logs_categories_')) {
+      const admin = await import('../commands/admin.js');
+      return await admin.handleLogCategoriesSelect(interaction);
+    }
+    if (customId.startsWith('admin_ephemeral_')) {
+      const admin = await import('../commands/admin.js');
+      return await admin.handleEphemeralSelect(interaction);
+    }
+
     if (customId.startsWith('select_region_')) return await reg.handleRegion(interaction, userId);
     if (customId.startsWith('select_country_')) return await reg.handleCountry(interaction, userId);
     if (customId.startsWith('select_timezone_')) return await reg.handleTimezone(interaction, userId);
+    
+    // Class selection - check context
     if (customId.startsWith('select_class_')) {
       const s = state.get(userId, 'edit');
       if (s?.field === 'class') {
@@ -251,6 +290,8 @@ export async function routeSelectMenu(interaction) {
       }
       return await reg.handleClass(interaction, userId);
     }
+    
+    // Subclass selection - check context
     if (customId.startsWith('select_subclass_')) {
       const s = state.get(userId, 'edit');
       if (s?.field === 'class') {
@@ -258,6 +299,8 @@ export async function routeSelectMenu(interaction) {
       }
       return await reg.handleSubclass(interaction, userId);
     }
+    
+    // Ability score - check context
     if (customId.startsWith('select_ability_score_')) {
       const s = state.get(userId, 'edit');
       if (s?.field === 'score') {
@@ -265,7 +308,10 @@ export async function routeSelectMenu(interaction) {
       }
       return await reg.handleScore(interaction, userId);
     }
+    
     if (customId.startsWith('select_battle_imagine_')) return await reg.handleBattleImagine(interaction, userId);
+    
+    // Guild selection - check context
     if (customId.startsWith('select_guild_')) {
       const s = state.get(userId, 'edit');
       if (s?.field === 'guild') {
@@ -274,12 +320,16 @@ export async function routeSelectMenu(interaction) {
       return await reg.handleGuild(interaction, userId);
     }
 
+    // Add/Edit/Remove type selections
     if (customId.startsWith('add_type_')) return await edit.handleAddType(interaction, userId);
     if (customId.startsWith('edit_type_')) return await edit.handleEditType(interaction, userId);
     if (customId.startsWith('remove_type_')) return await edit.handleRemoveType(interaction, userId);
-    if (customId.startsWith('parent_')) return await edit.handleParentSelect(interaction, userId);
-    if (customId.startsWith('edit_alt_')) return await edit.handleEditAltSelect(interaction, userId);
+    
+    // Character selections for edit/remove
     if (customId.startsWith('edit_subclass_')) return await edit.handleEditSubclassSelect(interaction, userId);
+    if (customId.startsWith('remove_subclass_')) return await edit.handleRemoveSubclassSelect(interaction, userId);
+    
+    // Field selections
     if (customId.startsWith('edit_field_')) return await edit.handleFieldSelect(interaction, userId);
     if (customId.startsWith('edit_bi_select_')) return await edit.handleEditBattleImagineSelect(interaction, userId);
     if (customId.startsWith('edit_bi_tier_')) return await edit.handleEditBattleImagineTier(interaction, userId);
