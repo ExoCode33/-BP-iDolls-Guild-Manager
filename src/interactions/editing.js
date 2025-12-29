@@ -5,6 +5,7 @@ import config from '../config/index.js';
 import { isEphemeral } from '../services/ephemeral.js';
 import { CharacterRepo, BattleImagineRepo, ApplicationRepo } from '../database/repositories.js';
 import applicationService from '../services/applications.js';
+import classRoleService from '../services/classRoles.js';
 
 const ephemeralFlag = { flags: MessageFlags.Ephemeral };
 import { embed, errorEmbed, successEmbed, profileEmbed } from '../ui/embeds.js';
@@ -231,9 +232,17 @@ export async function handleEditSubclass(interaction, userId) {
 
   const oldVal = `${s.char.class} - ${s.char.subclass}`;
   const newVal = `${s.newClass} - ${subclass}`;
+  const oldClass = s.char.class;
+  const newClass = s.newClass;
 
   await CharacterRepo.update(s.charId, { className: s.newClass, subclass });
   logger.edit(interaction.user.username, 'class', oldVal, newVal);
+
+  // ✅ UPDATE CLASS ROLES - Remove old, add new
+  if (oldClass !== newClass) {
+    await classRoleService.removeClassRoleIfUnused(userId, oldClass);
+    await classRoleService.addClassRole(userId, newClass);
+  }
 
   state.clear(userId, 'edit');
   await returnToProfile(interaction, userId);
@@ -438,10 +447,14 @@ export async function handleRemoveSubclassSelect(interaction, userId) {
 
 export async function confirmDelete(interaction, userId) {
   const s = state.get(userId, 'remove');
+  const deletedClass = s.char.class;
 
   await CharacterRepo.delete(s.charId);
   const label = s.type === 'subclass' ? `${s.char.class} - ${s.char.subclass}` : s.char.ign;
   logger.delete(interaction.user.username, s.type, label);
+
+  // ✅ REMOVE CLASS ROLE IF NO LONGER USED
+  await classRoleService.removeClassRoleIfUnused(userId, deletedClass);
 
   state.clear(userId, 'remove');
   await returnToProfile(interaction, userId);
@@ -451,6 +464,9 @@ export async function confirmDelete(interaction, userId) {
 export async function confirmDeleteAll(interaction, userId) {
   await CharacterRepo.deleteAllByUser(userId);
   logger.delete(interaction.user.username, 'all', 'All characters');
+
+  // ✅ SYNC ALL CLASS ROLES (will remove all since no characters)
+  await classRoleService.fullSync(userId);
 
   state.clear(userId, 'remove');
 
