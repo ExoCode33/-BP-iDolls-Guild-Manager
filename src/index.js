@@ -6,6 +6,7 @@ import db from './database/index.js';
 import logger from './services/logger.js';
 import sheets from './services/sheets.js';
 import applicationService from './services/applications.js';
+import classRoleService from './services/classRoles.js';
 import { loadCommands, getCommandData } from './commands/index.js';
 import { route, routeSelectMenu, routeModal } from './interactions/router.js';
 import { handleLogSelect, handleLogChannelSelect, handleLogBatchSelect, handleLogCategoriesSelect, handleEphemeralSelect } from './commands/admin.js';
@@ -21,7 +22,6 @@ const client = new Client({
 
 const commands = loadCommands();
 
-// Auto-deploy commands on startup
 async function deployCommands() {
   try {
     const rest = new REST().setToken(config.discord.token);
@@ -52,9 +52,11 @@ client.once(Events.ClientReady, async () => {
   await db.initialize();
   await logger.init(client);
   
-  // ✅ CRITICAL: Initialize application service
   await applicationService.init(client);
   console.log('✅ Application service initialized');
+  
+  classRoleService.init(client);
+  console.log('✅ Class role service initialized');
   
   await sheets.init();
 
