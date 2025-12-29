@@ -81,13 +81,94 @@ async function handleLogs(interaction) {
 async function handleEphemeral(interaction) {
   const isEph = await isEphemeral(interaction.guildId, 'admin');
   const current = await EphemeralRepo.get(interaction.guildId);
+  
+  // ✅ COMPREHENSIVE EPHEMERAL OPTIONS
   const options = [
-    { label: 'Character Commands', value: 'character', description: '/character responses', emoji: '👤' },
-    { label: 'Admin Commands', value: 'admin', description: '/admin responses', emoji: '👑' }
-  ].map(opt => ({ ...opt, default: current.includes(opt.value) }));
-  const row = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`admin_ephemeral_${interaction.user.id}`).setPlaceholder('Select ephemeral responses').setMinValues(0).setMaxValues(options.length).addOptions(options));
-  const currentList = current.length > 0 ? current.map(c => c === 'character' ? '👤 Character' : '👑 Admin').join(', ') : '*None*';
-  await interaction.reply({ embeds: [embed('👁️ Ephemeral Settings', `**Currently Private:** ${currentList}\n\n✅ Selected = Private\n❌ Not Selected = Public`)], components: [row], ephemeral: isEph });
+    { 
+      label: '/character (own profile)', 
+      value: 'character_own', 
+      description: 'Viewing your own profile', 
+      emoji: '👤' 
+    },
+    { 
+      label: '/character @user (view others)', 
+      value: 'character_view', 
+      description: 'Viewing another user\'s profile', 
+      emoji: '👁️' 
+    },
+    { 
+      label: 'Registration Flow', 
+      value: 'registration', 
+      description: 'Character registration process', 
+      emoji: '📝' 
+    },
+    { 
+      label: 'Edit Character', 
+      value: 'edit', 
+      description: 'Character editing interactions', 
+      emoji: '✏️' 
+    },
+    { 
+      label: 'Add Character', 
+      value: 'add', 
+      description: 'Adding subclasses', 
+      emoji: '➕' 
+    },
+    { 
+      label: 'Delete Character', 
+      value: 'delete', 
+      description: 'Character deletion confirmations', 
+      emoji: '🗑️' 
+    },
+    { 
+      label: 'Admin Commands', 
+      value: 'admin', 
+      description: '/admin command responses', 
+      emoji: '👑' 
+    },
+    { 
+      label: 'Error Messages', 
+      value: 'errors', 
+      description: 'Error/validation messages', 
+      emoji: '❌' 
+    }
+  ].map(opt => ({ 
+    ...opt, 
+    default: current.includes(opt.value) 
+  }));
+  
+  const row = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`admin_ephemeral_${interaction.user.id}`)
+      .setPlaceholder('Select ephemeral responses (private messages)')
+      .setMinValues(0)
+      .setMaxValues(options.length)
+      .addOptions(options)
+  );
+  
+  // ✅ BUILD CURRENT STATUS DISPLAY
+  const categoryNames = {
+    'character_own': '👤 /character (own)',
+    'character_view': '👁️ /character @user',
+    'registration': '📝 Registration',
+    'edit': '✏️ Edit',
+    'add': '➕ Add',
+    'delete': '🗑️ Delete',
+    'admin': '👑 Admin',
+    'errors': '❌ Errors'
+  };
+  
+  const currentList = current.length > 0 
+    ? current.map(c => categoryNames[c] || c).join('\n') 
+    : '*None (all public)*';
+  
+  const description = `**Currently Private:**\n${currentList}\n\n✅ Selected = Private (only you see)\n❌ Not Selected = Public (everyone sees)\n\n**Recommended Private:**\n• 👤 Own profile\n• 📝 Registration\n• ✏️ Edit\n• 🗑️ Delete\n• ❌ Errors`;
+  
+  await interaction.reply({ 
+    embeds: [embed('👁️ Ephemeral Settings', description)], 
+    components: [row], 
+    ephemeral: isEph 
+  });
 }
 
 async function handleStats(interaction) {
@@ -183,6 +264,25 @@ export async function handleLogSelect(interaction) { return handleLogCategoriesS
 export async function handleEphemeralSelect(interaction) {
   const selected = interaction.values;
   await EphemeralRepo.set(interaction.guildId, selected);
-  const currentList = selected.length > 0 ? selected.map(c => c === 'character' ? '👤 Character' : '👑 Admin').join(', ') : '*None (all public)*';
-  await interaction.update({ embeds: [embed('✅ Saved', `**Private:** ${currentList}`)], components: [] });
+  
+  // ✅ BUILD UPDATED STATUS DISPLAY
+  const categoryNames = {
+    'character_own': '👤 /character (own)',
+    'character_view': '👁️ /character @user',
+    'registration': '📝 Registration',
+    'edit': '✏️ Edit',
+    'add': '➕ Add',
+    'delete': '🗑️ Delete',
+    'admin': '👑 Admin',
+    'errors': '❌ Errors'
+  };
+  
+  const currentList = selected.length > 0 
+    ? selected.map(c => categoryNames[c] || c).join('\n') 
+    : '*None (all public)*';
+  
+  await interaction.update({ 
+    embeds: [embed('✅ Saved', `**Private:**\n${currentList}`)], 
+    components: [] 
+  });
 }
