@@ -23,11 +23,22 @@ export const getRoleEmoji = (role) => {
   return '💚';
 };
 
+// ✅ FIXED: Fallback to standard emoji if custom emoji not found
 export const getClassEmoji = (guild, className) => {
-  if (!guild) return '';
+  if (!guild) {
+    // Fallback to standard emoji if no guild
+    return CLASSES[className]?.emoji || '';
+  }
+  
   const name = className.replace(/\s+/g, '');
   const emoji = guild.emojis.cache.find(e => e.name === name);
-  return emoji ? emoji.toString() : '';
+  
+  // If custom emoji not found, use standard emoji fallback
+  if (!emoji) {
+    return CLASSES[className]?.emoji || '';
+  }
+  
+  return emoji.toString();
 };
 
 export const validateUID = (uid) => /^\d+$/.test(uid);
