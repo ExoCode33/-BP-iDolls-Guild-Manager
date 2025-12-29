@@ -85,14 +85,14 @@ export async function profileEmbed(user, characters, interaction = null) {
 
   let mainSection = '```ansi\n';
   mainSection += '\u001b[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n';
-  mainSection += '\u001b[1;34m🎮 IGN:\u001b[0m \u001b[1;37m' + main.ign + '\u001b[0m\n';
-  mainSection += '\u001b[1;34m🆔 UID:\u001b[0m \u001b[1;37m' + main.uid + '\u001b[0m\n';
-  mainSection += '\u001b[1;34m🎭 Class:\u001b[0m \u001b[1;36m' + main.class + ' • ' + main.subclass + '\u001b[0m ' + roleEmoji + '\n';
-  mainSection += '\u001b[1;34m💪 Score:\u001b[0m \u001b[1;33m' + formatScore(main.ability_score) + '\u001b[0m\n';
+  mainSection += '\u001b[1;34m🎮 IGN:\u001b[0m \u001b[1;35m' + main.ign + '\u001b[0m\n';
+  mainSection += '\u001b[1;34m🆔 UID:\u001b[0m \u001b[1;35m' + main.uid + '\u001b[0m\n';
+  mainSection += '\u001b[1;34m🎭 Class:\u001b[0m \u001b[1;37m' + main.class + ' - ' + main.subclass + '\u001b[0m\n';
+  mainSection += '\u001b[1;34m💪 Score:\u001b[0m \u001b[1;37m' + formatScore(main.ability_score) + '\u001b[0m\n';
 
   const mainBI = await BattleImagineRepo.findByCharacter(main.id);
   if (mainBI.length > 0) {
-    mainSection += '\u001b[1;34m⚔️ Battle Imagines:\u001b[0m \u001b[1;32m' + mainBI.map(b => b.imagine_name + ' ' + b.tier).join(', ') + '\u001b[0m\n';
+    mainSection += '\u001b[1;34m⚔️ Battle Imagines:\u001b[0m \u001b[1;37m' + mainBI.map(b => b.imagine_name + ' ' + b.tier).join(', ') + '\u001b[0m\n';
   }
 
   mainSection += '\u001b[1;34m🏰 Guild:\u001b[0m \u001b[1;35m' + guildDisplay + '\u001b[0m\n'; // ✅ Use guildDisplay instead of main.guild
@@ -101,16 +101,15 @@ export async function profileEmbed(user, characters, interaction = null) {
 
   const e = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
-    .setDescription('# **iDolls 💫 • ' + displayName + '\'s Profile** ' + classEmoji + timeText + '\n' + mainSection)
+    .setDescription('# **iDolls - ' + displayName + '\'s Profile** ' + classEmoji + timeText + '\n' + mainSection)
     .setTimestamp();
 
   if (subs.length > 0) {
     let subSection = '```ansi\n';
     subs.forEach((sub, i) => {
-      const subRoleEmoji = getRoleEmoji(sub.role);
       subSection += '\u001b[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n';
-      subSection += '\u001b[1;34m🎭 Class:\u001b[0m \u001b[1;36m' + sub.class + ' • ' + sub.subclass + '\u001b[0m ' + subRoleEmoji + '\n';
-      subSection += '\u001b[1;34m💪 Score:\u001b[0m \u001b[1;33m' + formatScore(sub.ability_score) + '\u001b[0m\n';
+      subSection += '\u001b[1;34m🎭 Class:\u001b[0m \u001b[1;37m' + sub.class + ' - ' + sub.subclass + '\u001b[0m\n';
+      subSection += '\u001b[1;34m💪 Score:\u001b[0m \u001b[1;37m' + formatScore(sub.ability_score) + '\u001b[0m\n';
     });
     subSection += '\u001b[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n';
     subSection += '```';
@@ -120,15 +119,14 @@ export async function profileEmbed(user, characters, interaction = null) {
   if (alts.length > 0) {
     let altSection = '```ansi\n';
     for (const alt of alts) {
-      const altRoleEmoji = getRoleEmoji(alt.role);
       altSection += '\u001b[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n';
-      altSection += '\u001b[1;34m🎮 IGN:\u001b[0m \u001b[1;37m' + alt.ign + '\u001b[0m  \u001b[1;34m🆔 UID:\u001b[0m \u001b[1;37m' + alt.uid + '\u001b[0m\n';
-      altSection += '\u001b[1;34m🎭 Class:\u001b[0m \u001b[1;36m' + alt.class + ' • ' + alt.subclass + '\u001b[0m ' + altRoleEmoji + '\n';
-      altSection += '\u001b[1;34m💪 Score:\u001b[0m \u001b[1;33m' + formatScore(alt.ability_score) + '\u001b[0m\n';
+      altSection += '\u001b[1;34m🎮 IGN:\u001b[0m \u001b[1;35m' + alt.ign + '\u001b[0m  \u001b[1;34m🆔 UID:\u001b[0m \u001b[1;35m' + alt.uid + '\u001b[0m\n';
+      altSection += '\u001b[1;34m🎭 Class:\u001b[0m \u001b[1;37m' + alt.class + ' - ' + alt.subclass + '\u001b[0m\n';
+      altSection += '\u001b[1;34m💪 Score:\u001b[0m \u001b[1;37m' + formatScore(alt.ability_score) + '\u001b[0m\n';
 
       const altBI = await BattleImagineRepo.findByCharacter(alt.id);
       if (altBI.length > 0) {
-        altSection += '\u001b[1;34m⚔️ Battle Imagines:\u001b[0m \u001b[1;32m' + altBI.map(b => b.imagine_name + ' ' + b.tier).join(', ') + '\u001b[0m\n';
+        altSection += '\u001b[1;34m⚔️ Battle Imagines:\u001b[0m \u001b[1;37m' + altBI.map(b => b.imagine_name + ' ' + b.tier).join(', ') + '\u001b[0m\n';
       }
 
       altSection += '\u001b[1;34m🏰 Guild:\u001b[0m \u001b[1;35m' + (alt.guild || 'None') + '\u001b[0m\n';
