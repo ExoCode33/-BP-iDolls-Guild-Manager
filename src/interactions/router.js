@@ -257,6 +257,10 @@ export async function routeSelectMenu(interaction) {
       const admin = await import('../commands/admin.js');
       return await admin.handleSettingsMenuSelect(interaction);
     }
+    if (customId.startsWith('admin_verification_channel_')) {
+      const admin = await import('../commands/admin.js');
+      return await admin.handleVerificationChannelSelect(interaction);
+    }
     if (customId.startsWith('admin_logs_channel_')) {
       const admin = await import('../commands/admin.js');
       return await admin.handleLogChannelSelect(interaction);
