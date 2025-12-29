@@ -53,7 +53,6 @@ function createRegEmbed(step, total, title, description) {
   const titleLine = centerText(title);
   const descLines = description.split('\n').map(line => centerText(line));
   
-  // Create cute progress bar
   const progress = step / total;
   const filledBars = Math.floor(progress * 10);
   const emptyBars = 10 - filledBars;
@@ -97,18 +96,14 @@ function getTimezoneAbbr(timezoneLabel) {
 }
 
 function getTotalSteps(characterType) {
-  const baseSteps = {
-    'main': 7,
-    'subclass': 2
-  };
-  
-  const battleImagineSteps = config.battleImagines.length;
-  
+  // Subclasses only need 3 steps: class, subclass, ability score
   if (characterType === 'subclass' || characterType === 'main_subclass') {
-    return baseSteps.subclass;
+    return 3;
   }
   
-  return baseSteps.main + battleImagineSteps;
+  // Main characters need: timezone(3) + class + subclass + score + battle imagines(N) + guild + IGN
+  const battleImagineSteps = config.battleImagines.length;
+  return 7 + battleImagineSteps;
 }
 
 function getCountryEmoji(countryName) {
@@ -296,9 +291,18 @@ export async function start(interaction, userId, characterType = 'main') {
   const currentState = state.get(userId, 'reg') || {};
   
   console.log('[REGISTRATION] Starting registration for user:', userId);
+  console.log('[REGISTRATION] Character type:', characterType);
   console.log('[REGISTRATION] State:', JSON.stringify(currentState, null, 2));
   
-  state.set(userId, 'reg', { characterType });
+  // ✅ FIX: For subclasses, skip directly to class selection
+  if (characterType === 'subclass' || currentState.type === 'subclass') {
+    state.set(userId, 'reg', { ...currentState, type: 'subclass' });
+    clearActiveInteraction(userId);
+    return showClassSelection(interaction, userId);
+  }
+  
+  // Main character registration starts with timezone
+  state.set(userId, 'reg', { type: 'main' });
   
   const totalSteps = getTotalSteps('main');
   const embed = createRegEmbed(1, totalSteps, '🌍 Choose Your Region', 'Where are you playing from?');
@@ -330,6 +334,36 @@ export async function start(interaction, userId, characterType = 'main') {
   }
   
   clearActiveInteraction(userId);
+}
+
+// ✅ NEW: Direct class selection for subclasses
+async function showClassSelection(interaction, userId) {
+  const currentState = state.get(userId, 'reg');
+  const totalSteps = getTotalSteps('subclass');
+  
+  const embed = createRegEmbed(1, totalSteps, '🎭 Which class speaks to you?', 'Choose your subclass');
+
+  const classOptions = Object.entries(CLASSES).map(([name, data]) => ({
+    label: name,
+    value: name,
+    description: data.role,
+    emoji: data.iconId ? { id: data.iconId } : data.emoji
+  }));
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_class_${userId}`)
+    .setPlaceholder('🎭 Pick your class')
+    .addOptions(classOptions);
+
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_profile_${userId}`)
+    .setLabel('❌ Cancel')
+    .setStyle(ButtonStyle.Secondary);
+
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton);
+
+  await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
 export async function handleRegion(interaction, userId) {
@@ -459,17 +493,12 @@ export async function handleTimezone(interaction, userId) {
   const totalSteps = getTotalSteps('main');
   const embed = createRegEmbed(4, totalSteps, '🎭 Which class speaks to you?', `Timezone: ${timezoneAbbr} • ${timeString}`);
 
-  const classOptions = Object.keys(CLASSES).map(className => {
-    const iconId = getClassIconId(className);
-    const option = {
-      label: className,
-      value: className,
-      description: CLASSES[className].role,
-      emoji: iconId ? { id: iconId } : CLASSES[className].emoji
-    };
-    
-    return option;
-  });
+  const classOptions = Object.entries(CLASSES).map(([name, data]) => ({
+    label: name,
+    value: name,
+    description: data.role,
+    emoji: data.iconId ? { id: data.iconId } : data.emoji
+  }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_class_${userId}`)
@@ -504,10 +533,11 @@ export async function handleClass(interaction, userId) {
   const subclasses = CLASSES[className].subclasses;
   const classRole = CLASSES[className].role;
   
+  // ✅ FIX: Use currentState.type instead of currentState.characterType
   const isSubclass = currentState.type === 'subclass';
-  const totalSteps = getTotalSteps(currentState.characterType || 'main');
+  const totalSteps = getTotalSteps(currentState.type || 'main');
   
-  const stepNum = isSubclass ? 1 : 5;
+  const stepNum = isSubclass ? 2 : 5;
   
   const embed = createRegEmbed(stepNum, totalSteps, '✨ Subclass selection!', `Class: ${className}`);
 
@@ -555,10 +585,11 @@ export async function handleSubclass(interaction, userId) {
   const currentState = state.get(userId, 'reg');
   state.set(userId, 'reg', { ...currentState, subclass: subclassName });
   
+  // ✅ FIX: Use currentState.type
   const isSubclass = currentState.type === 'subclass';
-  const totalSteps = getTotalSteps(currentState.characterType || 'main');
+  const totalSteps = getTotalSteps(currentState.type || 'main');
   
-  const stepNum = isSubclass ? 2 : 6;
+  const stepNum = isSubclass ? 3 : 6;
   
   const embed = createRegEmbed(stepNum, totalSteps, '⚔️ What is your ability score?', `Subclass: ${subclassName}`);
 
@@ -601,6 +632,7 @@ export async function handleScore(interaction, userId) {
 
   const isSubclass = currentState.type === 'subclass';
   
+  // ✅ SUBCLASS COMPLETION: Create subclass character immediately
   if (isSubclass) {
     try {
       const parentChar = await CharacterRepo.findById(currentState.parentId);
@@ -610,6 +642,7 @@ export async function handleScore(interaction, userId) {
         throw new Error('Parent character not found');
       }
 
+      // ✅ Copy IGN, UID, Guild from parent main character
       const character = await CharacterRepo.create({
         userId,
         ign: parentChar.ign,
@@ -618,7 +651,7 @@ export async function handleScore(interaction, userId) {
         subclass: currentState.subclass,
         abilityScore: abilityScore,
         guild: parentChar.guild,
-        characterType: currentState.characterType,
+        characterType: 'main_subclass',
         parentId: currentState.parentId
       });
 
@@ -635,7 +668,7 @@ export async function handleScore(interaction, userId) {
         components: buttons
       });
 
-      logger.register(interaction.user.username, currentState.characterType, parentChar.ign, `${currentState.class} - ${currentState.subclass}`);
+      logger.register(interaction.user.username, 'subclass', parentChar.ign, `${currentState.class} - ${currentState.subclass}`);
       
       state.clear(userId, 'reg');
       clearActiveInteraction(userId);
@@ -651,6 +684,7 @@ export async function handleScore(interaction, userId) {
     return;
   }
 
+  // Main character continues to battle imagine selection
   state.set(userId, 'reg', { 
     ...currentState, 
     abilityScore,
@@ -673,11 +707,10 @@ async function showBattleImagineSelection(interaction, userId) {
   }
   
   const currentImagine = config.battleImagines[currentImagineIndex];
-  const totalSteps = getTotalSteps(currentState.characterType || 'main');
+  const totalSteps = getTotalSteps(currentState.type || 'main');
   
   const stepNum = 7 + currentImagineIndex;
   
-  // Use standard emoji instead of custom emoji
   const title = `⚔️ Battle Imagine - ${currentImagine.name}`;
   
   const embed = createRegEmbed(
@@ -753,7 +786,7 @@ export async function handleBattleImagine(interaction, userId) {
 async function proceedToGuildSelection(interaction, userId) {
   const currentState = state.get(userId, 'reg');
   const scoreLabel = ABILITY_SCORES.find(s => s.value === currentState.abilityScore)?.label || currentState.abilityScore;
-  const totalSteps = getTotalSteps(currentState.characterType || 'main');
+  const totalSteps = getTotalSteps(currentState.type || 'main');
   
   const stepNum = totalSteps - 1;
   
@@ -877,7 +910,7 @@ export async function handleIGN(interaction, userId) {
       subclass: currentState.subclass,
       abilityScore: currentState.abilityScore,
       guild: currentState.guild,
-      characterType: currentState.characterType || 'main',
+      characterType: 'main',
       parentId: null
     });
     
@@ -888,7 +921,7 @@ export async function handleIGN(interaction, userId) {
       console.log(`[REGISTRATION] Saved ${currentState.battleImagines.length} Battle Imagines`);
     }
     
-    if (currentState.characterType === 'main' && config.sync.nicknameEnabled) {
+    if (config.sync.nicknameEnabled) {
       try {
         const result = await updateNickname(interaction.client, config.discord.guildId, userId, ign);
         if (result.success) {
@@ -901,7 +934,6 @@ export async function handleIGN(interaction, userId) {
       }
     }
 
-    // Check if applying to iDolls - create application instead of auto-assign
     if (currentState.guild === 'iDolls' && config.roles.guild1) {
       await applicationService.createApplication(userId, character.id, currentState.guild);
     } else {
@@ -922,7 +954,7 @@ export async function handleIGN(interaction, userId) {
       ephemeral: false
     });
 
-    logger.register(interaction.user.username, currentState.characterType || 'main', ign, currentState.class);
+    logger.register(interaction.user.username, 'main', ign, currentState.class);
   } catch (error) {
     console.error('[REGISTRATION ERROR]', error);
     logger.error('Registration', `Registration error: ${error.message}`, error);
@@ -1019,6 +1051,17 @@ export async function backToTimezone(interaction, userId) {
 
 export async function backToClass(interaction, userId) {
   const currentState = state.get(userId, 'reg');
+  
+  // ✅ For subclass, go back to profile (no timezone)
+  if (currentState?.type === 'subclass') {
+    state.clear(userId, 'reg');
+    return interaction.update({ 
+      content: '❌ Subclass registration cancelled.',
+      embeds: [],
+      components: []
+    });
+  }
+  
   if (!currentState || !currentState.timezone) {
     await start(interaction, userId);
     return;
