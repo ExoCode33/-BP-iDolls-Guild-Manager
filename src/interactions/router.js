@@ -7,6 +7,45 @@ import applicationService from '../services/applications.js';
 
 const ephemeralFlag = { flags: MessageFlags.Ephemeral };
 
+// ✅ INTERACTION LOCK - Prevents duplicate processing from fast clicks
+const activeInteractions = new Map();
+const INTERACTION_TIMEOUT = 3000; // 3 seconds
+
+function isInteractionLocked(userId, interactionId) {
+  const active = activeInteractions.get(userId);
+  if (!active) return false;
+  
+  // Clean up old locks
+  if (Date.now() - active.timestamp > INTERACTION_TIMEOUT) {
+    activeInteractions.delete(userId);
+    return false;
+  }
+  
+  // Different interaction = not locked
+  return active.id !== interactionId;
+}
+
+function lockInteraction(userId, interactionId) {
+  activeInteractions.set(userId, {
+    id: interactionId,
+    timestamp: Date.now()
+  });
+}
+
+function unlockInteraction(userId) {
+  activeInteractions.delete(userId);
+}
+
+// Clean up old locks every minute
+setInterval(() => {
+  const now = Date.now();
+  for (const [userId, lock] of activeInteractions.entries()) {
+    if (now - lock.timestamp > INTERACTION_TIMEOUT) {
+      activeInteractions.delete(userId);
+    }
+  }
+}, 60000);
+
 function extractUserId(customId) {
   const parts = customId.split('_');
   return parts[parts.length - 1];
@@ -25,41 +64,77 @@ export async function route(interaction) {
   const userId = extractUserId(customId);
   const isAdminAction = customId.startsWith('admin_');
 
+  // ✅ CHECK FOR DUPLICATE INTERACTION
+  if (isInteractionLocked(userId, interaction.id)) {
+    console.log(`[ROUTER] Ignoring duplicate interaction for ${userId}`);
+    return;
+  }
+
   // ✅ APPLICATION HANDLERS - FIRST, before ownership checks
   if (customId.startsWith('app_vote_accept_')) {
     const appId = parseInt(customId.split('_')[3]);
     console.log(`[ROUTER] Accept vote button clicked, appId: ${appId}, customId: ${customId}`);
-    return applicationService.handleVote(interaction, appId, 'accept');
+    lockInteraction(userId, interaction.id);
+    try {
+      await applicationService.handleVote(interaction, appId, 'accept');
+    } finally {
+      unlockInteraction(userId);
+    }
+    return;
   }
   
   if (customId.startsWith('app_vote_deny_')) {
     const appId = parseInt(customId.split('_')[3]);
     console.log(`[ROUTER] Deny vote button clicked, appId: ${appId}, customId: ${customId}`);
-    return applicationService.handleVote(interaction, appId, 'deny');
+    lockInteraction(userId, interaction.id);
+    try {
+      await applicationService.handleVote(interaction, appId, 'deny');
+    } finally {
+      unlockInteraction(userId);
+    }
+    return;
   }
   
-  // Handle the main "Admin Override" button click (shows menu)
   if (customId.startsWith('app_override_') && !customId.includes('accept') && !customId.includes('deny') && !customId.includes('cancel')) {
     const appId = parseInt(customId.split('_')[2]);
     console.log(`[ROUTER] Override menu button clicked, appId: ${appId}, customId: ${customId}`);
-    return applicationService.showOverrideMenu(interaction, appId);
+    lockInteraction(userId, interaction.id);
+    try {
+      await applicationService.showOverrideMenu(interaction, appId);
+    } finally {
+      unlockInteraction(userId);
+    }
+    return;
   }
   
   if (customId.startsWith('app_override_accept_')) {
     const appId = parseInt(customId.split('_')[3]);
     console.log(`[ROUTER] Override accept button clicked, appId: ${appId}, customId: ${customId}`);
-    return applicationService.handleOverride(interaction, appId, 'accept');
+    lockInteraction(userId, interaction.id);
+    try {
+      await applicationService.handleOverride(interaction, appId, 'accept');
+    } finally {
+      unlockInteraction(userId);
+    }
+    return;
   }
   
   if (customId.startsWith('app_override_deny_')) {
     const appId = parseInt(customId.split('_')[3]);
     console.log(`[ROUTER] Override deny button clicked, appId: ${appId}, customId: ${customId}`);
-    return applicationService.handleOverride(interaction, appId, 'deny');
+    lockInteraction(userId, interaction.id);
+    try {
+      await applicationService.handleOverride(interaction, appId, 'deny');
+    } finally {
+      unlockInteraction(userId);
+    }
+    return;
   }
   
   if (customId.startsWith('app_override_cancel')) {
     console.log(`[ROUTER] Override cancel button clicked, customId: ${customId}`);
-    return interaction.update({ content: '❌ Override cancelled.', components: [], flags: MessageFlags.Ephemeral });
+    await interaction.update({ content: '❌ Override cancelled.', components: [], flags: MessageFlags.Ephemeral });
+    return;
   }
 
   // Check ownership - admins can bypass for admin_ prefixed actions
@@ -72,59 +147,62 @@ export async function route(interaction) {
     return interaction.reply({ content: 'You need Administrator permission.', ...ephemeralFlag });
   }
 
+  // ✅ LOCK INTERACTION BEFORE PROCESSING
+  lockInteraction(userId, interaction.id);
+
   logger.interaction(interaction.isButton() ? 'button' : 'select', customId, interaction.user.username);
 
   try {
     // Admin actions (operate on other users)
-    if (customId.startsWith('admin_reg_start_')) return reg.start(interaction, userId, 'main');
-    if (customId.startsWith('admin_add_')) return edit.showAddMenu(interaction, userId);
-    if (customId.startsWith('admin_edit_')) return edit.showEditMenu(interaction, userId);
-    if (customId.startsWith('admin_remove_')) return edit.showRemoveMenu(interaction, userId);
+    if (customId.startsWith('admin_reg_start_')) return await reg.start(interaction, userId, 'main');
+    if (customId.startsWith('admin_add_')) return await edit.showAddMenu(interaction, userId);
+    if (customId.startsWith('admin_edit_')) return await edit.showEditMenu(interaction, userId);
+    if (customId.startsWith('admin_remove_')) return await edit.showRemoveMenu(interaction, userId);
 
     // Registration - START
-    if (customId.startsWith('reg_start_')) return reg.start(interaction, userId, 'main');
+    if (customId.startsWith('reg_start_')) return await reg.start(interaction, userId, 'main');
 
     // Back buttons
-    if (customId.startsWith('back_to_profile_')) return edit.backToProfile(interaction, userId);
-    if (customId.startsWith('back_to_region_')) return reg.backToRegion(interaction, userId);
-    if (customId.startsWith('back_to_country_')) return reg.backToCountry(interaction, userId);
-    if (customId.startsWith('back_to_timezone_')) return reg.backToTimezone(interaction, userId);
-    if (customId.startsWith('back_to_class_')) return reg.backToClass(interaction, userId);
-    if (customId.startsWith('back_to_subclass_')) return reg.backToSubclass(interaction, userId);
-    if (customId.startsWith('back_to_score_')) return reg.backToScore(interaction, userId);
-    if (customId.startsWith('back_to_battle_imagine_')) return reg.backToBattleImagine(interaction, userId);
-    if (customId.startsWith('retry_ign_uid_')) return reg.retryIGN(interaction, userId);
+    if (customId.startsWith('back_to_profile_')) return await edit.backToProfile(interaction, userId);
+    if (customId.startsWith('back_to_region_')) return await reg.backToRegion(interaction, userId);
+    if (customId.startsWith('back_to_country_')) return await reg.backToCountry(interaction, userId);
+    if (customId.startsWith('back_to_timezone_')) return await reg.backToTimezone(interaction, userId);
+    if (customId.startsWith('back_to_class_')) return await reg.backToClass(interaction, userId);
+    if (customId.startsWith('back_to_subclass_')) return await reg.backToSubclass(interaction, userId);
+    if (customId.startsWith('back_to_score_')) return await reg.backToScore(interaction, userId);
+    if (customId.startsWith('back_to_battle_imagine_')) return await reg.backToBattleImagine(interaction, userId);
+    if (customId.startsWith('retry_ign_uid_')) return await reg.retryIGN(interaction, userId);
 
     // Add character
-    if (customId.startsWith('add_type_')) return edit.handleAddType(interaction, userId);
-    if (customId.startsWith('add_')) return edit.showAddMenu(interaction, userId);
-    if (customId.startsWith('parent_')) return edit.handleParentSelect(interaction, userId);
+    if (customId.startsWith('add_type_')) return await edit.handleAddType(interaction, userId);
+    if (customId.startsWith('add_')) return await edit.showAddMenu(interaction, userId);
+    if (customId.startsWith('parent_')) return await edit.handleParentSelect(interaction, userId);
 
     // Edit character - back buttons
-    if (customId.startsWith('edit_type_back_')) return edit.backToEditType(interaction, userId);
-    if (customId.startsWith('edit_field_back_')) return edit.backToFieldSelect(interaction, userId);
-    if (customId.startsWith('edit_class_back_')) return edit.backToClassSelect(interaction, userId);
-    if (customId.startsWith('edit_bi_back_')) return edit.backToBattleImagineList(interaction, userId);
+    if (customId.startsWith('edit_type_back_')) return await edit.backToEditType(interaction, userId);
+    if (customId.startsWith('edit_field_back_')) return await edit.backToFieldSelect(interaction, userId);
+    if (customId.startsWith('edit_class_back_')) return await edit.backToClassSelect(interaction, userId);
+    if (customId.startsWith('edit_bi_back_')) return await edit.backToBattleImagineList(interaction, userId);
     
     // Edit character - selections
-    if (customId.startsWith('edit_type_')) return edit.handleEditType(interaction, userId);
-    if (customId.startsWith('edit_alt_')) return edit.handleEditAltSelect(interaction, userId);
-    if (customId.startsWith('edit_subclass_')) return edit.handleEditSubclassSelect(interaction, userId);
-    if (customId.startsWith('edit_field_')) return edit.handleFieldSelect(interaction, userId);
-    if (customId.startsWith('edit_bi_select_')) return edit.handleEditBattleImagineSelect(interaction, userId);
-    if (customId.startsWith('edit_bi_tier_')) return edit.handleEditBattleImagineTier(interaction, userId);
-    if (customId.startsWith('edit_')) return edit.showEditMenu(interaction, userId);
+    if (customId.startsWith('edit_type_')) return await edit.handleEditType(interaction, userId);
+    if (customId.startsWith('edit_alt_')) return await edit.handleEditAltSelect(interaction, userId);
+    if (customId.startsWith('edit_subclass_')) return await edit.handleEditSubclassSelect(interaction, userId);
+    if (customId.startsWith('edit_field_')) return await edit.handleFieldSelect(interaction, userId);
+    if (customId.startsWith('edit_bi_select_')) return await edit.handleEditBattleImagineSelect(interaction, userId);
+    if (customId.startsWith('edit_bi_tier_')) return await edit.handleEditBattleImagineTier(interaction, userId);
+    if (customId.startsWith('edit_')) return await edit.showEditMenu(interaction, userId);
 
     // Remove character
-    if (customId.startsWith('remove_type_')) return edit.handleRemoveType(interaction, userId);
-    if (customId.startsWith('remove_alt_')) return edit.handleRemoveAltSelect(interaction, userId);
-    if (customId.startsWith('remove_subclass_')) return edit.handleRemoveSubclassSelect(interaction, userId);
-    if (customId.startsWith('remove_')) return edit.showRemoveMenu(interaction, userId);
+    if (customId.startsWith('remove_type_')) return await edit.handleRemoveType(interaction, userId);
+    if (customId.startsWith('remove_alt_')) return await edit.handleRemoveAltSelect(interaction, userId);
+    if (customId.startsWith('remove_subclass_')) return await edit.handleRemoveSubclassSelect(interaction, userId);
+    if (customId.startsWith('remove_')) return await edit.showRemoveMenu(interaction, userId);
 
     // Confirm/cancel
-    if (customId.startsWith('confirm_deleteall_')) return edit.confirmDeleteAll(interaction, userId);
-    if (customId.startsWith('confirm_delete_')) return edit.confirmDelete(interaction, userId);
-    if (customId.startsWith('cancel_')) return edit.cancelAction(interaction, userId);
+    if (customId.startsWith('confirm_deleteall_')) return await edit.confirmDeleteAll(interaction, userId);
+    if (customId.startsWith('confirm_delete_')) return await edit.confirmDelete(interaction, userId);
+    if (customId.startsWith('cancel_')) return await edit.cancelAction(interaction, userId);
 
     logger.warning('Router', `Unknown customId: ${customId}`);
   } catch (e) {
@@ -132,6 +210,9 @@ export async function route(interaction) {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({ content: 'Something went wrong.', ...ephemeralFlag });
     }
+  } finally {
+    // ✅ ALWAYS UNLOCK AFTER PROCESSING
+    unlockInteraction(userId);
   }
 }
 
@@ -139,6 +220,12 @@ export async function routeSelectMenu(interaction) {
   const customId = interaction.customId;
   const userId = extractUserId(customId);
   const isAdminAction = customId.startsWith('admin_');
+
+  // ✅ CHECK FOR DUPLICATE INTERACTION
+  if (isInteractionLocked(userId, interaction.id)) {
+    console.log(`[ROUTER] Ignoring duplicate select menu for ${userId}`);
+    return;
+  }
 
   if (!isOwner(interaction, userId) && !isAdminAction) {
     return interaction.reply({ content: 'This is not your session.', ...ephemeralFlag });
@@ -148,51 +235,54 @@ export async function routeSelectMenu(interaction) {
     return interaction.reply({ content: 'You need Administrator permission.', ...ephemeralFlag });
   }
 
+  // ✅ LOCK INTERACTION BEFORE PROCESSING
+  lockInteraction(userId, interaction.id);
+
   logger.interaction('select', customId, interaction.user.username);
 
   try {
-    if (customId.startsWith('select_region_')) return reg.handleRegion(interaction, userId);
-    if (customId.startsWith('select_country_')) return reg.handleCountry(interaction, userId);
-    if (customId.startsWith('select_timezone_')) return reg.handleTimezone(interaction, userId);
+    if (customId.startsWith('select_region_')) return await reg.handleRegion(interaction, userId);
+    if (customId.startsWith('select_country_')) return await reg.handleCountry(interaction, userId);
+    if (customId.startsWith('select_timezone_')) return await reg.handleTimezone(interaction, userId);
     if (customId.startsWith('select_class_')) {
       const s = state.get(userId, 'edit');
       if (s?.field === 'class') {
-        return edit.handleEditClass(interaction, userId);
+        return await edit.handleEditClass(interaction, userId);
       }
-      return reg.handleClass(interaction, userId);
+      return await reg.handleClass(interaction, userId);
     }
     if (customId.startsWith('select_subclass_')) {
       const s = state.get(userId, 'edit');
       if (s?.field === 'class') {
-        return edit.handleEditSubclass(interaction, userId);
+        return await edit.handleEditSubclass(interaction, userId);
       }
-      return reg.handleSubclass(interaction, userId);
+      return await reg.handleSubclass(interaction, userId);
     }
     if (customId.startsWith('select_ability_score_')) {
       const s = state.get(userId, 'edit');
       if (s?.field === 'score') {
-        return edit.handleEditScore(interaction, userId);
+        return await edit.handleEditScore(interaction, userId);
       }
-      return reg.handleScore(interaction, userId);
+      return await reg.handleScore(interaction, userId);
     }
-    if (customId.startsWith('select_battle_imagine_')) return reg.handleBattleImagine(interaction, userId);
+    if (customId.startsWith('select_battle_imagine_')) return await reg.handleBattleImagine(interaction, userId);
     if (customId.startsWith('select_guild_')) {
       const s = state.get(userId, 'edit');
       if (s?.field === 'guild') {
-        return edit.handleEditGuild(interaction, userId);
+        return await edit.handleEditGuild(interaction, userId);
       }
-      return reg.handleGuild(interaction, userId);
+      return await reg.handleGuild(interaction, userId);
     }
 
-    if (customId.startsWith('add_type_')) return edit.handleAddType(interaction, userId);
-    if (customId.startsWith('edit_type_')) return edit.handleEditType(interaction, userId);
-    if (customId.startsWith('remove_type_')) return edit.handleRemoveType(interaction, userId);
-    if (customId.startsWith('parent_')) return edit.handleParentSelect(interaction, userId);
-    if (customId.startsWith('edit_alt_')) return edit.handleEditAltSelect(interaction, userId);
-    if (customId.startsWith('edit_subclass_')) return edit.handleEditSubclassSelect(interaction, userId);
-    if (customId.startsWith('edit_field_')) return edit.handleFieldSelect(interaction, userId);
-    if (customId.startsWith('edit_bi_select_')) return edit.handleEditBattleImagineSelect(interaction, userId);
-    if (customId.startsWith('edit_bi_tier_')) return edit.handleEditBattleImagineTier(interaction, userId);
+    if (customId.startsWith('add_type_')) return await edit.handleAddType(interaction, userId);
+    if (customId.startsWith('edit_type_')) return await edit.handleEditType(interaction, userId);
+    if (customId.startsWith('remove_type_')) return await edit.handleRemoveType(interaction, userId);
+    if (customId.startsWith('parent_')) return await edit.handleParentSelect(interaction, userId);
+    if (customId.startsWith('edit_alt_')) return await edit.handleEditAltSelect(interaction, userId);
+    if (customId.startsWith('edit_subclass_')) return await edit.handleEditSubclassSelect(interaction, userId);
+    if (customId.startsWith('edit_field_')) return await edit.handleFieldSelect(interaction, userId);
+    if (customId.startsWith('edit_bi_select_')) return await edit.handleEditBattleImagineSelect(interaction, userId);
+    if (customId.startsWith('edit_bi_tier_')) return await edit.handleEditBattleImagineTier(interaction, userId);
 
     logger.warning('Router', `Unknown select customId: ${customId}`);
   } catch (e) {
@@ -200,6 +290,9 @@ export async function routeSelectMenu(interaction) {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({ content: 'Something went wrong.', ...ephemeralFlag });
     }
+  } finally {
+    // ✅ ALWAYS UNLOCK AFTER PROCESSING
+    unlockInteraction(userId);
   }
 }
 
@@ -207,19 +300,28 @@ export async function routeModal(interaction) {
   const customId = interaction.customId;
   const userId = extractUserId(customId);
 
+  // ✅ CHECK FOR DUPLICATE INTERACTION
+  if (isInteractionLocked(userId, interaction.id)) {
+    console.log(`[ROUTER] Ignoring duplicate modal for ${userId}`);
+    return;
+  }
+
+  // ✅ LOCK INTERACTION BEFORE PROCESSING
+  lockInteraction(userId, interaction.id);
+
   logger.interaction('modal', customId, interaction.user.username);
 
   try {
     if (customId.startsWith('ign_modal_')) {
-      return reg.handleIGN(interaction, userId);
+      return await reg.handleIGN(interaction, userId);
     }
 
     if (customId.startsWith('edit_ign_')) {
-      return edit.handleEditModal(interaction, userId, 'ign');
+      return await edit.handleEditModal(interaction, userId, 'ign');
     }
 
     if (customId.startsWith('edit_uid_')) {
-      return edit.handleEditModal(interaction, userId, 'uid');
+      return await edit.handleEditModal(interaction, userId, 'uid');
     }
 
     logger.warning('Router', `Unknown modal customId: ${customId}`);
@@ -228,5 +330,8 @@ export async function routeModal(interaction) {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({ content: 'Something went wrong.', ...ephemeralFlag });
     }
+  } finally {
+    // ✅ ALWAYS UNLOCK AFTER PROCESSING
+    unlockInteraction(userId);
   }
 }
