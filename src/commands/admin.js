@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import logger from '../services/logger.js';
 import { isEphemeral } from '../services/ephemeral.js';
-import { CharacterRepo, LogSettingsRepo, EphemeralRepo, VerificationSettingsRepo } from '../database/repositories.js';
+import { CharacterRepo, LogSettingsRepo, EphemeralRepo } from '../database/repositories.js';
 import applicationService from '../services/applications.js';
 import sheets from '../services/sheets.js';
 import { syncAllNicknames } from '../services/nickname.js';
@@ -37,7 +37,7 @@ async function showSettingsMenu(interaction) {
     '**Choose a category to configure:**\n\n' +
     '🔔 **Logging** - Discord logging configuration\n' +
     '👁️ **Ephemeral** - Privacy settings for responses\n' +
-    '✅ **Verification** - Registration channel setup\n' +
+    '✅ **Verification** - Registration channel status\n' +
     '📊 **Statistics** - View bot statistics';
 
   const row = new ActionRowBuilder().addComponents(
@@ -58,9 +58,9 @@ async function showSettingsMenu(interaction) {
           emoji: '👁️'
         },
         {
-          label: 'Verification Settings',
+          label: 'Verification Status',
           value: 'verification',
-          description: 'Setup registration channel',
+          description: 'View registration channel',
           emoji: '✅'
         },
         {
@@ -80,61 +80,42 @@ async function showSettingsMenu(interaction) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// VERIFICATION SETTINGS
+// VERIFICATION STATUS
 // ═══════════════════════════════════════════════════════════════════
 
-async function showVerificationSettings(interaction) {
-  const current = await VerificationSettingsRepo.get(interaction.guildId);
-  const channelId = current?.verification_channel_id;
+async function showVerificationStatus(interaction) {
+  const channelId = config.channels.verification;
   
-  let statusText = channelId 
-    ? `**📺 Verification Channel:** <#${channelId}>\n\n` 
-    : `**📺 Verification Channel:** *Not configured*\n\n`;
+  let statusText = '';
   
-  statusText += '**How it works:**\n';
-  statusText += '1. Bot posts persistent registration embed in selected channel\n';
-  statusText += '2. Users click button to register (ephemeral registration flow)\n';
-  statusText += '3. After approval, users get Verified + Guild + Class roles\n';
-  statusText += '4. Users gain full server access\n\n';
-  statusText += '**Setup:** Select a channel below to enable verification system.';
+  if (channelId) {
+    statusText += `**📺 Verification Channel:** <#${channelId}>\n`;
+    statusText += `**Status:** ✅ Configured\n\n`;
+    statusText += '**How it works:**\n';
+    statusText += '1. Bot posts persistent registration embed in this channel\n';
+    statusText += '2. Users click button to register (ephemeral registration flow)\n';
+    statusText += '3. After approval, users get Verified + Guild + Class roles\n';
+    statusText += '4. Users gain full server access\n\n';
+    statusText += '**To change:** Update `VERIFICATION_CHANNEL_ID` in your environment variables and restart the bot.';
+  } else {
+    statusText += `**📺 Verification Channel:** ❌ Not configured\n\n`;
+    statusText += '**Setup:**\n';
+    statusText += '1. Add `VERIFICATION_CHANNEL_ID=your_channel_id` to your .env file\n';
+    statusText += '2. Restart the bot\n';
+    statusText += '3. Bot will automatically post the registration embed\n\n';
+    statusText += '**Note:** Configuration is done via environment variables for security.';
+  }
 
-  const rows = [];
-  
-  // Channel selection
-  rows.push(new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`admin_verification_channel_${interaction.user.id}`)
-      .setPlaceholder('📺 Select verification channel')
-      .addOptions([
-        { 
-          label: 'Disable verification system', 
-          value: 'none', 
-          description: 'Remove verification embed', 
-          emoji: '🔇' 
-        },
-        ...interaction.guild.channels.cache
-          .filter(ch => ch.type === ChannelType.GuildText)
-          .map(ch => ({ 
-            label: `#${ch.name}`, 
-            value: ch.id, 
-            description: ch.parent?.name || 'No category',
-            emoji: '📺'
-          }))
-          .slice(0, 24)
-      ])
-  ));
-
-  // Back button
-  rows.push(new ActionRowBuilder().addComponents(
+  const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`admin_settings_back_${interaction.user.id}`)
       .setLabel('← Back to Settings')
       .setStyle(ButtonStyle.Secondary)
-  ));
+  );
 
   await interaction.update({ 
-    embeds: [embed('✅ Verification Settings', statusText)], 
-    components: rows 
+    embeds: [embed('✅ Verification Status', statusText)], 
+    components: [row] 
   });
 }
 
@@ -416,7 +397,7 @@ export async function execute(interaction) {
       case 'settings': return await showSettingsMenu(interaction);
       case 'sync': return await handleSync(interaction);
       case 'nicknames': return await handleNicknames(interaction);
-      case 'stats': return await handleStatistics(interaction);
+      case 'stats': return await showStatistics(interaction);
       case 'delete': return await handleDelete(interaction);
       case 'character': return await handleCharacter(interaction);
     }
@@ -439,28 +420,8 @@ export async function handleSettingsMenuSelect(interaction) {
   switch (selected) {
     case 'logs': return await showLoggingSettings(interaction);
     case 'ephemeral': return await showEphemeralSettings(interaction);
-    case 'verification': return await showVerificationSettings(interaction);
+    case 'verification': return await showVerificationStatus(interaction);
     case 'stats': return await showStatistics(interaction);
-  }
-}
-
-export async function handleVerificationChannelSelect(interaction) {
-  const channelId = interaction.values[0];
-  await VerificationSettingsRepo.upsert(interaction.guildId, { 
-    channelId: channelId === 'none' ? null : channelId 
-  });
-  
-  if (channelId === 'none') {
-    await interaction.reply({ 
-      embeds: [embed('✅ Verification Disabled', 'The verification system has been disabled.')], 
-      ephemeral: true 
-    });
-  } else {
-    await VerificationSystem.setupVerificationChannel(interaction.client);
-    await interaction.reply({ 
-      embeds: [embed('✅ Verification Enabled', `**Verification Channel:** <#${channelId}>\n\nThe registration embed has been posted!`)], 
-      ephemeral: true 
-    });
   }
 }
 
