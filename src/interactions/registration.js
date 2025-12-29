@@ -19,6 +19,7 @@ import { updateNickname } from '../services/nickname.js';
 import { profileEmbed } from '../ui/embeds.js';
 import * as ui from '../ui/components.js';
 import applicationService from '../services/applications.js';
+import classRoleService from '../services/classRoles.js';
 
 const activeInteractions = new Map();
 
@@ -96,12 +97,10 @@ function getTimezoneAbbr(timezoneLabel) {
 }
 
 function getTotalSteps(characterType) {
-  // Subclasses only need 3 steps: class, subclass, ability score
   if (characterType === 'subclass' || characterType === 'main_subclass') {
     return 3;
   }
   
-  // Main characters need: timezone(3) + class + subclass + score + battle imagines(N) + guild + IGN
   const battleImagineSteps = config.battleImagines.length;
   return 7 + battleImagineSteps;
 }
@@ -294,14 +293,12 @@ export async function start(interaction, userId, characterType = 'main') {
   console.log('[REGISTRATION] Character type:', characterType);
   console.log('[REGISTRATION] State:', JSON.stringify(currentState, null, 2));
   
-  // ✅ FIX: For subclasses, skip directly to class selection
   if (characterType === 'subclass' || currentState.type === 'subclass') {
     state.set(userId, 'reg', { ...currentState, type: 'subclass' });
     clearActiveInteraction(userId);
     return showClassSelection(interaction, userId);
   }
   
-  // Main character registration starts with timezone
   state.set(userId, 'reg', { type: 'main' });
   
   const totalSteps = getTotalSteps('main');
@@ -336,7 +333,6 @@ export async function start(interaction, userId, characterType = 'main') {
   clearActiveInteraction(userId);
 }
 
-// ✅ NEW: Direct class selection for subclasses
 async function showClassSelection(interaction, userId) {
   const currentState = state.get(userId, 'reg');
   const totalSteps = getTotalSteps('subclass');
@@ -533,7 +529,6 @@ export async function handleClass(interaction, userId) {
   const subclasses = CLASSES[className].subclasses;
   const classRole = CLASSES[className].role;
   
-  // ✅ FIX: Use currentState.type instead of currentState.characterType
   const isSubclass = currentState.type === 'subclass';
   const totalSteps = getTotalSteps(currentState.type || 'main');
   
@@ -585,7 +580,6 @@ export async function handleSubclass(interaction, userId) {
   const currentState = state.get(userId, 'reg');
   state.set(userId, 'reg', { ...currentState, subclass: subclassName });
   
-  // ✅ FIX: Use currentState.type
   const isSubclass = currentState.type === 'subclass';
   const totalSteps = getTotalSteps(currentState.type || 'main');
   
@@ -632,7 +626,6 @@ export async function handleScore(interaction, userId) {
 
   const isSubclass = currentState.type === 'subclass';
   
-  // ✅ SUBCLASS COMPLETION: Create subclass character immediately
   if (isSubclass) {
     try {
       const parentChar = await CharacterRepo.findById(currentState.parentId);
@@ -642,7 +635,6 @@ export async function handleScore(interaction, userId) {
         throw new Error('Parent character not found');
       }
 
-      // ✅ Copy IGN, UID, Guild from parent main character
       const character = await CharacterRepo.create({
         userId,
         ign: parentChar.ign,
@@ -656,6 +648,9 @@ export async function handleScore(interaction, userId) {
       });
 
       console.log('[REGISTRATION] Created subclass:', character.id);
+
+      // ✅ ADD CLASS ROLE
+      await classRoleService.addClassRole(userId, currentState.class);
 
       const characters = await CharacterRepo.findAllByUser(userId);
       const main = characters.find(c => c.character_type === 'main');
@@ -684,7 +679,6 @@ export async function handleScore(interaction, userId) {
     return;
   }
 
-  // Main character continues to battle imagine selection
   state.set(userId, 'reg', { 
     ...currentState, 
     abilityScore,
@@ -934,6 +928,9 @@ export async function handleIGN(interaction, userId) {
       }
     }
 
+    // ✅ ADD CLASS ROLE
+    await classRoleService.addClassRole(userId, currentState.class);
+
     if (currentState.guild === 'iDolls' && config.roles.guild1) {
       await applicationService.createApplication(userId, character.id, currentState.guild);
     } else {
@@ -1052,7 +1049,6 @@ export async function backToTimezone(interaction, userId) {
 export async function backToClass(interaction, userId) {
   const currentState = state.get(userId, 'reg');
   
-  // ✅ For subclass, go back to profile (no timezone)
   if (currentState?.type === 'subclass') {
     state.clear(userId, 'reg');
     return interaction.update({ 
