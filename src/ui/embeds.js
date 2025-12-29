@@ -4,23 +4,59 @@ import { formatScore, formatTime, getRoleEmoji, getClassEmoji } from './utils.js
 import { TimezoneRepo, BattleImagineRepo, ApplicationRepo } from '../database/repositories.js';
 
 export const embed = (title, description) => {
+  const centerText = (text, width = 42) => text.padStart((text.length + width) / 2).padEnd(width);
+  const descLines = description.split('\n').map(line => centerText(line));
+  
+  const ansiText = [
+    '\u001b[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
+    '',
+    ...descLines.map(line => `\u001b[1;34m${line}\u001b[0m`),
+    '',
+    '\u001b[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
+  ].join('\n');
+  
   return new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
-    .setDescription(`# **${title}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${description}`)
+    .setTitle(title)
+    .setDescription(`\`\`\`ansi\n${ansiText}\n\`\`\``)
     .setTimestamp();
 };
 
 export const errorEmbed = (message) => {
+  const centerText = (text, width = 42) => text.padStart((text.length + width) / 2).padEnd(width);
+  const descLines = message.split('\n').map(line => centerText(line));
+  
+  const ansiText = [
+    '\u001b[1;31m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
+    '',
+    ...descLines.map(line => `\u001b[1;31m${line}\u001b[0m`),
+    '',
+    '\u001b[1;31m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
+  ].join('\n');
+  
   return new EmbedBuilder()
     .setColor(COLORS.ERROR)
-    .setDescription(`# ❌ **Error**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${message}`)
+    .setTitle('❌ Error')
+    .setDescription(`\`\`\`ansi\n${ansiText}\n\`\`\``)
     .setTimestamp();
 };
 
 export const successEmbed = (message) => {
+  const centerText = (text, width = 42) => text.padStart((text.length + width) / 2).padEnd(width);
+  const descLines = message.split('\n').map(line => centerText(line));
+  
+  const ansiText = [
+    '\u001b[1;32m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
+    '',
+    ...descLines.map(line => `\u001b[1;32m${line}\u001b[0m`),
+    '',
+    '\u001b[1;32m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
+  ].join('\n');
+  
   return new EmbedBuilder()
     .setColor(COLORS.SUCCESS)
-    .setDescription(`# ✅ **Success**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${message}`)
+    .setTitle('✅ Success')
+    .setDescription(`\`\`\`ansi\n${ansiText}\n\`\`\``)
     .setTimestamp();
 };
 
