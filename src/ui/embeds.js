@@ -3,21 +3,26 @@ import { COLORS } from '../config/game.js';
 import { formatScore, formatTime, getRoleEmoji, getClassEmoji } from './utils.js';
 import { TimezoneRepo, BattleImagineRepo, ApplicationRepo } from '../database/repositories.js';
 
-export function embed(title, description = '', color = '#EC4899') {
+export const embed = (title, description) => {
   return new EmbedBuilder()
-    .setColor(color)
-    .setTitle(title)
-    .setDescription(description)
+    .setColor(COLORS.PRIMARY)
+    .setDescription(`# **${title}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${description}`)
     .setTimestamp();
-}
+};
 
-export function errorEmbed(message) {
-  return embed('❌ Error', message, '#FF0000');
-}
+export const errorEmbed = (message) => {
+  return new EmbedBuilder()
+    .setColor(COLORS.ERROR)
+    .setDescription(`# ❌ **Error**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${message}`)
+    .setTimestamp();
+};
 
-export function successEmbed(message) {
-  return embed('✅ Success', message, '#00FF00');
-}
+export const successEmbed = (message) => {
+  return new EmbedBuilder()
+    .setColor(COLORS.SUCCESS)
+    .setDescription(`# ✅ **Success**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${message}`)
+    .setTimestamp();
+};
 
 export async function profileEmbed(user, characters, interaction = null) {
   const main = characters.find(c => c.character_type === 'main');
