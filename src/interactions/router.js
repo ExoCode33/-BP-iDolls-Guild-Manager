@@ -70,6 +70,16 @@ export async function route(interaction) {
     return;
   }
 
+  // ✅ VERIFICATION BUTTON - Handle before ownership check (anyone can register)
+  if (customId === 'verification_register') {
+    lockInteraction(interaction.user.id, interaction.id);
+    try {
+      return await reg.start(interaction, interaction.user.id, 'main');
+    } finally {
+      unlockInteraction(interaction.user.id);
+    }
+  }
+
   // ✅ APPLICATION HANDLERS - FIRST, before ownership checks
   if (customId.startsWith('app_vote_accept_')) {
     const appId = parseInt(customId.split('_')[3]);
@@ -153,11 +163,6 @@ export async function route(interaction) {
   logger.interaction(interaction.isButton() ? 'button' : 'select', customId, interaction.user.username);
 
   try {
-    // Verification button (no user ID needed, uses interaction.user.id)
-    if (customId === 'verification_register') {
-      return await reg.start(interaction, interaction.user.id, 'main');
-    }
-
     // Admin actions (operate on other users)
     if (customId.startsWith('admin_settings_back_')) {
       const admin = await import('../commands/admin.js');
