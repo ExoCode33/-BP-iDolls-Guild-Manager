@@ -73,15 +73,15 @@ export class VerificationSystem {
 
   static async getVerificationChannelId(guildId) {
     try {
-      // Try to get from database first
-      const result = await db.get(
+      // Try to get from database first - using pg (node-postgres) syntax
+      const result = await db.query(
         'SELECT verification_channel_id FROM guild_settings WHERE guild_id = $1',
         [guildId]
       );
       
-      if (result?.verification_channel_id) {
-        console.log('[VERIFICATION] Found channel ID in database:', result.verification_channel_id);
-        return result.verification_channel_id;
+      if (result.rows && result.rows.length > 0 && result.rows[0].verification_channel_id) {
+        console.log('[VERIFICATION] Found channel ID in database:', result.rows[0].verification_channel_id);
+        return result.rows[0].verification_channel_id;
       }
       
       // Fallback to environment variable if database is empty
@@ -101,7 +101,7 @@ export class VerificationSystem {
 
   static async setVerificationChannelId(guildId, channelId) {
     try {
-      await db.run(
+      await db.query(
         `INSERT INTO guild_settings (guild_id, verification_channel_id, updated_at) 
          VALUES ($1, $2, NOW())
          ON CONFLICT (guild_id) 
