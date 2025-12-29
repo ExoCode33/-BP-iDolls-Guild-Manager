@@ -26,15 +26,10 @@ export const CharacterRepo = {
     return result.rows[0] || null;
   },
 
-  async findAlts(userId) {
-    const result = await db.query(`SELECT * FROM characters WHERE user_id = $1 AND character_type = 'alt' ORDER BY created_at`, [userId]);
-    return result.rows.map(r => ({ ...r, role: getRole(r.class) }));
-  },
-
   async findAllByUser(userId) {
     const result = await db.query(
       `SELECT c.*, p.ign as parent_ign FROM characters c LEFT JOIN characters p ON c.parent_character_id = p.id
-       WHERE c.user_id = $1 ORDER BY CASE c.character_type WHEN 'main' THEN 1 WHEN 'main_subclass' THEN 2 WHEN 'alt' THEN 3 ELSE 4 END, c.created_at`,
+       WHERE c.user_id = $1 ORDER BY CASE c.character_type WHEN 'main' THEN 1 WHEN 'main_subclass' THEN 2 ELSE 3 END, c.created_at`,
       [userId]
     );
     return result.rows.map(r => ({ ...r, role: getRole(r.class) }));
@@ -68,7 +63,7 @@ export const CharacterRepo = {
   async delete(id) { await db.query(`DELETE FROM characters WHERE id = $1`, [id]); },
   async deleteAllByUser(userId) { await db.query(`DELETE FROM characters WHERE user_id = $1`, [userId]); },
   async countSubclasses(userId) {
-    const result = await db.query(`SELECT COUNT(*) FROM characters WHERE user_id = $1 AND character_type IN ('main_subclass', 'alt_subclass')`, [userId]);
+    const result = await db.query(`SELECT COUNT(*) FROM characters WHERE user_id = $1 AND character_type = 'main_subclass'`, [userId]);
     return parseInt(result.rows[0].count);
   }
 };
