@@ -448,6 +448,8 @@ export async function handleRemoveSubclassSelect(interaction, userId) {
 export async function confirmDelete(interaction, userId) {
   const s = state.get(userId, 'remove');
   const deletedClass = s.char.class;
+  const deletedGuild = s.char.guild;
+  const isMain = s.type === 'main' || s.char.character_type === 'main';
 
   await CharacterRepo.delete(s.charId);
   const label = s.type === 'subclass' ? `${s.char.class} - ${s.char.subclass}` : s.char.ign;
@@ -455,6 +457,52 @@ export async function confirmDelete(interaction, userId) {
 
   // ✅ REMOVE CLASS ROLE IF NO LONGER USED
   await classRoleService.removeClassRoleIfUnused(userId, deletedClass);
+
+  // ✅ REMOVE GUILD ROLE IF DELETING MAIN CHARACTER
+  if (isMain) {
+    try {
+      const guildObj = await interaction.client.guilds.fetch(config.discord.guildId);
+      const member = await guildObj.members.fetch(userId);
+
+      // Remove guild-specific role (iDolls)
+      if (deletedGuild === 'iDolls' && config.roles.guild1 && member.roles.cache.has(config.roles.guild1)) {
+        await member.roles.remove(config.roles.guild1);
+        console.log(`[DELETE] Removed guild role from ${userId}`);
+      }
+
+      // Remove registered role
+      if (config.roles.registered && member.roles.cache.has(config.roles.registered)) {
+        await member.roles.remove(config.roles.registered);
+        console.log(`[DELETE] Removed Registered role from ${userId}`);
+      }
+
+      // Add visitor role
+      if (config.roles.visitor) {
+        await member.roles.add(config.roles.visitor);
+        console.log(`[DELETE] Added Visitor role to ${userId}`);
+      }
+
+      // Delete any pending applications
+      if (deletedGuild === 'iDolls') {
+        const existingApp = await ApplicationRepo.findAllByUserAndCharacter(userId, s.charId);
+        if (existingApp) {
+          if (existingApp.message_id && config.channels.admin) {
+            try {
+              const adminChannel = await interaction.client.channels.fetch(config.channels.admin);
+              const oldMessage = await adminChannel.messages.fetch(existingApp.message_id);
+              await oldMessage.delete();
+            } catch (e) {
+              console.log(`[DELETE] Could not delete application message: ${e.message}`);
+            }
+          }
+          await ApplicationRepo.delete(existingApp.id);
+          console.log(`[DELETE] Deleted application for ${userId}`);
+        }
+      }
+    } catch (error) {
+      console.error('[DELETE] Role removal error:', error.message);
+    }
+  }
 
   state.clear(userId, 'remove');
   await returnToProfile(interaction, userId);
@@ -467,6 +515,50 @@ export async function confirmDeleteAll(interaction, userId) {
 
   // ✅ SYNC ALL CLASS ROLES (will remove all since no characters)
   await classRoleService.fullSync(userId);
+
+  // ✅ REMOVE ALL GUILD ROLES AND ADD VISITOR
+  try {
+    const guildObj = await interaction.client.guilds.fetch(config.discord.guildId);
+    const member = await guildObj.members.fetch(userId);
+
+    // Remove guild role
+    if (config.roles.guild1 && member.roles.cache.has(config.roles.guild1)) {
+      await member.roles.remove(config.roles.guild1);
+      console.log(`[DELETE ALL] Removed guild role from ${userId}`);
+    }
+
+    // Remove registered role
+    if (config.roles.registered && member.roles.cache.has(config.roles.registered)) {
+      await member.roles.remove(config.roles.registered);
+      console.log(`[DELETE ALL] Removed Registered role from ${userId}`);
+    }
+
+    // Add visitor role
+    if (config.roles.visitor) {
+      await member.roles.add(config.roles.visitor);
+      console.log(`[DELETE ALL] Added Visitor role to ${userId}`);
+    }
+
+    // Delete any pending applications
+    const chars = await CharacterRepo.findAllByUser(userId);
+    for (const char of chars) {
+      const existingApp = await ApplicationRepo.findAllByUserAndCharacter(userId, char.id);
+      if (existingApp) {
+        if (existingApp.message_id && config.channels.admin) {
+          try {
+            const adminChannel = await interaction.client.channels.fetch(config.channels.admin);
+            const oldMessage = await adminChannel.messages.fetch(existingApp.message_id);
+            await oldMessage.delete();
+          } catch (e) {
+            console.log(`[DELETE ALL] Could not delete application message: ${e.message}`);
+          }
+        }
+        await ApplicationRepo.delete(existingApp.id);
+      }
+    }
+  } catch (error) {
+    console.error('[DELETE ALL] Role removal error:', error.message);
+  }
 
   state.clear(userId, 'remove');
 
