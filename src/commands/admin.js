@@ -84,7 +84,7 @@ async function showSettingsMenu(interaction) {
 // ═══════════════════════════════════════════════════════════════════
 
 async function showVerificationStatus(interaction) {
-  const channelId = config.channels.verification;
+  const channelId = await VerificationSystem.getVerificationChannelId(interaction.guildId);
   
   let statusText = '';
   
@@ -96,26 +96,53 @@ async function showVerificationStatus(interaction) {
     statusText += '2. Users click button to register (ephemeral registration flow)\n';
     statusText += '3. After approval, users get Verified + Guild + Class roles\n';
     statusText += '4. Users gain full server access\n\n';
-    statusText += '**To change:** Update `VERIFICATION_CHANNEL_ID` in your environment variables and restart the bot.';
+    statusText += '**To change:** Use the dropdown below to select a new channel.';
   } else {
     statusText += `**📺 Verification Channel:** ❌ Not configured\n\n`;
     statusText += '**Setup:**\n';
-    statusText += '1. Add `VERIFICATION_CHANNEL_ID=your_channel_id` to your .env file\n';
-    statusText += '2. Restart the bot\n';
-    statusText += '3. Bot will automatically post the registration embed\n\n';
-    statusText += '**Note:** Configuration is done via environment variables for security.';
+    statusText += '1. Select a channel from the dropdown below\n';
+    statusText += '2. Bot will automatically post the registration embed\n';
+    statusText += '3. Users can then click the button to register\n\n';
+    statusText += '**Note:** The channel will be saved to the database.';
   }
 
-  const row = new ActionRowBuilder().addComponents(
+  const rows = [];
+  
+  // Channel selection dropdown
+  rows.push(new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`admin_verification_channel_${interaction.user.id}`)
+      .setPlaceholder('📺 Select verification channel')
+      .addOptions([
+        { 
+          label: 'Disable verification system', 
+          value: 'none', 
+          description: 'Remove verification embed', 
+          emoji: '🔇' 
+        },
+        ...interaction.guild.channels.cache
+          .filter(ch => ch.type === ChannelType.GuildText)
+          .map(ch => ({ 
+            label: `#${ch.name}`, 
+            value: ch.id, 
+            description: ch.parent?.name || 'No category',
+            emoji: '📺'
+          }))
+          .slice(0, 24)
+      ])
+  ));
+
+  // Back button
+  rows.push(new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`admin_settings_back_${interaction.user.id}`)
       .setLabel('← Back to Settings')
       .setStyle(ButtonStyle.Secondary)
-  );
+  ));
 
   await interaction.update({ 
-    embeds: [embed('✅ Verification Status', statusText)], 
-    components: [row] 
+    embeds: [embed('✅ Verification Settings', statusText)], 
+    components: rows 
   });
 }
 
@@ -427,6 +454,30 @@ export async function handleSettingsMenuSelect(interaction) {
 
 export async function handleSettingsBackButton(interaction) {
   await showSettingsMenu(interaction);
+}
+
+export async function handleVerificationChannelSelect(interaction) {
+  const channelId = interaction.values[0];
+  
+  if (channelId === 'none') {
+    // Disable verification
+    await VerificationSystem.setVerificationChannelId(interaction.guildId, null);
+    await interaction.reply({ 
+      embeds: [embed('✅ Verification Disabled', 'The verification system has been disabled.')], 
+      ephemeral: true 
+    });
+  } else {
+    // Set verification channel
+    await VerificationSystem.setVerificationChannelId(interaction.guildId, channelId);
+    
+    // Setup the channel immediately
+    await VerificationSystem.setupVerificationChannel(interaction.client, interaction.guildId);
+    
+    await interaction.reply({ 
+      embeds: [embed('✅ Verification Enabled', `**Verification Channel:** <#${channelId}>\n\nThe registration embed has been posted!`)], 
+      ephemeral: true 
+    });
+  }
 }
 
 export async function handleLogChannelSelect(interaction) {
