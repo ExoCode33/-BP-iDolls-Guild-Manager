@@ -17,7 +17,7 @@ import { validateUID, formatScore } from '../ui/utils.js';
 
 async function returnToProfile(interaction, userId) {
   const chars = await CharacterRepo.findAllByUser(userId);
-  const main = chars.find(c => c.character_type === 'main');
+  const main = chars.find(c => c.characterType === 'main');
   
   let user;
   try {
@@ -67,8 +67,8 @@ export async function handleAddType(interaction, userId) {
 
 export async function showEditMenu(interaction, userId) {
   const chars = await CharacterRepo.findAllByUser(userId);
-  const main = chars.find(c => c.character_type === 'main');
-  const subs = chars.filter(c => c.character_type === 'main_subclass');
+  const main = chars.find(c => c.characterType === 'main');
+  const subs = chars.filter(c => c.characterType === 'main_subclass');
 
   if (!main && subs.length === 0) {
     return interaction.update({
@@ -96,7 +96,7 @@ export async function handleEditType(interaction, userId) {
 
   if (type === 'subclass') {
     const chars = await CharacterRepo.findAllByUser(userId);
-    const subs = chars.filter(c => c.character_type === 'main_subclass');
+    const subs = chars.filter(c => c.characterType === 'main_subclass');
 
     if (subs.length === 1) {
       state.update(userId, 'edit', { charId: subs[0].id, char: subs[0] });
@@ -119,8 +119,8 @@ export async function handleEditSubclassSelect(interaction, userId) {
 
 async function showFieldSelect(interaction, userId, type, char, battleImagines) {
   const charInfo = type === 'subclass' 
-    ? `**${char.class} - ${char.subclass}**` 
-    : `**${char.ign}** - ${char.class}`;
+    ? `**${char.className} - ${char.subclass}**` 
+    : `**${char.ign}** - ${char.className}`;
   
   const e = embed('✏️ Edit Character', `Editing: ${charInfo}\n\nChoose what you want to edit:`);
   const row = ui.editFieldSelect(userId, char, type, battleImagines);
@@ -138,14 +138,14 @@ export async function handleFieldSelect(interaction, userId) {
   }
 
   if (field === 'class') {
-    const e = embed('🎭 Edit Class', `Current: **${s.char.class} - ${s.char.subclass}**\n\nChoose new class:`);
+    const e = embed('🎭 Edit Class', `Current: **${s.char.className} - ${s.char.subclass}**\n\nChoose new class:`);
     const row = ui.classSelect(userId);
     const back = ui.backButton(`edit_field_back_${userId}`);
     return interaction.update({ embeds: [e], components: [row, back] });
   }
 
   if (field === 'score') {
-    const e = embed('💪 Edit Score', `Current: **${formatScore(s.char.ability_score)}**\n\nChoose new score:`);
+    const e = embed('💪 Edit Score', `Current: **${formatScore(s.char.abilityScore)}**\n\nChoose new score:`);
     const row = ui.scoreSelect(userId);
     const back = ui.backButton(`edit_field_back_${userId}`);
     return interaction.update({ embeds: [e], components: [row, back] });
@@ -172,7 +172,7 @@ export async function handleEditBattleImagineSelect(interaction, userId) {
   const s = state.get(userId, 'edit');
   
   const currentBI = await BattleImagineRepo.findByCharacter(s.charId);
-  const current = currentBI.find(bi => bi.imagine_name === imagineName);
+  const current = currentBI.find(bi => bi.imagineName === imagineName);
   const imagine = config.battleImagines.find(bi => bi.name === imagineName);
   
   state.update(userId, 'edit', { editingBI: imagineName });
@@ -230,9 +230,9 @@ export async function handleEditSubclass(interaction, userId) {
   const subclass = interaction.values[0];
   const s = state.get(userId, 'edit');
 
-  const oldVal = `${s.char.class} - ${s.char.subclass}`;
+  const oldVal = `${s.char.className} - ${s.char.subclass}`;
   const newVal = `${s.newClass} - ${subclass}`;
-  const oldClass = s.char.class;
+  const oldClass = s.char.className;
   const newClass = s.newClass;
 
   await CharacterRepo.update(s.charId, { className: s.newClass, subclass });
@@ -253,7 +253,7 @@ export async function handleEditScore(interaction, userId) {
   const score = interaction.values[0];
   const s = state.get(userId, 'edit');
 
-  const oldVal = formatScore(s.char.ability_score);
+  const oldVal = formatScore(s.char.abilityScore);
   const newVal = formatScore(score);
 
   await CharacterRepo.update(s.charId, { abilityScore: score });
@@ -284,12 +284,12 @@ export async function handleEditGuild(interaction, userId) {
         if (existingApp) {
           console.log(`[EDIT] Deleting existing application ID ${existingApp.id} (status: ${existingApp.status})`);
           
-          if (existingApp.message_id && config.channels.admin) {
+          if (existingApp.messageId && config.channels.admin) {
             try {
               const adminChannel = await interaction.client.channels.fetch(config.channels.admin);
-              const oldMessage = await adminChannel.messages.fetch(existingApp.message_id);
+              const oldMessage = await adminChannel.messages.fetch(existingApp.messageId);
               await oldMessage.delete();
-              console.log(`[EDIT] Deleted message ${existingApp.message_id}`);
+              console.log(`[EDIT] Deleted message ${existingApp.messageId}`);
             } catch (e) {
               console.log(`[EDIT] Could not delete message: ${e.message}`);
             }
@@ -375,7 +375,7 @@ export async function handleEditModal(interaction, userId, field) {
   }
 
   const chars = await CharacterRepo.findAllByUser(userId);
-  const main = chars.find(c => c.character_type === 'main');
+  const main = chars.find(c => c.characterType === 'main');
   const profileEmb = await profileEmbed(user, chars, interaction);
   const buttons = ui.profileButtons(userId, !!main);
 
@@ -386,8 +386,8 @@ export async function handleEditModal(interaction, userId, field) {
 
 export async function showRemoveMenu(interaction, userId) {
   const chars = await CharacterRepo.findAllByUser(userId);
-  const main = chars.find(c => c.character_type === 'main');
-  const subs = chars.filter(c => c.character_type === 'main_subclass');
+  const main = chars.find(c => c.characterType === 'main');
+  const subs = chars.filter(c => c.characterType === 'main_subclass');
 
   const e = embed('🗑️ Remove Character', 'What would you like to remove?');
   const row = ui.removeTypeSelect(userId, main, [], subs);
@@ -410,19 +410,19 @@ export async function handleRemoveType(interaction, userId) {
     const main = await CharacterRepo.findMain(userId);
     state.update(userId, 'remove', { charId: main.id, char: main });
     const e = embed('🗑️ Remove Main Character', 
-      `**Are you sure you want to remove your main character?**\n\n🎮 **${main.ign}**\n🎭 ${main.class} • ${main.subclass}\n\n⚠️ Your subclasses will NOT be deleted.`);
+      `**Are you sure you want to remove your main character?**\n\n🎮 **${main.ign}**\n🎭 ${main.className} • ${main.subclass}\n\n⚠️ Your subclasses will NOT be deleted.`);
     const buttons = ui.confirmButtons(userId, 'delete');
     return interaction.update({ embeds: [e], components: buttons });
   }
 
   if (type === 'subclass') {
     const chars = await CharacterRepo.findAllByUser(userId);
-    const subs = chars.filter(c => c.character_type === 'main_subclass');
+    const subs = chars.filter(c => c.characterType === 'main_subclass');
 
     if (subs.length === 1) {
       state.update(userId, 'remove', { charId: subs[0].id, char: subs[0] });
       const e = embed('🗑️ Remove Subclass', 
-        `**Are you sure you want to remove this subclass?**\n\n🎭 **${subs[0].class} • ${subs[0].subclass}**\n💪 ${formatScore(subs[0].ability_score)}`);
+        `**Are you sure you want to remove this subclass?**\n\n🎭 **${subs[0].className} • ${subs[0].subclass}**\n💪 ${formatScore(subs[0].abilityScore)}`);
       const buttons = ui.confirmButtons(userId, 'delete');
       return interaction.update({ embeds: [e], components: buttons });
     }
@@ -440,19 +440,19 @@ export async function handleRemoveSubclassSelect(interaction, userId) {
   state.update(userId, 'remove', { charId, char });
 
   const e = embed('🗑️ Remove Subclass', 
-    `**Are you sure you want to remove this subclass?**\n\n🎭 **${char.class} • ${char.subclass}**\n💪 ${formatScore(char.ability_score)}`);
+    `**Are you sure you want to remove this subclass?**\n\n🎭 **${char.className} • ${char.subclass}**\n💪 ${formatScore(char.abilityScore)}`);
   const buttons = ui.confirmButtons(userId, 'delete');
   await interaction.update({ embeds: [e], components: buttons });
 }
 
 export async function confirmDelete(interaction, userId) {
   const s = state.get(userId, 'remove');
-  const deletedClass = s.char.class;
+  const deletedClass = s.char.className;
   const deletedGuild = s.char.guild;
-  const isMain = s.type === 'main' || s.char.character_type === 'main';
+  const isMain = s.type === 'main' || s.char.characterType === 'main';
 
   await CharacterRepo.delete(s.charId);
-  const label = s.type === 'subclass' ? `${s.char.class} - ${s.char.subclass}` : s.char.ign;
+  const label = s.type === 'subclass' ? `${s.char.className} - ${s.char.subclass}` : s.char.ign;
   logger.delete(interaction.user.username, s.type, label);
 
   // ✅ REMOVE CLASS ROLE IF NO LONGER USED
@@ -486,10 +486,10 @@ export async function confirmDelete(interaction, userId) {
       if (deletedGuild === 'iDolls') {
         const existingApp = await ApplicationRepo.findAllByUserAndCharacter(userId, s.charId);
         if (existingApp) {
-          if (existingApp.message_id && config.channels.admin) {
+          if (existingApp.messageId && config.channels.admin) {
             try {
               const adminChannel = await interaction.client.channels.fetch(config.channels.admin);
-              const oldMessage = await adminChannel.messages.fetch(existingApp.message_id);
+              const oldMessage = await adminChannel.messages.fetch(existingApp.messageId);
               await oldMessage.delete();
             } catch (e) {
               console.log(`[DELETE] Could not delete application message: ${e.message}`);
@@ -544,10 +544,10 @@ export async function confirmDeleteAll(interaction, userId) {
     for (const char of chars) {
       const existingApp = await ApplicationRepo.findAllByUserAndCharacter(userId, char.id);
       if (existingApp) {
-        if (existingApp.message_id && config.channels.admin) {
+        if (existingApp.messageId && config.channels.admin) {
           try {
             const adminChannel = await interaction.client.channels.fetch(config.channels.admin);
-            const oldMessage = await adminChannel.messages.fetch(existingApp.message_id);
+            const oldMessage = await adminChannel.messages.fetch(existingApp.messageId);
             await oldMessage.delete();
           } catch (e) {
             console.log(`[DELETE ALL] Could not delete application message: ${e.message}`);
@@ -593,7 +593,7 @@ export async function backToFieldSelect(interaction, userId) {
 
 export async function backToClassSelect(interaction, userId) {
   const s = state.get(userId, 'edit');
-  const e = embed('🎭 Edit Class', `Current: **${s.char.class} - ${s.char.subclass}**\n\nChoose new class:`);
+  const e = embed('🎭 Edit Class', `Current: **${s.char.className} - ${s.char.subclass}**\n\nChoose new class:`);
   const row = ui.classSelect(userId);
   const back = ui.backButton(`edit_field_back_${userId}`);
   await interaction.update({ embeds: [e], components: [row, back] });
