@@ -74,13 +74,8 @@ class UnifiedLogger {
     try {
       const config = await LoggingRepo.getSettings(guildId);
       
-      // Check if logging is enabled for this event
-      if (!config.settings[eventType]) {
-        console.log(`[Logger] Event ${eventType} disabled, skipping`);
-        return;
-      }
+      if (!config.settings[eventType]) return;
 
-      // Determine which channel to use
       let channelId;
       if ([
         UnifiedLogger.EVENTS.GUILD_APPLICATIONS,
@@ -92,10 +87,7 @@ class UnifiedLogger {
         channelId = config.generalChannelId;
       }
 
-      if (!channelId) {
-        console.log(`[Logger] No channel configured for ${eventType}`);
-        return;
-      }
+      if (!channelId) return;
 
       const shouldGroup = config.grouping[eventType];
       
@@ -138,14 +130,10 @@ class UnifiedLogger {
   async sendLog(client, channelId, eventType, events) {
     try {
       const channel = await client.channels.fetch(channelId);
-      if (!channel) {
-        console.log(`[Logger] Channel ${channelId} not found`);
-        return;
-      }
+      if (!channel) return;
 
       const embed = this.createEmbed(eventType, events);
       await channel.send({ embeds: [embed] });
-      console.log(`[Logger] ✅ Sent ${eventType} log to ${channel.name}`);
     } catch (error) {
       console.error('[Logger] Error sending log:', error);
     }
@@ -163,8 +151,8 @@ class UnifiedLogger {
       case UnifiedLogger.EVENTS.CHARACTER_REGISTRATION:
         embed.setTitle(isGrouped ? `📝 ${events.length} Character Registrations` : '📝 Character Registered')
           .setDescription(isGrouped 
-            ? events.map(e => `• **${e.ign}** (${e.className}) by <@${e.userId}>`).join('\n')
-            : `**IGN:** ${data.ign}\n**UID:** ${data.uid}\n**Class:** ${data.className}\n**User:** <@${data.userId}>`
+            ? events.map(e => `• **${e.ign}** (${e.class}) by <@${e.userId}>`).join('\n')
+            : `**IGN:** ${data.ign}\n**UID:** ${data.uid}\n**Class:** ${data.class}\n**User:** <@${data.userId}>`
           );
         break;
 
@@ -238,7 +226,7 @@ class UnifiedLogger {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // CONVENIENCE METHODS (BACKWARDS COMPATIBLE)
+  // CONVENIENCE METHODS (YOUR EXISTING CODE USES THESE)
   // ═══════════════════════════════════════════════════════════════════
 
   startup(botTag, commandCount) {
