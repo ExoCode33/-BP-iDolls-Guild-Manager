@@ -11,7 +11,13 @@ export class VerificationSystem {
       '',
       '\u001b[1;34m' + centerText('≽^•⩊•^≼') + '\u001b[0m',
       '',
-      '\u001b[1;36m' + centerText('Register to unlock everything!') + '\u001b[0m',
+      '\u001b[1;36m' + centerText('💫 For BP Players') + '\u001b[0m',
+      '\u001b[0;37m' + centerText('Register your character &') + '\u001b[0m',
+      '\u001b[0;37m' + centerText('unlock the full server! ♡') + '\u001b[0m',
+      '',
+      '\u001b[1;36m' + centerText('🌸 Just Vibing?') + '\u001b[0m',
+      '\u001b[0;37m' + centerText('Get basic access to chat!') + '\u001b[0m',
+      '\u001b[0;37m' + centerText('No character needed (´｡• ᵕ •｡`)') + '\u001b[0m',
       '',
       '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
     ].join('\n');
@@ -20,18 +26,6 @@ export class VerificationSystem {
       .setColor(COLORS.PRIMARY)
       .setTitle('Welcome to iDolls ✨')
       .setDescription('```ansi\n' + welcomeText + '\n```')
-      .addFields(
-        { 
-          name: '💫 For BP Players', 
-          value: 'Register your character & unlock the full server experience~ ♡', 
-          inline: false 
-        },
-        { 
-          name: '🌸 Just Vibing?', 
-          value: 'Get basic access to chat with us! No character needed (´｡• ᵕ •｡`)', 
-          inline: false 
-        }
-      )
       .setFooter({ text: 'iDolls • Registration' })
       .setTimestamp();
 
@@ -200,3 +194,22 @@ export class VerificationSystem {
     }
   }
 }
+```
+
+---
+
+## ✨ **What's in the ANSI now:**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+            ≽^•⩊•^≼
+
+         💫 For BP Players
+      Register your character &
+       unlock the full server! ♡
+
+         🌸 Just Vibing?
+       Get basic access to chat!
+    No character needed (´｡• ᵕ •｡`)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
