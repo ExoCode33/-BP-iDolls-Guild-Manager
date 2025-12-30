@@ -22,7 +22,7 @@ export async function route(interaction) {
   console.log(`[ROUTER] Button: ${customId}`);
 
   // ═══════════════════════════════════════════════════════════════════
-  // VERIFICATION BUTTONS - Reply ephemerally so embed stays visible
+  // VERIFICATION BUTTONS
   // ═══════════════════════════════════════════════════════════════════
 
   if (customId === 'verification_register') {
@@ -41,8 +41,20 @@ export async function route(interaction) {
         await member.roles.add(config.roles.visitor);
       }
       
+      // Show welcome message with BP link
+      const welcomeEmbed = new EmbedBuilder()
+        .setTitle('👋 Welcome to the Server!')
+        .setDescription(
+          'You now have access as a **Visitor**! Feel free to explore and chat.\n\n' +
+          '**Want to play Blue Protocol?**\n' +
+          'You can download it here: [Blue Protocol Official Website](https://blue-protocol.com)\n\n' +
+          'If you decide to play, come back and click **"I play BP"** to register your character!'
+        )
+        .setColor(COLORS.SUCCESS)
+        .setFooter({ text: 'Enjoy your stay! 🎉' });
+      
       return interaction.reply({
-        embeds: [successEmbed('Welcome! You now have access to the server. 💫')],
+        embeds: [welcomeEmbed],
         ephemeral: true
       });
     } catch (error) {
@@ -52,6 +64,32 @@ export async function route(interaction) {
         ephemeral: true
       });
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ADMIN SETTINGS
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (customId.startsWith('admin_settings_back_')) {
+    const userId = customId.split('_')[3];
+    if (interaction.user.id !== userId) {
+      return interaction.update({ 
+        embeds: [errorEmbed('This menu is not for you.')], 
+        components: []
+      });
+    }
+    return handleSettingsBackButton(interaction);
+  }
+
+  if (customId.startsWith('logging_back_')) {
+    const userId = customId.split('_')[2];
+    if (interaction.user.id !== userId) {
+      return interaction.update({ 
+        embeds: [errorEmbed('This menu is not for you.')], 
+        components: []
+      });
+    }
+    return handleLoggingBackButton(interaction);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -206,32 +244,6 @@ export async function route(interaction) {
 
   if (customId.startsWith('app_override_cancel_')) {
     return interaction.update({ content: '❌ Override cancelled.', components: [] });
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ADMIN SETTINGS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('admin_settings_back_')) {
-    const userId = customId.split('_')[3];
-    if (interaction.user.id !== userId) {
-      return interaction.update({ 
-        embeds: [errorEmbed('This menu is not for you.')], 
-        components: []
-      });
-    }
-    return handleSettingsBackButton(interaction);
-  }
-
-  if (customId.startsWith('logging_back_')) {
-    const userId = customId.split('_')[2];
-    if (interaction.user.id !== userId) {
-      return interaction.update({ 
-        embeds: [errorEmbed('This menu is not for you.')], 
-        components: []
-      });
-    }
-    return handleLoggingBackButton(interaction);
   }
 
   console.log(`[ROUTER] ⚠️ Unhandled button: ${customId}`);
