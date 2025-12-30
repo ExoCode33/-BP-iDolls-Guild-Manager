@@ -10,79 +10,11 @@ const successEmbed = (description) =>
 const errorEmbed = (description) => 
   new EmbedBuilder().setDescription(`❌ ${description}`).setColor(COLORS.ERROR);
 
-// Import other handlers dynamically
-let registrationHandlers, editingHandlers;
-
-try {
-  registrationHandlers = await import('./registration.js');
-} catch (e) {
-  console.log('[Router] Registration handlers not found');
-}
-
-try {
-  editingHandlers = await import('./editing.js');
-} catch (e) {
-  console.log('[Router] Editing handlers not found');
-}
-
 export async function route(interaction) {
   const customId = interaction.customId;
 
   // ═══════════════════════════════════════════════════════════════════
-  // REGISTRATION BUTTONS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('reg_start_')) {
-    if (registrationHandlers?.handleRegistrationStart) {
-      return registrationHandlers.handleRegistrationStart(interaction);
-    }
-    if (registrationHandlers?.default?.handleRegistrationStart) {
-      return registrationHandlers.default.handleRegistrationStart(interaction);
-    }
-    // If no handler, let it fall through - it will be handled by the command file
-    console.log(`[Router] Registration handler not found, ignoring`);
-    return;
-  }
-
-  if (customId.startsWith('reg_subclass_')) {
-    if (registrationHandlers?.handleSubclassRegistration) {
-      return registrationHandlers.handleSubclassRegistration(interaction);
-    }
-    if (registrationHandlers?.default?.handleSubclassRegistration) {
-      return registrationHandlers.default.handleSubclassRegistration(interaction);
-    }
-    console.log(`[Router] Subclass registration handler not found, ignoring`);
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // EDITING BUTTONS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('edit_')) {
-    if (editingHandlers?.handleEditButton) {
-      return editingHandlers.handleEditButton(interaction);
-    }
-    if (editingHandlers?.default?.handleEditButton) {
-      return editingHandlers.default.handleEditButton(interaction);
-    }
-    console.log(`[Router] Edit handler not found, ignoring`);
-    return;
-  }
-
-  if (customId.startsWith('delete_')) {
-    if (editingHandlers?.handleDeleteButton) {
-      return editingHandlers.handleDeleteButton(interaction);
-    }
-    if (editingHandlers?.default?.handleDeleteButton) {
-      return editingHandlers.default.handleDeleteButton(interaction);
-    }
-    console.log(`[Router] Delete handler not found, ignoring`);
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ADMIN SETTINGS BUTTONS
+  // ADMIN SETTINGS BUTTONS (ONLY THING ROUTER HANDLES)
   // ═══════════════════════════════════════════════════════════════════
 
   if (customId.startsWith('admin_settings_back_')) {
@@ -107,10 +39,8 @@ export async function route(interaction) {
     return handleLoggingBackButton(interaction);
   }
 
-  // Only log if it's an admin-related button we should handle
-  if (customId.startsWith('admin_') || customId.startsWith('logging_')) {
-    console.log(`[Router] Unhandled button: ${customId}`);
-  }
+  // Registration/editing buttons are handled by their own interaction collectors
+  // No need to log them here
 }
 
 export async function routeSelectMenu(interaction) {
@@ -222,11 +152,6 @@ export async function routeSelectMenu(interaction) {
       components: []
     });
   }
-
-  // Only log admin/logging menus
-  if (customId.startsWith('admin_') || customId.startsWith('logging_') || customId.startsWith('toggle_') || customId.startsWith('set_')) {
-    console.log(`[Router] Unhandled select menu: ${customId}`);
-  }
 }
 
 export async function routeModal(interaction) {
@@ -252,6 +177,4 @@ export async function routeModal(interaction) {
       components: []
     });
   }
-
-  console.log(`[Router] Unhandled modal: ${customId}`);
 }
