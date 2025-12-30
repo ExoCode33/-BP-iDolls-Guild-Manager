@@ -4,23 +4,34 @@ import db from '../database/index.js';
 
 export class VerificationSystem {
   static createVerificationEmbed() {
-    const centerText = (text, width = 42) => text.padStart((text.length + width) / 2).padEnd(width);
+    const centerText = (text, width = 39) => text.padStart((text.length + width) / 2).padEnd(width);
     
     const welcomeText = [
-      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
+      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
       '',
-      '\u001b[1;35m' + centerText('Welcome to iDolls ✨') + '\u001b[0m',
+      '\u001b[1;34m' + centerText('≽^•⩊•^≼') + '\u001b[0m',
       '',
-      '\u001b[1;35m' + centerText('ᓚᘏᗢ') + '\u001b[0m',
+      '\u001b[1;36m' + centerText('Register to unlock the full server!') + '\u001b[0m',
       '',
-      '\u001b[1;34m' + centerText('Register to unlock the full server! ≽^•⩊•^≼') + '\u001b[0m',
-      '',
-      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
+      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
     ].join('\n');
 
     const embed = new EmbedBuilder()
       .setColor(COLORS.PRIMARY)
-      .setDescription('## **iDolls 💫**\n```ansi\n' + welcomeText + '\n```')
+      .setTitle('Welcome to iDolls ✨')
+      .setDescription('```ansi\n' + welcomeText + '\n```')
+      .addFields(
+        { 
+          name: '🎮 Blue Protocol Players', 
+          value: 'Click "I play Blue Protocol" to register your character and get full access!', 
+          inline: false 
+        },
+        { 
+          name: '✨ Just Here to Chat?', 
+          value: 'Click "I do not play" to get basic server access and hang out with us!', 
+          inline: false 
+        }
+      )
       .setFooter({ text: 'iDolls • Registration' })
       .setTimestamp();
 
@@ -56,8 +67,7 @@ export class VerificationSystem {
       const botMessages = messages.filter(m => 
         m.author.id === channel.client.user.id && 
         m.embeds.length > 0 && 
-        m.embeds[0].description?.includes('iDolls') &&
-        m.embeds[0].footer?.text?.includes('Registration')
+        m.embeds[0].title?.includes('Welcome to iDolls')
       );
 
       console.log('[VERIFICATION] Found', botMessages.size, 'existing verification messages');
