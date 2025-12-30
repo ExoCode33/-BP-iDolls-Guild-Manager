@@ -29,10 +29,10 @@ export class VerificationSystem {
       .setFooter({ text: 'iDolls • Registration' })
       .setTimestamp();
 
-    // ✅ CHANGED: Use thumbnail instead of image for better PC layout
+    // ✅ Image at the BOTTOM (full-width)
     const bannerUrl = process.env.VERIFICATION_BANNER_URL;
     if (bannerUrl) {
-      embed.setThumbnail(bannerUrl);  // Small image on the right side
+      embed.setImage(bannerUrl);
     }
 
     const row = new ActionRowBuilder()
