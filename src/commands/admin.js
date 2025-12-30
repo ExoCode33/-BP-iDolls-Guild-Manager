@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } from 'discord.js';
 import logger from '../services/logger.js';
 import { isEphemeral } from '../services/ephemeral.js';
 import { CharacterRepo } from '../database/repositories.js';
@@ -98,7 +98,10 @@ async function showStatistics(interaction) {
     .setTimestamp();
   
   const isEph = await isEphemeral(interaction.guildId, 'admin');
-  await interaction.reply({ embeds: [e], ephemeral: isEph });
+  await interaction.reply({ 
+    embeds: [e], 
+    flags: isEph ? MessageFlags.Ephemeral : undefined 
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -116,7 +119,7 @@ async function handleGuildAssign(interaction) {
     if (!mainChar) {
       return interaction.reply({
         embeds: [embed('❌ Error', `**${targetUser.username}** has no registered character.`)],
-        ephemeral: isEph
+        flags: isEph ? MessageFlags.Ephemeral : undefined
       });
     }
     
@@ -133,14 +136,14 @@ async function handleGuildAssign(interaction) {
         `• UID: ${mainChar.uid}\n` +
         `• New Guild: ${guildName}`
       )],
-      ephemeral: isEph
+      flags: isEph ? MessageFlags.Ephemeral : undefined
     });
     
   } catch (error) {
     logger.error('Guild Assign', error.message);
     return interaction.reply({
       embeds: [embed('❌ Error', `Failed to assign guild: ${error.message}`)],
-      ephemeral: isEph
+      flags: isEph ? MessageFlags.Ephemeral : undefined
     });
   }
 }
@@ -155,7 +158,7 @@ async function handleGuildRemove(interaction) {
     if (!mainChar) {
       return interaction.reply({
         embeds: [embed('❌ Error', `**${targetUser.username}** has no registered character.`)],
-        ephemeral: isEph
+        flags: isEph ? MessageFlags.Ephemeral : undefined
       });
     }
     
@@ -174,14 +177,14 @@ async function handleGuildRemove(interaction) {
         `• UID: ${mainChar.uid}\n` +
         `• Status: Visitor`
       )],
-      ephemeral: isEph
+      flags: isEph ? MessageFlags.Ephemeral : undefined
     });
     
   } catch (error) {
     logger.error('Guild Remove', error.message);
     return interaction.reply({
       embeds: [embed('❌ Error', `Failed to remove guild: ${error.message}`)],
-      ephemeral: isEph
+      flags: isEph ? MessageFlags.Ephemeral : undefined
     });
   }
 }
@@ -263,7 +266,7 @@ async function removeGuildRoles(client, userId) {
 
 async function handleSync(interaction) {
   const isEph = await isEphemeral(interaction.guildId, 'admin');
-  await interaction.deferReply({ ephemeral: isEph });
+  await interaction.deferReply({ flags: isEph ? MessageFlags.Ephemeral : undefined });
   const start = Date.now();
   const chars = await CharacterRepo.findAll();
   await sheets.sync(chars, interaction.client);
@@ -274,7 +277,7 @@ async function handleSync(interaction) {
 
 async function handleNicknames(interaction) {
   const isEph = await isEphemeral(interaction.guildId, 'admin');
-  await interaction.deferReply({ ephemeral: isEph });
+  await interaction.deferReply({ flags: isEph ? MessageFlags.Ephemeral : undefined });
   const chars = await CharacterRepo.findAll();
   const mains = chars.filter(c => c.character_type === 'main');
   const results = await syncAllNicknames(interaction.client, config.discord.guildId, mains);
@@ -294,14 +297,14 @@ async function handleDelete(interaction) {
   if (chars.length === 0) {
     return interaction.reply({ 
       embeds: [embed('❌ No Data', `**${target.username}** has no characters.`)], 
-      ephemeral: isEph 
+      flags: isEph ? MessageFlags.Ephemeral : undefined 
     });
   }
   await CharacterRepo.deleteAllByUser(target.id);
   logger.delete(interaction.user.username, 'admin', `All data for ${target.username}`);
   await interaction.reply({ 
     embeds: [embed('✅ Deleted', `Removed **${chars.length}** character(s) for **${target.username}**.`)], 
-    ephemeral: isEph 
+    flags: isEph ? MessageFlags.Ephemeral : undefined 
   });
   sheets.sync(await CharacterRepo.findAll(), interaction.client);
 }
@@ -314,14 +317,14 @@ async function handleCharacter(interaction) {
   if (!main && chars.length === 0) {
     return interaction.reply({ 
       embeds: [embed('❌ No Character', `**${target.username}** hasn't registered.`)], 
-      ephemeral: isEph 
+      flags: isEph ? MessageFlags.Ephemeral : undefined 
     });
   }
   const profileEmb = await profileEmbed(target, chars, interaction);
   await interaction.reply({ 
     embeds: [profileEmb], 
     components: ui.adminProfileButtons(target.id, !!main), 
-    ephemeral: isEph 
+    flags: isEph ? MessageFlags.Ephemeral : undefined 
   });
 }
 
@@ -348,7 +351,10 @@ export async function execute(interaction) {
     logger.error('Admin', `${sub} failed`, e);
     const isEph = await isEphemeral(interaction.guildId, 'admin');
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: '❌ Command failed.', ephemeral: isEph });
+      await interaction.reply({ 
+        content: '❌ Command failed.', 
+        flags: isEph ? MessageFlags.Ephemeral : undefined 
+      });
     }
   }
 }
