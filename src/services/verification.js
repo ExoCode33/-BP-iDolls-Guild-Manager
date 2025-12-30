@@ -4,16 +4,16 @@ import db from '../database/index.js';
 
 export class VerificationSystem {
   static createVerificationEmbed() {
-    const centerText = (text, width = 39) => text.padStart((text.length + width) / 2).padEnd(width);
+    const centerText = (text, width = 37) => text.padStart((text.length + width) / 2).padEnd(width);
     
     const welcomeText = [
-      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
+      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
       '',
       '\u001b[1;34m' + centerText('≽^•⩊•^≼') + '\u001b[0m',
       '',
-      '\u001b[1;36m' + centerText('Register to unlock the full server!') + '\u001b[0m',
+      '\u001b[1;36m' + centerText('Register to unlock everything!') + '\u001b[0m',
       '',
-      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
+      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
     ].join('\n');
 
     const embed = new EmbedBuilder()
@@ -22,13 +22,13 @@ export class VerificationSystem {
       .setDescription('```ansi\n' + welcomeText + '\n```')
       .addFields(
         { 
-          name: '🎮 Blue Protocol Players', 
-          value: 'Click "I play Blue Protocol" to register your character and get full access!', 
+          name: '💫 For BP Players', 
+          value: 'Register your character & unlock the full server experience~ ♡', 
           inline: false 
         },
         { 
-          name: '✨ Just Here to Chat?', 
-          value: 'Click "I do not play" to get basic server access and hang out with us!', 
+          name: '🌸 Just Vibing?', 
+          value: 'Get basic access to chat with us! No character needed (´｡• ᵕ •｡`)', 
           inline: false 
         }
       )
@@ -45,12 +45,12 @@ export class VerificationSystem {
       .addComponents(
         new ButtonBuilder()
           .setCustomId('verification_register')
-          .setLabel('I play Blue Protocol')
+          .setLabel('I play BP!')
           .setStyle(ButtonStyle.Primary)
           .setEmoji('🎮'),
         new ButtonBuilder()
           .setCustomId('verification_non_player')
-          .setLabel('I do not play Blue Protocol')
+          .setLabel('Just here to vibe')
           .setStyle(ButtonStyle.Secondary)
           .setEmoji('✨')
       );
