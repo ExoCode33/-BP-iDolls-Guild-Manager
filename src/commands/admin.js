@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } from 'discord.js';
-import logger from '../services/logger.js';
+import logger from '../services/consoleLogger.js';
 import { isEphemeral } from '../services/ephemeral.js';
 import { CharacterRepo } from '../database/repositories.js';
 import sheets from '../services/sheets.js';
