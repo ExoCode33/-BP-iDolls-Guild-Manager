@@ -1,29 +1,66 @@
 import db from './index.js';
 
 // ═══════════════════════════════════════════════════════════════════
-// CHARACTER REPOSITORY
+// CHARACTER REPOSITORY - Modern camelCase
 // ═══════════════════════════════════════════════════════════════════
 
 export class CharacterRepo {
-  static async create(characterData) {
+  static async create(data) {
     const result = await db.query(
       `INSERT INTO characters (user_id, character_type, ign, uid, class, subclass, ability_score, guild, rank, parent_character_id, role)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [
-        characterData.user_id,
-        characterData.character_type,
-        characterData.ign,
-        characterData.uid,
-        characterData.class,
-        characterData.subclass || null,
-        characterData.ability_score || null,
-        characterData.guild || null,
-        characterData.rank || null,
-        characterData.parent_character_id || null,
-        characterData.role || null
+        data.userId,
+        data.characterType,
+        data.ign,
+        data.uid,
+        data.className || data.class,
+        data.subclass || null,
+        data.abilityScore || null,
+        data.guild || null,
+        data.rank || null,
+        data.parentId || null,
+        data.role || null
       ]
     );
-    return result.rows[0];
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      characterType: row.character_type,
+      ign: row.ign,
+      uid: row.uid,
+      className: row.class,
+      subclass: row.subclass,
+      abilityScore: row.ability_score,
+      guild: row.guild,
+      rank: row.rank,
+      parentId: row.parent_character_id,
+      role: row.role,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  static async findAll() {
+    const result = await db.query('SELECT * FROM characters ORDER BY created_at DESC');
+    return result.rows.map(row => ({
+      id: row.id,
+      userId: row.user_id,
+      characterType: row.character_type,
+      ign: row.ign,
+      uid: row.uid,
+      className: row.class,
+      subclass: row.subclass,
+      abilityScore: row.ability_score,
+      guild: row.guild,
+      rank: row.rank,
+      parentId: row.parent_character_id,
+      role: row.role,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
   }
 
   static async findByUserId(userId) {
@@ -31,17 +68,106 @@ export class CharacterRepo {
       'SELECT * FROM characters WHERE user_id = $1 ORDER BY created_at DESC',
       [userId]
     );
-    return result.rows;
+    return result.rows.map(row => ({
+      id: row.id,
+      userId: row.user_id,
+      characterType: row.character_type,
+      ign: row.ign,
+      uid: row.uid,
+      className: row.class,
+      subclass: row.subclass,
+      abilityScore: row.ability_score,
+      guild: row.guild,
+      rank: row.rank,
+      parentId: row.parent_character_id,
+      role: row.role,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  }
+
+  static async findAllByUser(userId) {
+    return this.findByUserId(userId);
   }
 
   static async findById(id) {
     const result = await db.query('SELECT * FROM characters WHERE id = $1', [id]);
-    return result.rows[0];
+    if (!result.rows[0]) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      characterType: row.character_type,
+      ign: row.ign,
+      uid: row.uid,
+      className: row.class,
+      subclass: row.subclass,
+      abilityScore: row.ability_score,
+      guild: row.guild,
+      rank: row.rank,
+      parentId: row.parent_character_id,
+      role: row.role,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
   static async findByIgn(ign) {
     const result = await db.query('SELECT * FROM characters WHERE LOWER(ign) = LOWER($1)', [ign]);
-    return result.rows[0];
+    if (!result.rows[0]) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      characterType: row.character_type,
+      ign: row.ign,
+      uid: row.uid,
+      className: row.class,
+      subclass: row.subclass,
+      abilityScore: row.ability_score,
+      guild: row.guild,
+      rank: row.rank,
+      parentId: row.parent_character_id,
+      role: row.role,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  static async findMain(userId) {
+    const result = await db.query(
+      'SELECT * FROM characters WHERE user_id = $1 AND character_type = $2',
+      [userId, 'main']
+    );
+    if (!result.rows[0]) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      characterType: row.character_type,
+      ign: row.ign,
+      uid: row.uid,
+      className: row.class,
+      subclass: row.subclass,
+      abilityScore: row.ability_score,
+      guild: row.guild,
+      rank: row.rank,
+      parentId: row.parent_character_id,
+      role: row.role,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  static async countSubclasses(userId) {
+    const result = await db.query(
+      'SELECT COUNT(*) FROM characters WHERE user_id = $1 AND character_type = $2',
+      [userId, 'main_subclass']
+    );
+    return parseInt(result.rows[0].count);
   }
 
   static async update(id, updates) {
@@ -49,11 +175,25 @@ export class CharacterRepo {
     const values = [];
     let paramIndex = 1;
 
+    // Map camelCase to snake_case
+    const fieldMap = {
+      userId: 'user_id',
+      characterType: 'character_type',
+      className: 'class',
+      abilityScore: 'ability_score',
+      parentId: 'parent_character_id'
+    };
+
     Object.entries(updates).forEach(([key, value]) => {
-      fields.push(`${key} = $${paramIndex}`);
-      values.push(value);
-      paramIndex++;
+      const dbField = fieldMap[key] || key;
+      if (dbField !== 'user_id') { // Don't update user_id
+        fields.push(`${dbField} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
     });
+
+    if (fields.length === 0) return null;
 
     fields.push(`updated_at = NOW()`);
     values.push(id);
@@ -62,11 +202,33 @@ export class CharacterRepo {
       `UPDATE characters SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
-    return result.rows[0];
+    
+    if (!result.rows[0]) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      characterType: row.character_type,
+      ign: row.ign,
+      uid: row.uid,
+      className: row.class,
+      subclass: row.subclass,
+      abilityScore: row.ability_score,
+      guild: row.guild,
+      rank: row.rank,
+      parentId: row.parent_character_id,
+      role: row.role,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
   static async delete(id) {
     await db.query('DELETE FROM characters WHERE id = $1', [id]);
+  }
+
+  static async deleteAllByUser(userId) {
+    await db.query('DELETE FROM characters WHERE user_id = $1', [userId]);
   }
 
   static async findByParentId(parentId) {
@@ -74,30 +236,149 @@ export class CharacterRepo {
       'SELECT * FROM characters WHERE parent_character_id = $1',
       [parentId]
     );
-    return result.rows;
+    return result.rows.map(row => ({
+      id: row.id,
+      userId: row.user_id,
+      characterType: row.character_type,
+      ign: row.ign,
+      uid: row.uid,
+      className: row.class,
+      subclass: row.subclass,
+      abilityScore: row.ability_score,
+      guild: row.guild,
+      rank: row.rank,
+      parentId: row.parent_character_id,
+      role: row.role,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// APPLICATION REPOSITORY
+// APPLICATION REPOSITORY - Modern camelCase
 // ═══════════════════════════════════════════════════════════════════
 
 export class ApplicationRepo {
-  static async create(userId, characterData) {
+  static async create(data) {
     const result = await db.query(
-      `INSERT INTO applications (user_id, status, character_data)
-       VALUES ($1, 'pending', $2) RETURNING *`,
-      [userId, JSON.stringify(characterData)]
+      `INSERT INTO applications (user_id, status, character_data, character_id, guild_name, message_id, channel_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        data.userId,
+        data.status || 'pending',
+        data.characterData ? JSON.stringify(data.characterData) : null,
+        data.characterId || null,
+        data.guildName || null,
+        data.messageId || null,
+        data.channelId || null
+      ]
     );
-    return result.rows[0];
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      status: row.status,
+      characterData: row.character_data,
+      characterId: row.character_id,
+      guildName: row.guild_name,
+      messageId: row.message_id,
+      channelId: row.channel_id,
+      acceptVotes: row.accept_votes,
+      denyVotes: row.deny_votes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
-  static async findPending(userId) {
+  static async findPending(userId = null) {
+    if (userId) {
+      const result = await db.query(
+        `SELECT * FROM applications WHERE user_id = $1 AND status = 'pending'`,
+        [userId]
+      );
+      if (!result.rows[0]) return null;
+      
+      const row = result.rows[0];
+      return {
+        id: row.id,
+        userId: row.user_id,
+        status: row.status,
+        characterData: row.character_data,
+        characterId: row.character_id,
+        guildName: row.guild_name,
+        messageId: row.message_id,
+        channelId: row.channel_id,
+        acceptVotes: row.accept_votes,
+        denyVotes: row.deny_votes,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    }
+    
     const result = await db.query(
-      `SELECT * FROM applications WHERE user_id = $1 AND status = 'pending'`,
-      [userId]
+      `SELECT * FROM applications WHERE status = 'pending' ORDER BY created_at DESC`
     );
-    return result.rows[0];
+    return result.rows.map(row => ({
+      id: row.id,
+      userId: row.user_id,
+      status: row.status,
+      characterData: row.character_data,
+      characterId: row.character_id,
+      guildName: row.guild_name,
+      messageId: row.message_id,
+      channelId: row.channel_id,
+      acceptVotes: row.accept_votes,
+      denyVotes: row.deny_votes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  }
+
+  static async findById(id) {
+    const result = await db.query('SELECT * FROM applications WHERE id = $1', [id]);
+    if (!result.rows[0]) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      status: row.status,
+      characterData: row.character_data,
+      characterId: row.character_id,
+      guildName: row.guild_name,
+      messageId: row.message_id,
+      channelId: row.channel_id,
+      acceptVotes: row.accept_votes,
+      denyVotes: row.deny_votes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  static async findAllByUserAndCharacter(userId, characterId) {
+    const result = await db.query(
+      'SELECT * FROM applications WHERE user_id = $1 AND character_id = $2 ORDER BY created_at DESC LIMIT 1',
+      [userId, characterId]
+    );
+    if (!result.rows[0]) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      status: row.status,
+      characterData: row.character_data,
+      characterId: row.character_id,
+      guildName: row.guild_name,
+      messageId: row.message_id,
+      channelId: row.channel_id,
+      acceptVotes: row.accept_votes,
+      denyVotes: row.deny_votes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
   static async updateStatus(id, status) {
@@ -105,28 +386,147 @@ export class ApplicationRepo {
       `UPDATE applications SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *`,
       [id, status]
     );
-    return result.rows[0];
+    if (!result.rows[0]) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      status: row.status,
+      characterData: row.character_data,
+      characterId: row.character_id,
+      guildName: row.guild_name,
+      messageId: row.message_id,
+      channelId: row.channel_id,
+      acceptVotes: row.accept_votes,
+      denyVotes: row.deny_votes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  static async update(id, updates) {
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    const fieldMap = {
+      messageId: 'message_id',
+      channelId: 'channel_id',
+      guildName: 'guild_name',
+      characterId: 'character_id',
+      characterData: 'character_data'
+    };
+
+    Object.entries(updates).forEach(([key, value]) => {
+      const dbField = fieldMap[key] || key;
+      fields.push(`${dbField} = $${paramIndex}`);
+      values.push(value);
+      paramIndex++;
+    });
+
+    if (fields.length === 0) return null;
+
+    fields.push(`updated_at = NOW()`);
+    values.push(id);
+
+    const result = await db.query(
+      `UPDATE applications SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+      values
+    );
+    
+    if (!result.rows[0]) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      status: row.status,
+      characterData: row.character_data,
+      characterId: row.character_id,
+      guildName: row.guild_name,
+      messageId: row.message_id,
+      channelId: row.channel_id,
+      acceptVotes: row.accept_votes,
+      denyVotes: row.deny_votes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  static async delete(id) {
+    await db.query('DELETE FROM applications WHERE id = $1', [id]);
+  }
+
+  static async addVote(id, userId, voteType) {
+    const column = voteType === 'accept' ? 'accept_votes' : 'deny_votes';
+    const result = await db.query(
+      `UPDATE applications 
+       SET ${column} = array_append(${column}, $2), updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [id, userId]
+    );
+    
+    if (!result.rows[0]) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      status: row.status,
+      characterData: row.character_data,
+      characterId: row.character_id,
+      guildName: row.guild_name,
+      messageId: row.message_id,
+      channelId: row.channel_id,
+      acceptVotes: row.accept_votes,
+      denyVotes: row.deny_votes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  static async removeVote(id, userId, voteType) {
+    const column = voteType === 'accept' ? 'accept_votes' : 'deny_votes';
+    await db.query(
+      `UPDATE applications 
+       SET ${column} = array_remove(${column}, $2), updated_at = NOW()
+       WHERE id = $1`,
+      [id, userId]
+    );
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// GUILD APPLICATION REPOSITORY
+// GUILD APPLICATION REPOSITORY - Modern camelCase
 // ═══════════════════════════════════════════════════════════════════
 
 export class GuildApplicationRepo {
-  static async create(applicationData) {
+  static async create(data) {
     const result = await db.query(
       `INSERT INTO guild_applications (user_id, character_id, guild_name, message_id, channel_id)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [
-        applicationData.user_id,
-        applicationData.character_id,
-        applicationData.guild_name,
-        applicationData.message_id,
-        applicationData.channel_id
+        data.userId,
+        data.characterId,
+        data.guildName,
+        data.messageId || null,
+        data.channelId || null
       ]
     );
-    return result.rows[0];
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      characterId: row.character_id,
+      guildName: row.guild_name,
+      messageId: row.message_id,
+      channelId: row.channel_id,
+      acceptVotes: row.accept_votes,
+      denyVotes: row.deny_votes,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
   static async findByMessageId(messageId) {
@@ -134,15 +534,42 @@ export class GuildApplicationRepo {
       'SELECT * FROM guild_applications WHERE message_id = $1',
       [messageId]
     );
-    return result.rows[0];
+    if (!result.rows[0]) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      characterId: row.character_id,
+      guildName: row.guild_name,
+      messageId: row.message_id,
+      channelId: row.channel_id,
+      acceptVotes: row.accept_votes,
+      denyVotes: row.deny_votes,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
   static async findById(id) {
-    const result = await db.query(
-      'SELECT * FROM guild_applications WHERE id = $1',
-      [id]
-    );
-    return result.rows[0];
+    const result = await db.query('SELECT * FROM guild_applications WHERE id = $1', [id]);
+    if (!result.rows[0]) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      characterId: row.character_id,
+      guildName: row.guild_name,
+      messageId: row.message_id,
+      channelId: row.channel_id,
+      acceptVotes: row.accept_votes,
+      denyVotes: row.deny_votes,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
   static async addVote(id, userId, voteType) {
@@ -174,7 +601,7 @@ export class GuildApplicationRepo {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// TIMEZONE REPOSITORY - YOUR NAMING
+// TIMEZONE REPOSITORY - Modern camelCase
 // ═══════════════════════════════════════════════════════════════════
 
 export class TimezoneRepo {
@@ -198,7 +625,7 @@ export class TimezoneRepo {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// BATTLE IMAGINE REPOSITORY
+// BATTLE IMAGINE REPOSITORY - Modern camelCase
 // ═══════════════════════════════════════════════════════════════════
 
 export class BattleImagineRepo {
@@ -206,11 +633,20 @@ export class BattleImagineRepo {
     const result = await db.query(
       `INSERT INTO battle_imagines (character_id, imagine_name, tier)
        VALUES ($1, $2, $3)
-       ON CONFLICT (character_id, imagine_name) DO NOTHING
+       ON CONFLICT (character_id, imagine_name) 
+       DO UPDATE SET tier = $3, created_at = NOW()
        RETURNING *`,
       [characterId, imagineName, tier]
     );
-    return result.rows[0];
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      characterId: row.character_id,
+      imagineName: row.imagine_name,
+      tier: row.tier,
+      createdAt: row.created_at
+    };
   }
 
   static async findByCharacterId(characterId) {
@@ -218,7 +654,17 @@ export class BattleImagineRepo {
       'SELECT * FROM battle_imagines WHERE character_id = $1 ORDER BY created_at DESC',
       [characterId]
     );
-    return result.rows;
+    return result.rows.map(row => ({
+      id: row.id,
+      characterId: row.character_id,
+      imagineName: row.imagine_name,
+      tier: row.tier,
+      createdAt: row.created_at
+    }));
+  }
+
+  static async findByCharacter(characterId) {
+    return this.findByCharacterId(characterId);
   }
 
   static async delete(characterId, imagineName) {
@@ -227,10 +673,14 @@ export class BattleImagineRepo {
       [characterId, imagineName]
     );
   }
+
+  static async deleteByCharacterAndName(characterId, imagineName) {
+    return this.delete(characterId, imagineName);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// EPHEMERAL SETTINGS REPOSITORY
+// EPHEMERAL SETTINGS REPOSITORY - Modern camelCase
 // ═══════════════════════════════════════════════════════════════════
 
 export class EphemeralSettingsRepo {
@@ -240,6 +690,10 @@ export class EphemeralSettingsRepo {
       [guildId]
     );
     return result.rows[0]?.ephemeral_commands || [];
+  }
+
+  static async get(guildId) {
+    return this.getSettings(guildId);
   }
 
   static async updateSettings(guildId, commands) {
@@ -254,7 +708,7 @@ export class EphemeralSettingsRepo {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// LOGGING REPOSITORY - NEW FOR LOGGING SYSTEM
+// LOGGING REPOSITORY - Modern camelCase
 // ═══════════════════════════════════════════════════════════════════
 
 export class LoggingRepo {
@@ -367,8 +821,5 @@ export class LoggingRepo {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// BACKWARDS COMPATIBILITY ALIASES
-// ═══════════════════════════════════════════════════════════════════
-
+// Alias for backwards compatibility
 export const EphemeralRepo = EphemeralSettingsRepo;
