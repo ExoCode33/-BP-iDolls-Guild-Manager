@@ -1,5 +1,5 @@
 import { MessageFlags, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } from 'discord.js';
-import * as adminSettings from '../services/adminSettings.js';
+import { showSettingsMenu, handleSettingsMenuSelect, handleLoggingMenuSelect, handleLoggingBackButton, handleSettingsBackButton } from '../services/adminSettings.js';
 import { EphemeralSettingsRepo, LoggingRepo } from '../database/repositories.js';
 import logger, { Logger } from '../services/logger.js';
 import { COLORS } from '../config/game.js';
@@ -74,45 +74,31 @@ export async function route(interaction) {
   if (customId.startsWith('admin_settings_back_')) {
     const userId = customId.split('_')[3];
     if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
+      return interaction.update({ 
+        embeds: [errorEmbed('This menu is not for you.')], 
+        components: []
       });
     }
-    return adminSettings.handleSettingsBackButton(interaction);
+    return handleSettingsBackButton(interaction);
   }
 
   if (customId.startsWith('logging_back_')) {
     const userId = customId.split('_')[2];
     if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
+      return interaction.update({ 
+        embeds: [errorEmbed('This menu is not for you.')], 
+        components: []
       });
     }
-    return adminSettings.handleLoggingBackButton(interaction);
+    return handleLoggingBackButton(interaction);
   }
 
   if (customId.startsWith('admin_enable_all_')) {
-    const userId = customId.split('_')[3];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleEnableAll(interaction);
+    return handleEnableAll(interaction);
   }
 
   if (customId.startsWith('admin_disable_all_')) {
-    const userId = customId.split('_')[3];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleDisableAll(interaction);
+    return handleDisableAll(interaction);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -424,12 +410,12 @@ export async function routeSelectMenu(interaction) {
   if (customId.startsWith('admin_settings_menu_')) {
     const userId = customId.split('_')[3];
     if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
+      return interaction.update({ 
+        embeds: [errorEmbed('This menu is not for you.')], 
+        components: []
       });
     }
-    return adminSettings.handleSettingsMenuSelect(interaction);
+    return handleSettingsMenuSelect(interaction);
   }
 
   if (customId === 'toggle_ephemeral_command') {
@@ -455,60 +441,67 @@ export async function routeSelectMenu(interaction) {
   if (customId.startsWith('logging_menu_')) {
     const userId = customId.split('_')[2];
     if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
+      return interaction.update({ 
+        embeds: [errorEmbed('This menu is not for you.')], 
+        components: []
       });
     }
-    return adminSettings.handleLoggingMenuSelect(interaction);
+    return handleLoggingMenuSelect(interaction);
   }
 
-  // Channel select menus with user ID
-  if (customId.startsWith('set_general_log_channel_')) {
-    const userId = customId.split('_')[4];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleGeneralChannelSelect(interaction);
-  }
-
-  if (customId.startsWith('set_application_log_channel_')) {
-    const userId = customId.split('_')[4];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleApplicationChannelSelect(interaction);
-  }
-
-  // Event toggle with user ID
-  if (customId.startsWith('toggle_log_event_')) {
-    const userId = customId.split('_')[3];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleEventToggle(interaction);
-  }
-
-  // Legacy handlers (without user ID) for backwards compatibility
   if (customId === 'set_general_log_channel') {
-    return adminSettings.handleGeneralChannelSelect(interaction);
+    const channelId = interaction.values[0];
+    await Logger.setGeneralLogChannel(interaction.guildId, channelId);
+    
+    await Logger.logSettingsChange(interaction.guildId, {
+      adminId: interaction.user.id,
+      setting: 'general log channel',
+      value: `<#${channelId}>`
+    });
+    
+    logger.info('Settings', `General log channel set to <#${channelId}>`);
+    
+    return interaction.reply({
+      embeds: [successEmbed(`General log channel set to <#${channelId}>`)],
+      flags: MessageFlags.Ephemeral
+    });
   }
 
   if (customId === 'set_application_log_channel') {
-    return adminSettings.handleApplicationChannelSelect(interaction);
+    const channelId = interaction.values[0];
+    await Logger.setApplicationLogChannel(interaction.guildId, channelId);
+    
+    await Logger.logSettingsChange(interaction.guildId, {
+      adminId: interaction.user.id,
+      setting: 'application log channel',
+      value: `<#${channelId}>`
+    });
+    
+    logger.info('Settings', `Application log channel set to <#${channelId}>`);
+    
+    return interaction.reply({
+      embeds: [successEmbed(`Application log channel set to <#${channelId}>`)],
+      flags: MessageFlags.Ephemeral
+    });
   }
 
   if (customId === 'toggle_log_event') {
-    return adminSettings.handleEventToggle(interaction);
+    const eventType = interaction.values[0];
+    const config = await Logger.toggleLogSetting(interaction.guildId, eventType);
+    const status = config.settings[eventType] ? 'enabled' : 'disabled';
+    
+    await Logger.logSettingsChange(interaction.guildId, {
+      adminId: interaction.user.id,
+      setting: `${eventType} logging`,
+      value: status
+    });
+    
+    logger.info('Settings', `${eventType} logging ${status}`);
+    
+    return interaction.reply({
+      embeds: [successEmbed(`Event logging ${status}`)],
+      flags: MessageFlags.Ephemeral
+    });
   }
 
   if (customId === 'toggle_log_grouping') {
@@ -598,4 +591,68 @@ export async function routeModal(interaction) {
   }
 
   logger.warn('Router', `Unhandled modal: ${customId}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ADMIN BUTTON HANDLERS
+// ═══════════════════════════════════════════════════════════════════
+
+async function handleEnableAll(interaction) {
+  const config = await Logger.getSettings(interaction.guildId);
+  
+  for (const key of Object.keys(config.settings)) {
+    config.settings[key] = true;
+  }
+  
+  const pool = (await import('../database/index.js')).default;
+  await pool.query(
+    `INSERT INTO guild_settings (guild_id, log_settings) 
+     VALUES ($1, $2) 
+     ON CONFLICT (guild_id) 
+     DO UPDATE SET log_settings = $2`,
+    [interaction.guildId, JSON.stringify(config.settings)]
+  );
+  
+  await Logger.logSettingsChange(interaction.guildId, {
+    adminId: interaction.user.id,
+    setting: 'all event logging',
+    value: 'enabled'
+  });
+  
+  logger.info('Settings', 'All event logging enabled');
+  
+  return interaction.reply({
+    embeds: [successEmbed('All event logging enabled')],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function handleDisableAll(interaction) {
+  const config = await Logger.getSettings(interaction.guildId);
+  
+  for (const key of Object.keys(config.settings)) {
+    config.settings[key] = false;
+  }
+  
+  const pool = (await import('../database/index.js')).default;
+  await pool.query(
+    `INSERT INTO guild_settings (guild_id, log_settings) 
+     VALUES ($1, $2) 
+     ON CONFLICT (guild_id) 
+     DO UPDATE SET log_settings = $2`,
+    [interaction.guildId, JSON.stringify(config.settings)]
+  );
+  
+  await Logger.logSettingsChange(interaction.guildId, {
+    adminId: interaction.user.id,
+    setting: 'all event logging',
+    value: 'disabled'
+  });
+  
+  logger.info('Settings', 'All event logging disabled');
+  
+  return interaction.reply({
+    embeds: [successEmbed('All event logging disabled')],
+    flags: MessageFlags.Ephemeral
+  });
 }
