@@ -29,10 +29,10 @@ export class VerificationSystem {
       .setFooter({ text: 'iDolls • Registration' })
       .setTimestamp();
 
-    // Add GIF banner if URL is configured
+    // ✅ CHANGED: Use thumbnail instead of image for better PC layout
     const bannerUrl = process.env.VERIFICATION_BANNER_URL;
     if (bannerUrl) {
-      embed.setImage(bannerUrl);
+      embed.setThumbnail(bannerUrl);  // Small image on the right side
     }
 
     const row = new ActionRowBuilder()
