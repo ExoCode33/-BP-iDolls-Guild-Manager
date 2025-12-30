@@ -16,8 +16,8 @@ class ClassRoleService {
   getUserClasses(characters) {
     const classes = new Set();
     characters.forEach(char => {
-      if (char.class) {
-        classes.add(char.class);
+      if (char.className) {
+        classes.add(char.className);
       }
     });
     return Array.from(classes);
@@ -160,7 +160,7 @@ class ClassRoleService {
     try {
       // Check if user still has any characters with this class
       const characters = await CharacterRepo.findAllByUser(userId);
-      const stillHasClass = characters.some(char => char.class === className);
+      const stillHasClass = characters.some(char => char.className === className);
 
       if (stillHasClass) {
         return { success: true, kept: true, reason: 'User still has this class' };
