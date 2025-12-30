@@ -58,13 +58,13 @@ function embed(title, description) {
 
 async function showStatistics(interaction) {
   const chars = await CharacterRepo.findAll();
-  const users = new Set(chars.map(c => c.userId)).size;
-  const mains = chars.filter(c => c.characterType === 'main').length;
-  const subs = chars.filter(c => c.characterType === 'main_subclass').length;
+  const users = new Set(chars.map(c => c.user_id)).size;
+  const mains = chars.filter(c => c.character_type === 'main').length;
+  const subs = chars.filter(c => c.character_type === 'main_subclass').length;
   
   const classes = {};
-  chars.filter(c => c.characterType === 'main').forEach(c => { 
-    classes[c.className] = (classes[c.className] || 0) + 1; 
+  chars.filter(c => c.character_type === 'main').forEach(c => { 
+    classes[c.class] = (classes[c.class] || 0) + 1; 
   });
   const topClasses = Object.entries(classes)
     .sort((a, b) => b[1] - a[1])
@@ -279,7 +279,7 @@ async function handleNicknames(interaction) {
   const isEph = await isEphemeral(interaction.guildId, 'admin');
   await interaction.deferReply({ flags: isEph ? MessageFlags.Ephemeral : undefined });
   const chars = await CharacterRepo.findAll();
-  const mains = chars.filter(c => c.characterType === 'main');
+  const mains = chars.filter(c => c.character_type === 'main');
   const results = await syncAllNicknames(interaction.client, config.discord.guildId, mains);
   let desc = `**Updated:** ${results.success}\n**Failed:** ${results.failed}`;
   if (results.failures.length > 0) {
@@ -313,7 +313,7 @@ async function handleCharacter(interaction) {
   const isEph = await isEphemeral(interaction.guildId, 'admin');
   const target = interaction.options.getUser('user');
   const chars = await CharacterRepo.findAllByUser(target.id);
-  const main = chars.find(c => c.characterType === 'main');
+  const main = chars.find(c => c.character_type === 'main');
   if (!main && chars.length === 0) {
     return interaction.reply({ 
       embeds: [embed('❌ No Character', `**${target.username}** hasn't registered.`)], 
