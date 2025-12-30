@@ -82,6 +82,46 @@ export async function route(interaction) {
     }
   }
 
+  // ✅ VERIFICATION NON-PLAYER - Just give verified role, no registration
+  if (customId === 'verification_non_player') {
+    lockInteraction(interaction.user.id, interaction.id);
+    try {
+      const member = interaction.member;
+      const verifiedRoleId = process.env.VERIFIED_ROLE_ID;
+      
+      if (!verifiedRoleId) {
+        return interaction.reply({ 
+          content: '⚠️ Verified role not configured. Please contact an admin.', 
+          ...ephemeralFlag 
+        });
+      }
+
+      // Check if already has role
+      if (member.roles.cache.has(verifiedRoleId)) {
+        return interaction.reply({ 
+          content: '✅ You already have access to the server!', 
+          ...ephemeralFlag 
+        });
+      }
+
+      // Add verified role
+      await member.roles.add(verifiedRoleId);
+      
+      return interaction.reply({ 
+        content: '✨ Welcome! You now have access to the server!\n\nFeel free to explore and chat with the community! 💫', 
+        ...ephemeralFlag 
+      });
+    } catch (error) {
+      console.error('[VERIFICATION] Error giving verified role:', error);
+      return interaction.reply({ 
+        content: '❌ Failed to verify. Please contact an admin.', 
+        ...ephemeralFlag 
+      });
+    } finally {
+      unlockInteraction(interaction.user.id);
+    }
+  }
+
   // ✅ APPLICATION HANDLERS - FIRST, before ownership checks
   if (customId.startsWith('app_vote_accept_')) {
     const appId = parseInt(customId.split('_')[3]);
