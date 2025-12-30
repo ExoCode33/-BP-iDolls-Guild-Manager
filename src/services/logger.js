@@ -4,6 +4,7 @@ import { LoggingRepo } from '../database/repositories.js';
 
 class UnifiedLogger {
   constructor() {
+    this.client = null;
     this.pendingLogs = new Map();
   }
 
@@ -21,11 +22,19 @@ class UnifiedLogger {
     ROLE_CHANGES: 'role_changes'
   };
 
-  // Add init method for backwards compatibility
-  async init() {
-    console.log('[Logger] ✅ Logger system ready');
+  // ═══════════════════════════════════════════════════════════════════
+  // INITIALIZATION
+  // ═══════════════════════════════════════════════════════════════════
+
+  async init(client) {
+    this.client = client;
+    console.log('[Logger] ✅ Unified logging system ready');
     return this;
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // SETTINGS MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════
 
   async getSettings(guildId) {
     return await LoggingRepo.getSettings(guildId);
@@ -56,6 +65,10 @@ class UnifiedLogger {
     config.grouping.grouping_window_minutes = minutes;
     await LoggingRepo.updateGrouping(guildId, config.grouping);
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // MAIN LOGGING (NEW UNIFIED SYSTEM)
+  // ═══════════════════════════════════════════════════════════════════
 
   async log(client, guildId, eventType, data) {
     try {
@@ -212,27 +225,60 @@ class UnifiedLogger {
     return embed;
   }
 
-  // Convenience methods for your existing code
-  info(message) {
-    console.log(`[INFO] ${message}`);
+  // ═══════════════════════════════════════════════════════════════════
+  // CONVENIENCE METHODS (YOUR EXISTING CODE USES THESE)
+  // ═══════════════════════════════════════════════════════════════════
+
+  startup(botTag, commandCount) {
+    console.log(`[BOT] 🚀 ${botTag} started with ${commandCount} commands`);
   }
 
-  error(message, error) {
-    console.error(`[ERROR] ${message}`, error);
+  shutdown(signal) {
+    console.log(`[BOT] 🔴 Shutting down (${signal})`);
   }
 
-  warn(message) {
-    console.warn(`[WARN] ${message}`);
+  info(title, message) {
+    console.log(`[INFO] ${title}: ${message}`);
   }
 
-  debug(message) {
-    console.debug(`[DEBUG] ${message}`);
+  error(category, message, error = null) {
+    console.error(`[ERROR] ${category}: ${message}`);
+    if (error) console.error(error);
+  }
+
+  command(commandName, username, subcommand = null) {
+    const sub = subcommand ? ` (${subcommand})` : '';
+    console.log(`[COMMAND] ${username} used /${commandName}${sub}`);
+  }
+
+  register(username, type, ign, className) {
+    console.log(`[REGISTER] ${username} registered ${type}: ${ign} (${className})`);
+  }
+
+  edit(username, field, oldValue, newValue) {
+    console.log(`[EDIT] ${username} changed ${field}: ${oldValue} → ${newValue}`);
+  }
+
+  delete(username, type, target) {
+    console.log(`[DELETE] ${username} deleted ${type}: ${target}`);
+  }
+
+  viewProfile(viewer, target) {
+    console.log(`[VIEW] ${viewer} viewed ${target}'s profile`);
+  }
+
+  nicknameSync(updated, failed) {
+    console.log(`[NICKNAME] Synced ${updated} nicknames (${failed} failed)`);
+  }
+
+  send(category, title, message) {
+    console.log(`[${category.toUpperCase()}] ${title}: ${message}`);
   }
 }
 
-// Create single instance
+// Single instance
 const logger = new UnifiedLogger();
 
-// Export BOTH ways to support all existing code
-export const Logger = logger;  // Named export
-export default logger;         // Default export for your existing code
+// Export both ways
+export const Logger = logger;
+export default logger;
