@@ -2,7 +2,7 @@ import { google } from 'googleapis';
 import config from '../config/index.js';
 import { TIMEZONE_ABBR, CLASSES } from '../config/game.js';
 import { TimezoneRepo, BattleImagineRepo } from '../database/repositories.js';
-import logger from './logger.js';
+import logger from './consoleLogger.js';
 
 class GoogleSheetsService {
   constructor() {
