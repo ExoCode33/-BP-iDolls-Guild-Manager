@@ -68,6 +68,7 @@ class GoogleSheetsService {
     }
   }
 
+  // ✅ NEW: Timezone abbreviation mapping
   getTimezoneAbbreviation(timezone) {
     const abbreviations = {
       'America/New_York': 'EST',
@@ -123,6 +124,7 @@ class GoogleSheetsService {
     return abbreviations[timezone] || timezone;
   }
 
+  // ✅ UPDATED: Timezone offset with abbreviation support
   getTimezoneOffset(timezone) {
     const abbrev = this.getTimezoneAbbreviation(timezone);
     
@@ -165,11 +167,13 @@ class GoogleSheetsService {
     return { red: 0.62, green: 0.64, blue: 0.66 };
   }
 
+  // ✅ Convert stored ability score number back to the range label they selected
   formatAbilityScore(score) {
     if (!score || score === '' || score === 0) return '';
     
     const numScore = parseInt(score);
     
+    // Map stored values to display labels (must match character.js options)
     const scoreRanges = {
       10000: '≤10k',
       11000: '10-12k',
@@ -324,13 +328,18 @@ class GoogleSheetsService {
   async syncMemberList(allCharactersWithSubclasses) {
     console.log('🚀 [SHEETS] syncMemberList called');
     console.log(`📊 [SHEETS] Characters to sync: ${allCharactersWithSubclasses.length}`);
+    console.log(`🔧 [SHEETS] this.sheets initialized: ${!!this.sheets}`);
+    console.log(`🔧 [SHEETS] spreadsheetId: ${this.spreadsheetId}`);
     
     if (!this.sheets) {
       console.error('❌ [SHEETS] Google Sheets API not initialized!');
+      console.error('➡️  Check that initialize() was called on startup');
+      console.error('➡️  Verify GOOGLE_SHEETS_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, and GOOGLE_PRIVATE_KEY in .env');
       return;
     }
 
     try {
+      // ✅ NEW: Verify spreadsheet access and tab existence
       console.log(`🔍 [SHEETS] Checking spreadsheet: ${this.spreadsheetId}`);
       const spreadsheet = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
@@ -343,10 +352,12 @@ class GoogleSheetsService {
       const memberListSheet = spreadsheet.data.sheets.find(s => s.properties.title === 'Member List');
       if (!memberListSheet) {
         console.error('❌ [SHEETS] ERROR: "Member List" tab not found!');
+        console.error('📋 [SHEETS] Please create a tab named "Member List" (case-sensitive)');
         return;
       }
       console.log('✅ [SHEETS] "Member List" tab found');
       
+      // ✅ UPDATED: Add Battle Imagines column header
       const headers = [
         'Discord Name',
         'IGN',
@@ -357,7 +368,7 @@ class GoogleSheetsService {
         'Subclass',
         'Role',
         'Ability Score',
-        'Battle Imagines',
+        'Battle Imagines', // ✅ NEW COLUMN
         'Guild',
         'Timezone',
         'Registered'
@@ -368,16 +379,16 @@ class GoogleSheetsService {
 
       const userGroups = {};
       allCharactersWithSubclasses.forEach(char => {
-        if (!userGroups[char.userId]) {
-          userGroups[char.userId] = [];
+        if (!userGroups[char.user_id]) {
+          userGroups[char.user_id] = [];
         }
-        userGroups[char.userId].push(char);
+        userGroups[char.user_id].push(char);
       });
 
       for (const [userId, userChars] of Object.entries(userGroups)) {
-        const mainChar = userChars.find(c => c.characterType === 'main');
-        const mainSubclasses = userChars.filter(c => c.characterType === 'main_subclass');
-        const alts = userChars.filter(c => c.characterType === 'alt');
+        const mainChar = userChars.find(c => c.character_type === 'main');
+        const mainSubclasses = userChars.filter(c => c.character_type === 'main_subclass');
+        const alts = userChars.filter(c => c.character_type === 'alt');
         
         let userTimezone = '';
         try {
@@ -386,7 +397,8 @@ class GoogleSheetsService {
           // Silently continue
         }
         
-        let discordName = userId;
+        // ✅ Get Discord username from Discord API
+        let discordName = userId; // Fallback to user ID
         
         if (this.client) {
           try {
@@ -398,11 +410,13 @@ class GoogleSheetsService {
         }
         
         if (mainChar) {
+          // ✅ UPDATED: Format timezone - we'll add the time via formula later
           const timezoneAbbrev = userTimezone ? this.getTimezoneAbbreviation(userTimezone) : '';
           
+          // ✅ NEW: Get Battle Imagines for main character
           const mainBattleImagines = await BattleImagineRepo.findByCharacter(mainChar.id);
           const mainBattleImaginesText = mainBattleImagines
-            .map(img => `${img.imagineName} ${img.tier}`)
+            .map(img => `${img.imagine_name} ${img.tier}`)
             .join(', ');
           
           rows.push([
@@ -411,21 +425,21 @@ class GoogleSheetsService {
             mainChar.uid || '',
             'Main',
             '',
-            mainChar.className,
+            mainChar.class,
             mainChar.subclass,
             mainChar.role,
-            this.formatAbilityScore(mainChar.abilityScore),
-            mainBattleImaginesText,
+            this.formatAbilityScore(mainChar.ability_score),
+            mainBattleImaginesText, // ✅ NEW
             mainChar.guild || '',
-            '',
-            `'${this.formatDate(mainChar.createdAt)}`
+            '', // Empty - will be filled by formula
+            `'${this.formatDate(mainChar.created_at)}`
           ]);
 
           rowMetadata.push({
             character: mainChar,
             discordName: discordName,
             timezone: userTimezone,
-            registeredDate: this.formatDate(mainChar.createdAt),
+            registeredDate: this.formatDate(mainChar.created_at),
             isSubclass: false,
             isMain: true,
             isAlt: false,
@@ -439,23 +453,23 @@ class GoogleSheetsService {
               mainChar.uid || '',
               'Subclass',
               '',
-              subclass.className,
+              subclass.class,
               subclass.subclass,
               subclass.role,
-              this.formatAbilityScore(subclass.abilityScore),
-              '',
+              this.formatAbilityScore(subclass.ability_score),
+              '', // ✅ Subclasses don't have Battle Imagines
               mainChar.guild || '',
-              '',
-              `'${this.formatDate(mainChar.createdAt)}`
+              '', // Empty - will be filled by formula
+              `'${this.formatDate(mainChar.created_at)}`
             ]);
 
             rowMetadata.push({
               character: subclass,
               discordName: discordName,
               timezone: userTimezone,
-              registeredDate: this.formatDate(mainChar.createdAt),
+              registeredDate: this.formatDate(mainChar.created_at),
               parentIGN: mainChar.ign,
-              parentClass: mainChar.className,
+              parentClass: mainChar.class,
               isSubclass: true,
               isMain: false,
               isAlt: false,
@@ -465,11 +479,13 @@ class GoogleSheetsService {
         }
 
         for (const alt of alts) {
+          // Use the already-fetched discordName (same user, same Discord name)
           const altDiscordName = discordName;
           
+          // ✅ NEW: Get Battle Imagines for alt
           const altBattleImagines = await BattleImagineRepo.findByCharacter(alt.id);
           const altBattleImaginesText = altBattleImagines
-            .map(img => `${img.imagineName} ${img.tier}`)
+            .map(img => `${img.imagine_name} ${img.tier}`)
             .join(', ');
           
           rows.push([
@@ -478,21 +494,21 @@ class GoogleSheetsService {
             alt.uid || '',
             'Alt',
             '',
-            alt.className,
+            alt.class,
             alt.subclass,
             alt.role,
-            this.formatAbilityScore(alt.abilityScore),
-            altBattleImaginesText,
+            this.formatAbilityScore(alt.ability_score),
+            altBattleImaginesText, // ✅ NEW
             alt.guild || '',
-            '',
-            `'${this.formatDate(alt.createdAt)}`
+            '', // Empty - will be filled by formula
+            `'${this.formatDate(alt.created_at)}`
           ]);
 
           rowMetadata.push({
             character: alt,
             discordName: altDiscordName,
             timezone: userTimezone,
-            registeredDate: this.formatDate(alt.createdAt),
+            registeredDate: this.formatDate(alt.created_at),
             isSubclass: false,
             isMain: false,
             isAlt: true,
@@ -500,8 +516,8 @@ class GoogleSheetsService {
           });
 
           const altSubclasses = userChars.filter(c => 
-            c.characterType === 'alt_subclass' && 
-            c.parentId === alt.id
+            c.character_type === 'alt_subclass' && 
+            c.parent_character_id === alt.id
           );
 
           altSubclasses.forEach(subclass => {
@@ -511,23 +527,23 @@ class GoogleSheetsService {
               alt.uid || '',
               'Subclass',
               '',
-              subclass.className,
+              subclass.class,
               subclass.subclass,
               subclass.role,
-              this.formatAbilityScore(subclass.abilityScore),
-              '',
+              this.formatAbilityScore(subclass.ability_score),
+              '', // ✅ Subclasses don't have Battle Imagines
               alt.guild || '',
-              '',
-              `'${this.formatDate(alt.createdAt)}`
+              '', // Empty - will be filled by formula
+              `'${this.formatDate(alt.created_at)}`
             ]);
 
             rowMetadata.push({
               character: subclass,
               discordName: altDiscordName,
               timezone: userTimezone,
-              registeredDate: this.formatDate(alt.createdAt),
+              registeredDate: this.formatDate(alt.created_at),
               parentIGN: alt.ign,
-              parentClass: alt.className,
+              parentClass: alt.class,
               isSubclass: true,
               isMain: false,
               isAlt: false,
@@ -537,16 +553,21 @@ class GoogleSheetsService {
         }
       }
 
+      // ✅ UPDATED: Clear ALL data AND formatting before writing
       console.log('🗑️  [SHEETS] Clearing existing data from Member List...');
       await this.sheets.spreadsheets.values.clear({
         spreadsheetId: this.spreadsheetId,
         range: 'Member List!A1:Z1000',
       });
       
+      // ✅ NEW: Clear all formatting to prevent broken layout after deletions
       console.log('🧹 [SHEETS] Clearing all formatting...');
       await this.clearAllFormatting('Member List');
 
       console.log('📝 [SHEETS] Writing fresh data to Member List...');
+      console.log(`📊 [SHEETS] Headers: ${headers.length} columns`);
+      console.log(`📊 [SHEETS] Data rows: ${rows.length} rows`);
+      console.log(`📊 [SHEETS] First row sample:`, rows[0]);
       
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
@@ -569,10 +590,12 @@ class GoogleSheetsService {
     } catch (error) {
       console.error('❌ [SHEETS] Sync error:', error.message);
       
+      // Check for specific error types
       if (error.message.includes('not found')) {
         console.error('📋 [SHEETS] Spreadsheet not found. Check GOOGLE_SHEETS_ID in .env');
       } else if (error.message.includes('permission') || error.message.includes('forbidden') || error.code === 403) {
         console.error('🔒 [SHEETS] Permission denied!');
+        console.error('➡️  Add this email to your sheet with Editor access:');
         console.error(`    ${process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL}`);
       } else if (error.message.includes('Quota exceeded')) {
         this.minSyncInterval = Math.min(this.minSyncInterval * 2, 300000);
@@ -689,7 +712,7 @@ class GoogleSheetsService {
         const meta = rowMetadata[i];
         const member = meta.character;
         
-        const imageUrl = this.classLogos[member.className];
+        const imageUrl = this.classLogos[member.class];
         
         if (imageUrl) {
           valueUpdates.push({
@@ -827,7 +850,9 @@ class GoogleSheetsService {
         }
       });
       
+      // ✅ UPDATED: Add Battle Imagines column width
       const columnWidths = [160, 150, 100, 95, 50, 180, 145, 85, 125, 200, 105, 170, 105];
+      //                                                                  ^^^ NEW: 200px for Battle Imagines
       columnWidths.forEach((width, index) => {
         requests.push({
           updateDimensionProperties: {
@@ -997,21 +1022,23 @@ class GoogleSheetsService {
         
         this.addCleanTextCell(requests, sheetId, rowIndex, 4, '', rowBg);
         
-        const classColor = this.getClassColor(member.className);
+        const classColor = this.getClassColor(member.class);
         this.addColoredTextCell(requests, sheetId, rowIndex, 5, classColor, rowBg);
         this.addColoredTextCell(requests, sheetId, rowIndex, 6, classColor, rowBg);
         
         const roleColor = this.getRoleColor(member.role);
         this.addPillBadge(requests, sheetId, rowIndex, 7, roleColor);
         
-        if (member.abilityScore && member.abilityScore !== '') {
-          const abilityColor = this.getAbilityScoreColor(member.abilityScore);
+        if (member.ability_score && member.ability_score !== '') {
+          const abilityColor = this.getAbilityScoreColor(member.ability_score);
           this.addColoredTextCell(requests, sheetId, rowIndex, 8, abilityColor, rowBg, true);
         } else {
           this.addCleanTextCell(requests, sheetId, rowIndex, 8, '', rowBg);
         }
         
+        // ✅ NEW: Battle Imagines column (index 9)
         this.addBoldTextCell(requests, sheetId, rowIndex, 9, rowBg);
+        
         this.addBoldTextCell(requests, sheetId, rowIndex, 10, rowBg);
         this.addTimezoneCell(requests, sheetId, rowIndex, 11, meta.timezone, rowBg);
         this.addBoldTextCell(requests, sheetId, rowIndex, 12, rowBg);
@@ -1026,7 +1053,7 @@ class GoogleSheetsService {
               startRowIndex: rowIndex,
               endRowIndex: rowIndex + 1,
               startColumnIndex: 0,
-              endColumnIndex: 13
+              endColumnIndex: 13 // ✅ UPDATED from 12 to 13
             },
             top: {
               style: 'SOLID',
@@ -1069,7 +1096,7 @@ class GoogleSheetsService {
                 startRowIndex: rowIndex,
                 endRowIndex: rowIndex + 1,
                 startColumnIndex: 0,
-                endColumnIndex: 13
+                endColumnIndex: 13 // ✅ UPDATED from 12 to 13
               },
               bottom: {
                 style: 'SOLID_THICK',
@@ -1327,7 +1354,7 @@ class GoogleSheetsService {
   }
 
   async sync(characters, client) {
-    this.client = client;
+    this.client = client; // Store client for fetching Discord usernames
     return await this.fullSync(characters);
   }
 }
