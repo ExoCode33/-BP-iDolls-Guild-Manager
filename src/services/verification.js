@@ -26,9 +26,14 @@ export class VerificationSystem {
     const embed = new EmbedBuilder()
       .setColor(COLORS.PRIMARY)
       .setDescription('## **iDolls 💫**\n```ansi\n' + welcomeText + '\n```')
-      .setImage('https://i.imgur.com/YOUR_GIF_URL.gif') // Replace with your GIF URL
       .setFooter({ text: 'iDolls • Registration' })
       .setTimestamp();
+
+    // Add GIF banner if URL is configured
+    const bannerUrl = process.env.VERIFICATION_BANNER_URL;
+    if (bannerUrl) {
+      embed.setImage(bannerUrl);
+    }
 
     const row = new ActionRowBuilder()
       .addComponents(
