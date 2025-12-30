@@ -49,10 +49,18 @@ async function deployCommands() {
 client.once(Events.ClientReady, async () => {
   console.log(`[BOT] Logged in as ${client.user.tag}`);
 
+  // Step 1: Deploy commands
   await deployCommands();
-  await db.initialize();
-  await logger.init(client);
   
+  // Step 2: Initialize database
+  await db.initialize();
+  
+  // Step 3: Initialize logger (AFTER database is ready)
+  console.log('[STARTUP] Initializing logger...');
+  await logger.init(client);
+  console.log('[STARTUP] Logger initialized');
+  
+  // Step 4: Initialize other services
   await applicationService.init(client);
   console.log('✅ Application service initialized');
   
@@ -61,6 +69,7 @@ client.once(Events.ClientReady, async () => {
   
   await sheets.init();
 
+  // Step 5: Send startup log (now that logger is ready)
   logger.startup(client.user.tag, commands.size);
 
   // ✅ VALIDATE AND FIX ALL CLASS ROLES ON STARTUP
@@ -110,30 +119,44 @@ client.once(Events.ClientReady, async () => {
     console.error('[STARTUP] Verification setup error:', error);
   }
 
+  // ✅ SCHEDULED SYNCS
   if (config.sync.sheetsInterval > 0) {
     setInterval(async () => {
-      const chars = await CharacterRepo.findAll();
-      sheets.sync(chars, client);
+      try {
+        const chars = await CharacterRepo.findAll();
+        await sheets.sync(chars, client);
+      } catch (error) {
+        console.error('[SYNC] Sheets sync error:', error.message);
+      }
     }, config.sync.sheetsInterval);
+    console.log(`[STARTUP] Sheets sync scheduled every ${config.sync.sheetsInterval / 1000}s`);
   }
 
   if (config.sync.nicknameEnabled && config.sync.nicknameInterval > 0) {
     setInterval(async () => {
-      const chars = await CharacterRepo.findAll();
-      const mains = chars.filter(c => c.character_type === 'main');
-      syncAllNicknames(client, config.discord.guildId, mains);
+      try {
+        const chars = await CharacterRepo.findAll();
+        const mains = chars.filter(c => c.character_type === 'main');
+        await syncAllNicknames(client, config.discord.guildId, mains);
+      } catch (error) {
+        console.error('[SYNC] Nickname sync error:', error.message);
+      }
     }, config.sync.nicknameInterval);
+    console.log(`[STARTUP] Nickname sync scheduled every ${config.sync.nicknameInterval / 1000}s`);
   }
 
+  // ✅ MEMORY MANAGEMENT
   if (global.gc) {
     setInterval(() => {
       global.gc();
       const mem = process.memoryUsage();
       if (mem.heapUsed > 200 * 1024 * 1024) {
-        logger.send('memory', 'High memory usage', `${(mem.heapUsed / 1024 / 1024).toFixed(1)} MB`);
+        logger.warning('Memory', `High usage: ${(mem.heapUsed / 1024 / 1024).toFixed(1)} MB`);
       }
     }, 300000);
   }
+
+  console.log('[STARTUP] ✅ Bot fully initialized and ready!');
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -149,8 +172,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (interaction.isStringSelectMenu()) {
-      // ✅ FIXED: Route ALL select menus through the router
-      // The router handles admin_logs_*, admin_ephemeral_*, etc.
       return routeSelectMenu(interaction);
     }
 
