@@ -21,6 +21,12 @@ class UnifiedLogger {
     ROLE_CHANGES: 'role_changes'
   };
 
+  // Add init method for backwards compatibility
+  async init() {
+    console.log('[Logger] ✅ Logger system ready');
+    return this;
+  }
+
   async getSettings(guildId) {
     return await LoggingRepo.getSettings(guildId);
   }
