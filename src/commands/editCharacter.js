@@ -15,7 +15,7 @@ export async function execute(interaction) {
   logger.command('edit', interaction.user.username, 'self');
 
   const chars = await CharacterRepo.findAllByUser(userId);
-  const main = chars.find(c => c.character_type === 'main');
+  const main = chars.find(c => c.characterType === 'main');
   
   // ✅ USE EDIT EPHEMERAL SETTING (default: true for privacy)
   const isEph = await isEphemeral(interaction.guildId, 'edit_character');
