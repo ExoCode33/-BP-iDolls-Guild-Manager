@@ -29,7 +29,6 @@ export default {
     }
 
     if (interaction.isModalSubmit()) {
-      // New logging system modals
       if (interaction.customId === 'admin_general_logs') {
         const channelId = interaction.fields.getTextInputValue('channel_id');
         
@@ -104,40 +103,12 @@ export default {
     }
 
     if (interaction.isStringSelectMenu()) {
-      // Route all admin settings select menus
-      if (interaction.customId.startsWith('admin_settings_menu_')) {
-        const adminSettings = await import('../services/adminSettings.js');
-        return await adminSettings.handleSettingsMenuSelect(interaction);
-      }
-
-      if (interaction.customId.startsWith('admin_verification_channel_')) {
-        const adminSettings = await import('../services/adminSettings.js');
-        return await adminSettings.handleVerificationChannelSelect(interaction);
-      }
-
-      if (interaction.customId.startsWith('admin_logs_channel_')) {
-        const adminSettings = await import('../services/adminSettings.js');
-        return await adminSettings.handleLogChannelSelect(interaction);
-      }
-
-      if (interaction.customId.startsWith('admin_logs_batch_')) {
-        const adminSettings = await import('../services/adminSettings.js');
-        return await adminSettings.handleLogBatchSelect(interaction);
-      }
-
-      if (interaction.customId.startsWith('admin_logs_categories_')) {
-        const adminSettings = await import('../services/adminSettings.js');
-        return await adminSettings.handleLogCategoriesSelect(interaction);
-      }
-
-      if (interaction.customId.startsWith('admin_ephemeral_')) {
-        const adminSettings = await import('../services/adminSettings.js');
-        return await adminSettings.handleEphemeralSelect(interaction);
-      }
-
-      if (interaction.customId.startsWith('admin_new_logging_menu_')) {
-        const adminSettings = await import('../services/adminSettings.js');
-        return await adminSettings.handleNewLoggingMenuSelect(interaction);
+      if (interaction.customId === 'admin_settings_menu') {
+        const settingsCommand = await import('../commands/admin/settings.js');
+        if (settingsCommand.default && settingsCommand.default.handleSelectMenu) {
+          await settingsCommand.default.handleSelectMenu(interaction);
+        }
+        return;
       }
 
       if (interaction.customId === 'toggle_log_event') {
@@ -147,10 +118,11 @@ export default {
         const config = await BotLogger.getLogSettings(interaction.guildId);
         const status = config.settings[eventType] ? 'enabled' : 'disabled';
         
-        return interaction.reply({ 
+        await interaction.reply({ 
           embeds: [successEmbed(`**${eventType}** logging ${status}`)], 
           ephemeral: true 
         });
+        return;
       }
 
       if (interaction.customId === 'toggle_log_grouping') {
@@ -169,33 +141,25 @@ export default {
             .setRequired(true);
 
           modal.addComponents(new ActionRowBuilder().addComponents(windowInput));
-          return interaction.showModal(modal);
+          await interaction.showModal(modal);
+          return;
         }
 
         await BotLogger.toggleGroupingSetting(interaction.guildId, selection);
         const config = await BotLogger.getLogSettings(interaction.guildId);
         const status = config.grouping[selection] ? 'grouped' : 'instant';
         
-        return interaction.reply({ 
+        await interaction.reply({ 
           embeds: [successEmbed(`**${selection}** is now ${status}`)], 
           ephemeral: true 
         });
+        return;
       }
 
       return;
     }
 
     if (interaction.isButton()) {
-      if (interaction.customId.startsWith('admin_settings_back_')) {
-        const adminSettings = await import('../services/adminSettings.js');
-        return await adminSettings.handleSettingsBackButton(interaction);
-      }
-
-      if (interaction.customId.startsWith('admin_new_logging_back_')) {
-        const adminSettings = await import('../services/adminSettings.js');
-        return await adminSettings.handleNewLoggingBackButton(interaction);
-      }
-
       return;
     }
   }
