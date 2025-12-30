@@ -22,12 +22,16 @@ export async function route(interaction) {
   console.log(`[ROUTER] Button: ${customId}`);
 
   // ═══════════════════════════════════════════════════════════════════
-  // VERIFICATION BUTTONS - Reply ephemerally so embed stays visible
+  // VERIFICATION BUTTONS - MUST BE FIRST TO HANDLE SPECIALLY
   // ═══════════════════════════════════════════════════════════════════
 
   if (customId === 'verification_register') {
     const userId = interaction.user.id;
+    
+    // ✅ Reply EPHEMERALLY so verification embed stays visible
     await interaction.deferReply({ ephemeral: true });
+    
+    // Now start registration in the ephemeral reply
     return reg.start(interaction, userId, 'main');
   }
 
@@ -41,6 +45,7 @@ export async function route(interaction) {
         await member.roles.add(config.roles.visitor);
       }
       
+      // ✅ Reply EPHEMERALLY so verification embed stays visible
       return interaction.reply({
         embeds: [successEmbed('Welcome! You now have access to the server. 💫')],
         ephemeral: true
