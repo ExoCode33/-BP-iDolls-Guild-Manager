@@ -82,24 +82,70 @@ export async function route(interaction) {
     }
   }
 
-  // ✅ VERIFICATION NON-PLAYER - Just give verified role, no registration
+  // ✅ VERIFICATION NON-PLAYER - Show funny confirmation first
   if (customId === 'verification_non_player') {
+    lockInteraction(interaction.user.id, interaction.id);
+    try {
+      const embed = new EmbedBuilder()
+        .setColor('#FF6B6B')
+        .setTitle('😢 Wait... You don\'t play Blue Protocol?!')
+        .setDescription(
+          '**Are you absolutely sure?**\n\n' +
+          '💔 You\'ll miss out on:\n' +
+          '• Miyako\n\n' +
+          '🎮 **It\'s not too late!**\n' +
+          'Download Blue Protocol and join the fun:\n' +
+          '**https://www.playbpsr.com**\n\n' +
+          '✨ Or... if you\'re really sure, click "I\'m Sure" below to get basic server access.'
+        )
+        .setFooter({ text: 'We believe in you! Come play with us! 💙' });
+
+      const confirmRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId(`verify_nonplayer_confirm_${interaction.user.id}`)
+            .setLabel('I\'m Sure (No Game Access)')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('😔'),
+          new ButtonBuilder()
+            .setLabel('Download Blue Protocol!')
+            .setStyle(ButtonStyle.Link)
+            .setURL('https://www.playbpsr.com')
+            .setEmoji('🎮')
+        );
+
+      return interaction.reply({ 
+        embeds: [embed], 
+        components: [confirmRow], 
+        ...ephemeralFlag 
+      });
+    } finally {
+      unlockInteraction(interaction.user.id);
+    }
+  }
+
+  // ✅ VERIFICATION NON-PLAYER CONFIRMED - Give verified role only
+  if (customId.startsWith('verify_nonplayer_confirm_')) {
     lockInteraction(interaction.user.id, interaction.id);
     try {
       const member = interaction.member;
       const verifiedRoleId = process.env.VERIFIED_ROLE_ID;
       
       if (!verifiedRoleId) {
-        return interaction.reply({ 
+        return interaction.update({ 
           content: '⚠️ Verified role not configured. Please contact an admin.', 
+          embeds: [],
+          components: [],
           ...ephemeralFlag 
         });
       }
 
       // Check if already has role
       if (member.roles.cache.has(verifiedRoleId)) {
-        return interaction.reply({ 
+        return interaction.update({ 
           content: '✅ You already have access to the server!', 
+          embeds: [],
+          components: [],
           ...ephemeralFlag 
         });
       }
@@ -107,14 +153,18 @@ export async function route(interaction) {
       // Add verified role
       await member.roles.add(verifiedRoleId);
       
-      return interaction.reply({ 
-        content: '✨ Welcome! You now have access to the server!\n\nFeel free to explore and chat with the community! 💫', 
+      return interaction.update({ 
+        content: '😢 Okay... You now have basic server access.\n\n💙 But remember, you can always download Blue Protocol later and register your character to unlock the full experience!\n\n**Download here:** https://www.playbpsr.com\n\nWelcome to iDolls! 💫', 
+        embeds: [],
+        components: [],
         ...ephemeralFlag 
       });
     } catch (error) {
       console.error('[VERIFICATION] Error giving verified role:', error);
-      return interaction.reply({ 
+      return interaction.update({ 
         content: '❌ Failed to verify. Please contact an admin.', 
+        embeds: [],
+        components: [],
         ...ephemeralFlag 
       });
     } finally {
