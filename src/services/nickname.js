@@ -1,4 +1,4 @@
-import logger from './consoleLogger.js';
+import logger from './logger.js';
 
 export async function updateNickname(client, guildId, userId, ign) {
   try {
