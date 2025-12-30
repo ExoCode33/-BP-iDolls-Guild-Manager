@@ -175,9 +175,6 @@ function getTimezoneCities(tzLabel) {
     'EET (Athens)': 'Athens, Helsinki, Cairo',
     'TRT (Istanbul)': 'Istanbul, Ankara',
     'MSK (Moscow)': 'Moscow, St. Petersburg',
-    'YEKT (Yekaterinburg)': 'Yekaterinburg',
-    'NOVT (Novosibirsk)': 'Novosibirsk',
-    'VLAT (Vladivostok)': 'Vladivostok',
     'JST (Tokyo)': 'Tokyo, Osaka, Seoul',
     'KST (Seoul)': 'Seoul, Busan',
     'CST (Beijing)': 'Beijing, Shanghai, Hong Kong',
@@ -209,17 +206,14 @@ function getTimezoneCities(tzLabel) {
     'ART (Buenos Aires)': 'Buenos Aires, Córdoba',
     'CLT (Santiago)': 'Santiago, Valparaíso',
     'COT (Bogotá)': 'Bogotá, Medellín',
-    'PET (Lima)': 'Lima, Cusco',
-    'CST (Central)': 'Mexico City, Guadalajara',
-    'MST (Mountain)': 'Chihuahua, Hermosillo',
-    'PST (Pacific)': 'Tijuana, Mexicali'
+    'PET (Lima)': 'Lima, Cusco'
   };
   return cityExamples[tzLabel] || tzLabel.split('(')[1]?.replace(')', '') || tzLabel;
 }
 
 async function assignRoles(client, userId, guildName, characterData = null) {
   if (!config.discord?.guildId) {
-    console.log('[REGISTRATION] Guild ID not configured');
+    logger.debug('Registration', 'Guild ID not configured');
     return;
   }
 
@@ -230,33 +224,33 @@ async function assignRoles(client, userId, guildName, characterData = null) {
     if (guildName === 'Visitor') {
       if (config.roles.visitor) {
         await member.roles.add(config.roles.visitor);
-        console.log(`[REGISTRATION] Added Visitor role to ${userId}`);
+        logger.roles(`Added Visitor role to ${member.user.username}`);
       }
       
       if (config.roles.verified && member.roles.cache.has(config.roles.verified)) {
         await member.roles.remove(config.roles.verified);
-        console.log(`[REGISTRATION] Removed Registered role from ${userId}`);
+        logger.roles(`Removed Registered role from ${member.user.username}`);
       }
     } else {
       if (config.roles.verified) {
         await member.roles.add(config.roles.verified);
-        console.log(`[REGISTRATION] Added Registered role to ${userId}`);
+        logger.roles(`Added Registered role to ${member.user.username}`);
       }
 
       if (config.roles.visitor && member.roles.cache.has(config.roles.visitor)) {
         await member.roles.remove(config.roles.visitor);
-        console.log(`[REGISTRATION] Removed Visitor role from ${userId}`);
+        logger.roles(`Removed Visitor role from ${member.user.username}`);
       }
     }
 
   } catch (error) {
-    console.error('[REGISTRATION] Role assignment error:', error.message);
+    logger.error('Registration', 'Role assignment error', error);
   }
 }
 
 async function removeRoles(client, userId) {
   if (!config.roles?.registered || !config.discord?.guildId) {
-    console.log('[REGISTRATION] Role removal not configured');
+    logger.debug('Registration', 'Role removal not configured');
     return;
   }
 
@@ -266,22 +260,22 @@ async function removeRoles(client, userId) {
 
     if (config.roles.verified && member.roles.cache.has(config.roles.verified)) {
       await member.roles.remove(config.roles.verified);
-      console.log(`[REGISTRATION] Removed Registered role from ${userId}`);
+      logger.roles(`Removed Registered role from ${member.user.username}`);
     }
 
     if (config.roles.visitor) {
       await member.roles.add(config.roles.visitor);
-      console.log(`[REGISTRATION] Added Visitor role to ${userId}`);
+      logger.roles(`Added Visitor role to ${member.user.username}`);
     }
 
   } catch (error) {
-    console.error('[REGISTRATION] Role removal error:', error.message);
+    logger.error('Registration', 'Role removal error', error);
   }
 }
 
 export async function start(interaction, userId, characterType = 'main') {
   if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId}, ignoring duplicate interaction`);
+    logger.debug('Registration', `Race condition detected for ${userId}, ignoring`);
     return;
   }
   
@@ -289,9 +283,7 @@ export async function start(interaction, userId, characterType = 'main') {
   
   const currentState = state.get(userId, 'reg') || {};
   
-  console.log('[REGISTRATION] Starting registration for user:', userId);
-  console.log('[REGISTRATION] Character type:', characterType);
-  console.log('[REGISTRATION] State:', JSON.stringify(currentState, null, 2));
+  logger.debug('Registration', `Starting for ${userId}, type: ${characterType}`);
   
   if (characterType === 'subclass' || currentState.type === 'subclass') {
     state.set(userId, 'reg', { ...currentState, type: 'subclass' });
@@ -363,11 +355,7 @@ async function showClassSelection(interaction, userId) {
 }
 
 export async function handleRegion(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at region select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const region = interaction.values[0];
@@ -403,16 +391,11 @@ export async function handleRegion(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-  
   clearActiveInteraction(userId);
 }
 
 export async function handleCountry(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at country select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const currentState = state.get(userId, 'reg');
@@ -451,16 +434,11 @@ export async function handleCountry(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-  
   clearActiveInteraction(userId);
 }
 
 export async function handleTimezone(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at timezone select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const currentState = state.get(userId, 'reg');
@@ -510,16 +488,11 @@ export async function handleTimezone(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-  
   clearActiveInteraction(userId);
 }
 
 export async function handleClass(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at class select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const className = interaction.values[0];
@@ -540,14 +513,12 @@ export async function handleClass(interaction, userId) {
     const roleEmoji = classRole === 'Tank' ? '🛡️' : classRole === 'DPS' ? '⚔️' : '💚';
     const iconId = getClassIconId(className);
     
-    const option = {
+    return {
       label: subclassName,
       value: subclassName,
       description: classRole,
       emoji: iconId ? { id: iconId } : roleEmoji
     };
-    
-    return option;
   });
 
   const selectMenu = new StringSelectMenuBuilder()
@@ -564,16 +535,11 @@ export async function handleClass(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-  
   clearActiveInteraction(userId);
 }
 
 export async function handleSubclass(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at subclass select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const subclassName = interaction.values[0];
@@ -608,16 +574,11 @@ export async function handleSubclass(interaction, userId) {
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
   await interaction.update({ embeds: [embed], components: [row1, row2] });
-  
   clearActiveInteraction(userId);
 }
 
 export async function handleScore(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at score select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const abilityScore = interaction.values[0];
@@ -647,9 +608,7 @@ export async function handleScore(interaction, userId) {
         parentId: currentState.parentId
       });
 
-      console.log('[REGISTRATION] Created subclass:', character.id);
-
-      // ✅ ADD CLASS ROLE
+      // Add class role
       await classRoleService.addClassRole(userId, currentState.class);
 
       const characters = await CharacterRepo.findAllByUser(userId);
@@ -668,8 +627,7 @@ export async function handleScore(interaction, userId) {
       state.clear(userId, 'reg');
       clearActiveInteraction(userId);
     } catch (error) {
-      console.error('[REGISTRATION ERROR]', error);
-      logger.error('Registration', `Subclass registration error: ${error.message}`, error);
+      logger.error('Registration', 'Subclass error', error);
       clearActiveInteraction(userId);
       await interaction.update({
         content: '❌ Something went wrong. Please try again!',
@@ -687,7 +645,6 @@ export async function handleScore(interaction, userId) {
   });
   
   await showBattleImagineSelection(interaction, userId);
-  
   clearActiveInteraction(userId);
 }
 
@@ -724,14 +681,12 @@ async function showBattleImagineSelection(interaction, userId) {
   ];
   
   for (const tier of TIERS) {
-    const option = {
+    tierOptions.push({
       label: tier,
       value: tier,
       description: tier === 'T5' ? 'Tier Five (Max)' : `Tier ${tier.substring(1)}`,
       emoji: currentImagine.logo ? { id: currentImagine.logo } : '⭐'
-    };
-    
-    tierOptions.push(option);
+    });
   }
   
   const selectMenu = new StringSelectMenuBuilder()
@@ -751,11 +706,7 @@ async function showBattleImagineSelection(interaction, userId) {
 }
 
 export async function handleBattleImagine(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at battle imagine select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const currentState = state.get(userId, 'reg');
@@ -773,7 +724,6 @@ export async function handleBattleImagine(interaction, userId) {
   state.set(userId, 'reg', currentState);
   
   await showBattleImagineSelection(interaction, userId);
-  
   clearActiveInteraction(userId);
 }
 
@@ -810,11 +760,7 @@ async function proceedToGuildSelection(interaction, userId) {
 }
 
 export async function handleGuild(interaction, userId) {
-  if (hasActiveInteraction(userId, interaction.id)) {
-    console.log(`[REGISTRATION] Race condition detected for ${userId} at guild select, ignoring`);
-    return;
-  }
-  
+  if (hasActiveInteraction(userId, interaction.id)) return;
   setActiveInteraction(userId, interaction.id);
   
   const guild = interaction.values[0];
@@ -823,7 +769,7 @@ export async function handleGuild(interaction, userId) {
   if (!currentState) {
     clearActiveInteraction(userId);
     await interaction.reply({
-      content: '❌ Registration session expired. Please start over with `/character`.',
+      content: '❌ Registration session expired. Please start over.',
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -856,7 +802,6 @@ export async function handleGuild(interaction, userId) {
   modal.addComponents(row1, row2);
 
   await interaction.showModal(modal);
-  
   clearActiveInteraction(userId);
 }
 
@@ -864,10 +809,6 @@ export async function handleIGN(interaction, userId) {
   const ign = interaction.fields.getTextInputValue('ign');
   const uid = interaction.fields.getTextInputValue('uid').trim();
   const currentState = state.get(userId, 'reg');
-
-  console.log('[REGISTRATION] IGN entered:', ign);
-  console.log('[REGISTRATION] UID entered:', uid);
-  console.log('[REGISTRATION] Final state:', JSON.stringify(currentState, null, 2));
 
   if (!/^\d+$/.test(uid)) {
     state.set(userId, 'reg', { 
@@ -912,23 +853,21 @@ export async function handleIGN(interaction, userId) {
       for (const imagine of currentState.battleImagines) {
         await BattleImagineRepo.add(character.id, imagine.name, imagine.tier);
       }
-      console.log(`[REGISTRATION] Saved ${currentState.battleImagines.length} Battle Imagines`);
+      logger.debug('Registration', `Saved ${currentState.battleImagines.length} Battle Imagines`);
     }
     
     if (config.sync.nicknameEnabled) {
       try {
         const result = await updateNickname(interaction.client, config.discord.guildId, userId, ign);
         if (result.success) {
-          console.log(`✅ [REGISTRATION] Nickname synced: ${ign}`);
-        } else {
-          console.error(`❌ [REGISTRATION] Nickname sync failed: ${result.reason}`);
+          logger.nickname(`Synced: ${ign}`);
         }
       } catch (e) {
-        console.error('[REGISTRATION] Nickname sync error:', e.message);
+        logger.error('Registration', 'Nickname sync error', e);
       }
     }
 
-    // ✅ ADD CLASS ROLE
+    // Add class role
     await classRoleService.addClassRole(userId, currentState.class);
 
     if (currentState.guild === 'iDolls' && config.roles.guild1) {
@@ -953,8 +892,7 @@ export async function handleIGN(interaction, userId) {
 
     logger.register(interaction.user.username, 'main', ign, currentState.class);
   } catch (error) {
-    console.error('[REGISTRATION ERROR]', error);
-    logger.error('Registration', `Registration error: ${error.message}`, error);
+    logger.error('Registration', 'Registration error', error);
     await interaction.reply({
       content: '❌ Something went wrong. Please try again!',
       flags: MessageFlags.Ephemeral
@@ -974,7 +912,7 @@ export async function handleDelete(interaction, userId, characterId) {
     }
     
   } catch (error) {
-    console.error('[REGISTRATION] Error handling character deletion:', error.message);
+    logger.error('Registration', 'Delete error', error);
   }
 }
 
@@ -983,7 +921,7 @@ export async function retryIGN(interaction, userId) {
   
   if (!currentState) {
     await interaction.reply({ 
-      content: '❌ Registration session expired. Please start over with `/character`.', 
+      content: '❌ Registration session expired. Please start over.', 
       flags: MessageFlags.Ephemeral
     });
     return;
