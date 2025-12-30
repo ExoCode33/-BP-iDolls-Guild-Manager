@@ -1,10 +1,9 @@
-import { MessageFlags, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { MessageFlags, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
 import logger from '../services/logger.js';
 import state from '../services/state.js';
 import * as reg from './registration.js';
 import * as edit from './editing.js';
 import applicationService from '../services/applications.js';
-import { errorEmbed, successEmbed } from '../ui/embeds.js';
 
 const ephemeralFlag = { flags: MessageFlags.Ephemeral };
 
@@ -261,13 +260,6 @@ export async function route(interaction) {
       const admin = await import('../commands/admin.js');
       return await admin.handleSettingsBackButton(interaction);
     }
-    
-    // ✅ NEW LOGGING SYSTEM BACK BUTTON
-    if (customId.startsWith('admin_new_logging_back_')) {
-      const adminSettings = await import('../services/adminSettings.js');
-      return await adminSettings.handleNewLoggingBackButton(interaction);
-    }
-    
     if (customId.startsWith('admin_reg_start_')) return await reg.start(interaction, userId, 'main');
     if (customId.startsWith('admin_add_')) return await edit.showAddMenu(interaction, userId);
     if (customId.startsWith('admin_edit_')) return await edit.showEditMenu(interaction, userId);
@@ -383,56 +375,6 @@ export async function routeSelectMenu(interaction) {
       return await admin.handleEphemeralSelect(interaction);
     }
 
-    // ✅ NEW LOGGING SYSTEM SELECT MENUS
-    if (customId.startsWith('admin_new_logging_menu_')) {
-      const adminSettings = await import('../services/adminSettings.js');
-      return await adminSettings.handleNewLoggingMenuSelect(interaction);
-    }
-
-    if (customId === 'toggle_log_event') {
-      const eventType = interaction.values[0];
-      const { BotLogger } = await import('../services/botLogger.js');
-      await BotLogger.toggleLogSetting(interaction.guildId, eventType);
-      
-      const config = await BotLogger.getLogSettings(interaction.guildId);
-      const status = config.settings[eventType] ? 'enabled' : 'disabled';
-      
-      return interaction.reply({ 
-        embeds: [successEmbed(`**${eventType}** logging ${status}`)], 
-        ephemeral: true 
-      });
-    }
-
-    if (customId === 'toggle_log_grouping') {
-      const selection = interaction.values[0];
-      
-      if (selection === 'change_window') {
-        const modal = new ModalBuilder()
-          .setCustomId('log_grouping_window')
-          .setTitle('Change Grouping Window');
-
-        const windowInput = new TextInputBuilder()
-          .setCustomId('window_minutes')
-          .setLabel('Grouping Window (minutes)')
-          .setPlaceholder('10')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
-
-        modal.addComponents(new ActionRowBuilder().addComponents(windowInput));
-        return interaction.showModal(modal);
-      }
-
-      const { BotLogger } = await import('../services/botLogger.js');
-      await BotLogger.toggleGroupingSetting(interaction.guildId, selection);
-      const config = await BotLogger.getLogSettings(interaction.guildId);
-      const status = config.grouping[selection] ? 'grouped' : 'instant';
-      
-      return interaction.reply({ 
-        embeds: [successEmbed(`**${selection}** is now ${status}`)], 
-        ephemeral: true 
-      });
-    }
-
     if (customId.startsWith('select_region_')) return await reg.handleRegion(interaction, userId);
     if (customId.startsWith('select_country_')) return await reg.handleCountry(interaction, userId);
     if (customId.startsWith('select_timezone_')) return await reg.handleTimezone(interaction, userId);
@@ -517,84 +459,6 @@ export async function routeModal(interaction) {
   logger.interaction('modal', customId, interaction.user.username);
 
   try {
-    // ✅ NEW LOGGING SYSTEM MODALS
-    if (customId === 'admin_general_logs') {
-      const channelId = interaction.fields.getTextInputValue('channel_id');
-      
-      try {
-        const channel = await interaction.guild.channels.fetch(channelId);
-        if (!channel || !channel.isTextBased()) {
-          return interaction.reply({ 
-            embeds: [errorEmbed('Invalid channel ID or not a text channel.')], 
-            ephemeral: true 
-          });
-        }
-
-        const { BotLogger } = await import('../services/botLogger.js');
-        await BotLogger.setGeneralLogChannel(interaction.guildId, channelId);
-        
-        await interaction.reply({ 
-          embeds: [successEmbed(`General log channel set to <#${channelId}>`)], 
-          ephemeral: true 
-        });
-      } catch (error) {
-        await interaction.reply({ 
-          embeds: [errorEmbed('Could not find that channel. Make sure the ID is correct.')], 
-          ephemeral: true 
-        });
-      }
-      return;
-    }
-
-    if (customId === 'admin_application_logs') {
-      const channelId = interaction.fields.getTextInputValue('channel_id');
-      
-      try {
-        const channel = await interaction.guild.channels.fetch(channelId);
-        if (!channel || !channel.isTextBased()) {
-          return interaction.reply({ 
-            embeds: [errorEmbed('Invalid channel ID or not a text channel.')], 
-            ephemeral: true 
-          });
-        }
-
-        const { BotLogger } = await import('../services/botLogger.js');
-        await BotLogger.setApplicationLogChannel(interaction.guildId, channelId);
-        
-        await interaction.reply({ 
-          embeds: [successEmbed(`Application log channel set to <#${channelId}>`)], 
-          ephemeral: true 
-        });
-      } catch (error) {
-        await interaction.reply({ 
-          embeds: [errorEmbed('Could not find that channel. Make sure the ID is correct.')], 
-          ephemeral: true 
-        });
-      }
-      return;
-    }
-
-    if (customId === 'log_grouping_window') {
-      const minutes = parseInt(interaction.fields.getTextInputValue('window_minutes'));
-      
-      if (isNaN(minutes) || minutes < 1 || minutes > 60) {
-        return interaction.reply({ 
-          embeds: [errorEmbed('Window must be between 1 and 60 minutes.')], 
-          ephemeral: true 
-        });
-      }
-
-      const { BotLogger } = await import('../services/botLogger.js');
-      await BotLogger.setGroupingWindow(interaction.guildId, minutes);
-      
-      await interaction.reply({ 
-        embeds: [successEmbed(`Grouping window set to ${minutes} minutes`)], 
-        ephemeral: true 
-      });
-      return;
-    }
-
-    // EXISTING MODAL HANDLERS
     if (customId.startsWith('ign_modal_')) {
       return await reg.handleIGN(interaction, userId);
     }
