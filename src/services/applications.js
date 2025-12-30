@@ -73,8 +73,8 @@ class ApplicationService {
       
       await this.updateApplicationMessage(updated);
 
-      const acceptCount = updated.acceptVotes?.length || 0;
-      const denyCount = updated.denyVotes?.length || 0;
+      const acceptCount = updated.accept_votes?.length || 0;
+      const denyCount = updated.deny_votes?.length || 0;
 
       if (acceptCount >= 2) {
         await this.approveApplication(updated);
@@ -156,11 +156,11 @@ class ApplicationService {
       await ApplicationRepo.updateStatus(application.id, 'approved');
 
       const guild = await this.client.guilds.fetch(config.discord.guildId);
-      const member = await guild.members.fetch(application.userId);
+      const member = await guild.members.fetch(application.user_id);
 
       if (config.roles.guild1) {
         await member.roles.add(config.roles.guild1);
-        console.log(`[APP] Added guild role to ${application.userId}`);
+        console.log(`[APP] Added guild role to ${application.user_id}`);
       }
 
       if (config.roles.registered && !member.roles.cache.has(config.roles.registered)) {
@@ -173,7 +173,7 @@ class ApplicationService {
 
       await this.updateApplicationMessage(application, 'approved', overrideBy);
 
-      logger.info('Application approved', `User: ${application.userId} | Guild: ${application.guildName}`);
+      logger.info('Application approved', `User: ${application.user_id} | Guild: ${application.guild_name}`);
     } catch (error) {
       console.error('[APP] Approve error:', error);
     }
@@ -183,17 +183,17 @@ class ApplicationService {
     try {
       await ApplicationRepo.updateStatus(application.id, 'denied');
 
-      const character = await CharacterRepo.findById(application.characterId);
+      const character = await CharacterRepo.findById(application.character_id);
       if (character) {
-        await CharacterRepo.update(application.characterId, { guild: 'Visitor' });
+        await CharacterRepo.update(application.character_id, { guild: 'Visitor' });
       }
 
       const guild = await this.client.guilds.fetch(config.discord.guildId);
-      const member = await guild.members.fetch(application.userId);
+      const member = await guild.members.fetch(application.user_id);
 
       if (config.roles.guild1 && member.roles.cache.has(config.roles.guild1)) {
         await member.roles.remove(config.roles.guild1);
-        console.log(`[APP] Removed guild role from ${application.userId}`);
+        console.log(`[APP] Removed guild role from ${application.user_id}`);
       }
 
       if (config.roles.visitor) {
@@ -206,7 +206,7 @@ class ApplicationService {
 
       await this.updateApplicationMessage(application, 'denied', overrideBy);
 
-      logger.info('Application denied', `User: ${application.userId} | Guild: ${application.guildName}`);
+      logger.info('Application denied', `User: ${application.user_id} | Guild: ${application.guild_name}`);
     } catch (error) {
       console.error('[APP] Deny error:', error);
     }
@@ -214,12 +214,12 @@ class ApplicationService {
 
   async updateApplicationMessage(application, finalStatus = null, overrideBy = null) {
     try {
-      if (!application.messageId || !application.channelId) return;
+      if (!application.message_id || !application.channel_id) return;
 
-      const channel = await this.client.channels.fetch(application.channelId);
-      const message = await channel.messages.fetch(application.messageId);
-      const user = await this.client.users.fetch(application.userId);
-      const characters = await CharacterRepo.findAllByUser(application.userId);
+      const channel = await this.client.channels.fetch(application.channel_id);
+      const message = await channel.messages.fetch(application.message_id);
+      const user = await this.client.users.fetch(application.user_id);
+      const characters = await CharacterRepo.findAllByUser(application.user_id);
       
       const guild = await this.client.guilds.fetch(config.discord.guildId);
 
@@ -265,13 +265,13 @@ class ApplicationService {
 
       for (const app of pending) {
         try {
-          if (app.messageId) {
+          if (app.message_id) {
             try {
-              const oldMessage = await channel.messages.fetch(app.messageId);
+              const oldMessage = await channel.messages.fetch(app.message_id);
               await oldMessage.delete();
-              console.log(`[APP] Deleted old message ${app.messageId}`);
+              console.log(`[APP] Deleted old message ${app.message_id}`);
             } catch (e) {
-              console.log(`[APP] Old message ${app.messageId} not found (already deleted)`);
+              console.log(`[APP] Old message ${app.message_id} not found (already deleted)`);
             }
           }
 
@@ -283,8 +283,8 @@ class ApplicationService {
             continue;
           }
           
-          const user = await this.client.users.fetch(app.userId);
-          const characters = await CharacterRepo.findAllByUser(app.userId);
+          const user = await this.client.users.fetch(app.user_id);
+          const characters = await CharacterRepo.findAllByUser(app.user_id);
           
           // Create new embed with PRESERVED votes from fullApp
           const embed = await profileEmbed(user, characters, { guild });
@@ -300,7 +300,7 @@ class ApplicationService {
           // UPDATE the existing application with new message ID
           await ApplicationRepo.update(fullApp.id, { messageId: newMessage.id });
 
-          console.log(`[APP] Updated application ID ${fullApp.id} with new message ${newMessage.id}, preserved ${fullApp.acceptVotes?.length || 0} accept votes, ${fullApp.denyVotes?.length || 0} deny votes`);
+          console.log(`[APP] Updated application ID ${fullApp.id} with new message ${newMessage.id}, preserved ${fullApp.accept_votes?.length || 0} accept votes, ${fullApp.deny_votes?.length || 0} deny votes`);
         } catch (error) {
           console.error(`[APP] Error restoring application ${app.id}:`, error.message);
         }
