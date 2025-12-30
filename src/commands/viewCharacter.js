@@ -19,7 +19,7 @@ export async function execute(interaction) {
   logger.command('view-character', interaction.user.username, isOwn ? 'self' : targetUser.username);
 
   const chars = await CharacterRepo.findAllByUser(targetUser.id);
-  const main = chars.find(c => c.character_type === 'main');
+  const main = chars.find(c => c.characterType === 'main');
   
   // ✅ USE VIEW EPHEMERAL SETTING (default: false for sharing)
   const isEph = await isEphemeral(interaction.guildId, 'view_character');
