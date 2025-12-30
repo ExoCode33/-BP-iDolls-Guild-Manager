@@ -22,7 +22,7 @@ export async function route(interaction) {
   console.log(`[ROUTER] Button: ${customId}`);
 
   // ═══════════════════════════════════════════════════════════════════
-  // VERIFICATION BUTTONS
+  // VERIFICATION BUTTONS (WITH BP LINK FIX)
   // ═══════════════════════════════════════════════════════════════════
 
   if (customId === 'verification_register') {
@@ -41,7 +41,7 @@ export async function route(interaction) {
         await member.roles.add(config.roles.visitor);
       }
       
-      // Show welcome message with BP link
+      // ✅ FIXED: Show welcome message with BP link
       const welcomeEmbed = new EmbedBuilder()
         .setTitle('👋 Welcome to the Server!')
         .setDescription(
@@ -67,7 +67,7 @@ export async function route(interaction) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // ADMIN SETTINGS
+  // ADMIN SETTINGS (PERSISTENT NAVIGATION)
   // ═══════════════════════════════════════════════════════════════════
 
   if (customId.startsWith('admin_settings_back_')) {
@@ -90,6 +90,14 @@ export async function route(interaction) {
       });
     }
     return handleLoggingBackButton(interaction);
+  }
+
+  if (customId.startsWith('admin_enable_all_')) {
+    return handleEnableAll(interaction);
+  }
+
+  if (customId.startsWith('admin_disable_all_')) {
+    return handleDisableAll(interaction);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -346,7 +354,7 @@ export async function routeSelectMenu(interaction) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // ADMIN SETTINGS
+  // ADMIN SETTINGS (PERSISTENT NAVIGATION)
   // ═══════════════════════════════════════════════════════════════════
 
   if (customId.startsWith('admin_settings_menu_')) {
@@ -392,29 +400,49 @@ export async function routeSelectMenu(interaction) {
   if (customId === 'set_general_log_channel') {
     const channelId = interaction.values[0];
     await Logger.setGeneralLogChannel(interaction.guildId, channelId);
-    return interaction.update({
+    
+    await Logger.logSettingsChange(interaction.guildId, {
+      adminId: interaction.user.id,
+      setting: 'general log channel',
+      value: `<#${channelId}>`
+    });
+    
+    return interaction.reply({
       embeds: [successEmbed(`General log channel set to <#${channelId}>`)],
-      components: []
+      ephemeral: true
     });
   }
 
   if (customId === 'set_application_log_channel') {
     const channelId = interaction.values[0];
     await Logger.setApplicationLogChannel(interaction.guildId, channelId);
-    return interaction.update({
+    
+    await Logger.logSettingsChange(interaction.guildId, {
+      adminId: interaction.user.id,
+      setting: 'application log channel',
+      value: `<#${channelId}>`
+    });
+    
+    return interaction.reply({
       embeds: [successEmbed(`Application log channel set to <#${channelId}>`)],
-      components: []
+      ephemeral: true
     });
   }
 
   if (customId === 'toggle_log_event') {
     const eventType = interaction.values[0];
-    await Logger.toggleLogSetting(interaction.guildId, eventType);
-    const config = await Logger.getSettings(interaction.guildId);
+    const config = await Logger.toggleLogSetting(interaction.guildId, eventType);
     const status = config.settings[eventType] ? 'enabled' : 'disabled';
-    return interaction.update({
+    
+    await Logger.logSettingsChange(interaction.guildId, {
+      adminId: interaction.user.id,
+      setting: `${eventType} logging`,
+      value: status
+    });
+    
+    return interaction.reply({
       embeds: [successEmbed(`Event logging ${status}`)],
-      components: []
+      ephemeral: true
     });
   }
 
@@ -504,4 +532,62 @@ export async function routeModal(interaction) {
   }
 
   console.log(`[ROUTER] ⚠️ Unhandled modal: ${customId}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ADMIN BUTTON HANDLERS
+// ═══════════════════════════════════════════════════════════════════
+
+async function handleEnableAll(interaction) {
+  const config = await Logger.getSettings(interaction.guildId);
+  
+  for (const key of Object.keys(config.settings)) {
+    config.settings[key] = true;
+  }
+  
+  await import('../database/index.js').then(pool => pool.default.query(
+    `INSERT INTO guild_settings (guild_id, log_settings) 
+     VALUES ($1, $2) 
+     ON CONFLICT (guild_id) 
+     DO UPDATE SET log_settings = $2`,
+    [interaction.guildId, JSON.stringify(config.settings)]
+  ));
+  
+  await Logger.logSettingsChange(interaction.guildId, {
+    adminId: interaction.user.id,
+    setting: 'all event logging',
+    value: 'enabled'
+  });
+  
+  return interaction.reply({
+    embeds: [successEmbed('All event logging enabled')],
+    ephemeral: true
+  });
+}
+
+async function handleDisableAll(interaction) {
+  const config = await Logger.getSettings(interaction.guildId);
+  
+  for (const key of Object.keys(config.settings)) {
+    config.settings[key] = false;
+  }
+  
+  await import('../database/index.js').then(pool => pool.default.query(
+    `INSERT INTO guild_settings (guild_id, log_settings) 
+     VALUES ($1, $2) 
+     ON CONFLICT (guild_id) 
+     DO UPDATE SET log_settings = $2`,
+    [interaction.guildId, JSON.stringify(config.settings)]
+  ));
+  
+  await Logger.logSettingsChange(interaction.guildId, {
+    adminId: interaction.user.id,
+    setting: 'all event logging',
+    value: 'disabled'
+  });
+  
+  return interaction.reply({
+    embeds: [successEmbed('All event logging disabled')],
+    ephemeral: true
+  });
 }
