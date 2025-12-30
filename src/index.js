@@ -149,21 +149,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (interaction.isStringSelectMenu()) {
-      if (interaction.customId.startsWith('admin_logs_channel_')) {
-        return handleLogChannelSelect(interaction);
-      }
-      if (interaction.customId.startsWith('admin_logs_batch_')) {
-        return handleLogBatchSelect(interaction);
-      }
-      if (interaction.customId.startsWith('admin_logs_categories_')) {
-        return handleLogCategoriesSelect(interaction);
-      }
-      if (interaction.customId.startsWith('admin_logs_')) {
-        return handleLogSelect(interaction);
-      }
-      if (interaction.customId.startsWith('admin_ephemeral_')) {
-        return handleEphemeralSelect(interaction);
-      }
+      // ✅ FIXED: Route ALL select menus through the router
+      // The router handles admin_logs_*, admin_ephemeral_*, etc.
       return routeSelectMenu(interaction);
     }
 
