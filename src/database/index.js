@@ -27,7 +27,7 @@ async function initialize() {
     )
   `);
 
-  // Applications table
+  // ✅ Applications table - WITH ALL REQUIRED COLUMNS
   await pool.query(`
     CREATE TABLE IF NOT EXISTS applications (
       id SERIAL PRIMARY KEY,
@@ -92,7 +92,7 @@ async function initialize() {
     )
   `);
 
-  // Guild settings table - COMPLETE with all logging columns
+  // Guild settings table with unified logging
   await pool.query(`
     CREATE TABLE IF NOT EXISTS guild_settings (
       guild_id VARCHAR(20) PRIMARY KEY,
