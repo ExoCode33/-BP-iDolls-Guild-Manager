@@ -174,10 +174,10 @@ export class GuildApplicationRepo {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// USER TIMEZONE REPOSITORY
+// TIMEZONE REPOSITORY - YOUR NAMING
 // ═══════════════════════════════════════════════════════════════════
 
-export class UserTimezoneRepo {
+export class TimezoneRepo {
   static async set(userId, timezone) {
     await db.query(
       `INSERT INTO user_timezones (user_id, timezone, updated_at)
@@ -254,7 +254,7 @@ export class EphemeralSettingsRepo {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// UNIFIED LOGGING REPOSITORY
+// LOGGING REPOSITORY - NEW FOR LOGGING SYSTEM
 // ═══════════════════════════════════════════════════════════════════
 
 export class LoggingRepo {
