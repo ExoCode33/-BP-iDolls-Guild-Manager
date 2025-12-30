@@ -13,14 +13,9 @@ export class VerificationSystem {
       '',
       '\u001b[1;35m' + centerText('ᓚᘏᗢ') + '\u001b[0m',
       '',
-      '\u001b[1;34m' + centerText('A new adventure awaits! ≽^•⩊•^≼') + '\u001b[0m',
+      '\u001b[1;34m' + centerText('Register to unlock the full server! ≽^•⩊•^≼') + '\u001b[0m',
       '',
-      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
-      '',
-      '\u001b[1;36m' + centerText('Register to unlock the full server! ♡') + '\u001b[0m',
-      '',
-      '\u001b[1;34m' + centerText('Press the button below to start~') + '\u001b[0m',
-      ''
+      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
     ].join('\n');
 
     const embed = new EmbedBuilder()
@@ -39,8 +34,13 @@ export class VerificationSystem {
       .addComponents(
         new ButtonBuilder()
           .setCustomId('verification_register')
-          .setLabel('Register Character')
+          .setLabel('I play Blue Protocol')
           .setStyle(ButtonStyle.Primary)
+          .setEmoji('🎮'),
+        new ButtonBuilder()
+          .setCustomId('verification_non_player')
+          .setLabel('I do not play Blue Protocol')
+          .setStyle(ButtonStyle.Secondary)
           .setEmoji('✨')
       );
 
