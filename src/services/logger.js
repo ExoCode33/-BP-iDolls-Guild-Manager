@@ -1,437 +1,296 @@
-import { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
-import pool from '../database/index.js';
+import { EmbedBuilder } from 'discord.js';
 import { COLORS } from '../config/game.js';
+import { LoggingRepo } from '../database/repositories.js';
 
-// ═══════════════════════════════════════════════════════════════════
-// COMPREHENSIVE EVENT LOGGING SYSTEM
-// ═══════════════════════════════════════════════════════════════════
-
-class ProfessionalLogger {
+class UnifiedLogger {
   constructor() {
-    this.eventQueue = new Map(); // For grouping similar events
+    this.client = null;
+    this.pendingLogs = new Map();
+  }
+
+  static EVENTS = {
+    CHARACTER_REGISTRATION: 'character_registration',
+    CHARACTER_UPDATES: 'character_updates',
+    CHARACTER_DELETION: 'character_deletion',
+    VERIFICATION: 'verification',
+    TIMEZONE_CHANGES: 'timezone_changes',
+    BATTLE_IMAGINE_CHANGES: 'battle_imagine_changes',
+    GUILD_APPLICATIONS: 'guild_applications',
+    APPLICATION_VOTES: 'application_votes',
+    ADMIN_OVERRIDES: 'admin_overrides',
+    SETTINGS_CHANGES: 'settings_changes',
+    ROLE_CHANGES: 'role_changes'
+  };
+
+  // ═══════════════════════════════════════════════════════════════════
+  // INITIALIZATION
+  // ═══════════════════════════════════════════════════════════════════
+
+  async init(client) {
+    this.client = client;
+    console.log('[Logger] ✅ Unified logging system ready');
+    return this;
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // CHARACTER EVENTS
+  // SETTINGS MANAGEMENT
   // ═══════════════════════════════════════════════════════════════════
 
-  async logCharacterRegistration(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.character_registration) return;
-
-    const embed = new EmbedBuilder()
-      .setTitle('📝 New Character Registered')
-      .setColor(COLORS.SUCCESS)
-      .addFields(
-        { name: '👤 User', value: `<@${data.userId}>`, inline: true },
-        { name: '🎮 IGN', value: data.ign, inline: true },
-        { name: '🆔 UID', value: data.uid, inline: true },
-        { name: '⚔️ Class', value: data.class, inline: true },
-        { name: '🎯 Subclass', value: data.subclass || 'None', inline: true },
-        { name: '🏆 Score', value: data.abilityScore || 'N/A', inline: true },
-        { name: '🏰 Guild', value: data.guild || 'None', inline: true },
-        { name: '📊 Type', value: data.characterType === 'main' ? 'Main' : 'Alt', inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
-      )
-      .setFooter({ text: `Character ID: ${data.characterId}` })
-      .setTimestamp();
-
-    await this.sendLog(guildId, 'general', embed);
+  async getSettings(guildId) {
+    return await LoggingRepo.getSettings(guildId);
   }
 
-  async logCharacterUpdate(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.character_updates) return;
-
-    const embed = new EmbedBuilder()
-      .setTitle('✏️ Character Updated')
-      .setColor(COLORS.INFO)
-      .addFields(
-        { name: '👤 User', value: `<@${data.userId}>`, inline: true },
-        { name: '🎮 Character', value: data.ign, inline: true },
-        { name: '📝 Field Updated', value: data.field, inline: true },
-        { name: '📤 Old Value', value: `\`${data.oldValue}\``, inline: true },
-        { name: '📥 New Value', value: `\`${data.newValue}\``, inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
-      )
-      .setFooter({ text: `Character ID: ${data.characterId}` })
-      .setTimestamp();
-
-    await this.sendLog(guildId, 'general', embed);
+  async setGeneralLogChannel(guildId, channelId) {
+    await LoggingRepo.setGeneralLogChannel(guildId, channelId);
   }
 
-  async logCharacterDeletion(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.character_deletion) return;
+  async setApplicationLogChannel(guildId, channelId) {
+    await LoggingRepo.setApplicationLogChannel(guildId, channelId);
+  }
 
-    const embed = new EmbedBuilder()
-      .setTitle('🗑️ Character Deleted')
-      .setColor(COLORS.ERROR)
-      .addFields(
-        { name: '👤 User', value: `<@${data.userId}>`, inline: true },
-        { name: '🎮 IGN', value: data.ign, inline: true },
-        { name: '🆔 UID', value: data.uid, inline: true },
-        { name: '⚔️ Class', value: data.class, inline: true },
-        { name: '📊 Type', value: data.characterType === 'main' ? 'Main' : 'Alt', inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
-      )
-      .setFooter({ text: `Character was created ${data.createdAt}` })
-      .setTimestamp();
+  async toggleLogSetting(guildId, settingKey) {
+    const config = await LoggingRepo.getSettings(guildId);
+    config.settings[settingKey] = !config.settings[settingKey];
+    await LoggingRepo.updateLogSettings(guildId, config.settings);
+  }
 
-    await this.sendLog(guildId, 'general', embed);
+  async toggleGroupingSetting(guildId, settingKey) {
+    const config = await LoggingRepo.getSettings(guildId);
+    config.grouping[settingKey] = !config.grouping[settingKey];
+    await LoggingRepo.updateGrouping(guildId, config.grouping);
+  }
+
+  async setGroupingWindow(guildId, minutes) {
+    const config = await LoggingRepo.getSettings(guildId);
+    config.grouping.grouping_window_minutes = minutes;
+    await LoggingRepo.updateGrouping(guildId, config.grouping);
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // APPLICATION EVENTS (DETAILED)
+  // MAIN LOGGING (NEW UNIFIED SYSTEM)
   // ═══════════════════════════════════════════════════════════════════
 
-  async logApplicationCreated(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.guild_applications) return;
-
-    const embed = new EmbedBuilder()
-      .setTitle('📋 New Guild Application')
-      .setColor(COLORS.PRIMARY)
-      .setDescription(`**${data.guildName}** has a new applicant!`)
-      .addFields(
-        { name: '👤 Applicant', value: `<@${data.userId}>`, inline: true },
-        { name: '🎮 IGN', value: data.ign, inline: true },
-        { name: '🆔 UID', value: data.uid, inline: true },
-        { name: '⚔️ Class', value: `${data.class} (${data.subclass})`, inline: true },
-        { name: '🏆 Score', value: data.abilityScore || 'N/A', inline: true },
-        { name: '🏰 Guild', value: data.guildName, inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: false }
-      )
-      .setFooter({ text: `Application ID: ${data.applicationId} | Awaiting votes...` })
-      .setTimestamp();
-
-    await this.sendLog(guildId, 'application', embed);
-  }
-
-  async logApplicationVote(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.application_votes) return;
-
-    const voteIcon = data.vote === 'accept' ? '✅' : '❌';
-    const voteColor = data.vote === 'accept' ? COLORS.SUCCESS : COLORS.ERROR;
-
-    const embed = new EmbedBuilder()
-      .setTitle(`${voteIcon} Vote Cast`)
-      .setColor(voteColor)
-      .setDescription(`**${data.guildName}** application received a vote`)
-      .addFields(
-        { name: '🗳️ Voter', value: `<@${data.voterId}>`, inline: true },
-        { name: '👤 Applicant', value: `<@${data.applicantId}>`, inline: true },
-        { name: '🎮 IGN', value: data.ign, inline: true },
-        { name: '📊 Vote', value: data.vote === 'accept' ? '**Accept**' : '**Deny**', inline: true },
-        { name: '✅ Accept Votes', value: `${data.acceptCount}`, inline: true },
-        { name: '❌ Deny Votes', value: `${data.denyCount}`, inline: true },
-        { name: '📋 Status', value: data.status || 'Pending', inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
-      )
-      .setFooter({ text: `Application ID: ${data.applicationId}` })
-      .setTimestamp();
-
-    // Add voter list
-    if (data.acceptVoters && data.acceptVoters.length > 0) {
-      embed.addFields({
-        name: '✅ Accept Voters',
-        value: data.acceptVoters.map(v => `<@${v}>`).join(', '),
-        inline: false
-      });
-    }
-    if (data.denyVoters && data.denyVoters.length > 0) {
-      embed.addFields({
-        name: '❌ Deny Voters',
-        value: data.denyVoters.map(v => `<@${v}>`).join(', '),
-        inline: false
-      });
-    }
-
-    await this.sendLog(guildId, 'application', embed);
-  }
-
-  async logApplicationDecision(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.guild_applications) return;
-
-    const approved = data.status === 'approved';
-    const embed = new EmbedBuilder()
-      .setTitle(approved ? '✅ Application Approved' : '❌ Application Denied')
-      .setColor(approved ? COLORS.SUCCESS : COLORS.ERROR)
-      .setDescription(`**${data.guildName}** application has been ${data.status}`)
-      .addFields(
-        { name: '👤 Applicant', value: `<@${data.userId}>`, inline: true },
-        { name: '🎮 IGN', value: data.ign, inline: true },
-        { name: '🏰 Guild', value: data.guildName, inline: true },
-        { name: '✅ Accept Votes', value: `${data.acceptCount}`, inline: true },
-        { name: '❌ Deny Votes', value: `${data.denyCount}`, inline: true },
-        { name: '📊 Final Status', value: data.status.toUpperCase(), inline: true }
-      )
-      .setFooter({ text: `Application ID: ${data.applicationId}` })
-      .setTimestamp();
-
-    // List all voters
-    if (data.acceptVoters && data.acceptVoters.length > 0) {
-      embed.addFields({
-        name: '✅ Voted to Accept',
-        value: data.acceptVoters.map(v => `<@${v}>`).join(', '),
-        inline: false
-      });
-    }
-    if (data.denyVoters && data.denyVoters.length > 0) {
-      embed.addFields({
-        name: '❌ Voted to Deny',
-        value: data.denyVoters.map(v => `<@${v}>`).join(', '),
-        inline: false
-      });
-    }
-
-    await this.sendLog(guildId, 'application', embed);
-  }
-
-  async logApplicationOverride(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.admin_overrides) return;
-
-    const approved = data.decision === 'approved';
-    const embed = new EmbedBuilder()
-      .setTitle('⚠️ Admin Override')
-      .setColor(COLORS.WARNING)
-      .setDescription(`An admin manually ${approved ? 'approved' : 'denied'} an application`)
-      .addFields(
-        { name: '👑 Admin', value: `<@${data.adminId}>`, inline: true },
-        { name: '👤 Applicant', value: `<@${data.userId}>`, inline: true },
-        { name: '🎮 IGN', value: data.ign, inline: true },
-        { name: '🏰 Guild', value: data.guildName, inline: true },
-        { name: '📊 Decision', value: approved ? '✅ APPROVED' : '❌ DENIED', inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
-      )
-      .addFields({
-        name: '📝 Vote History',
-        value: `Accept: ${data.acceptCount} | Deny: ${data.denyCount}`,
-        inline: false
-      })
-      .setFooter({ text: `Application ID: ${data.applicationId} | Manual Override` })
-      .setTimestamp();
-
-    await this.sendLog(guildId, 'application', embed);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // SYSTEM EVENTS
-  // ═══════════════════════════════════════════════════════════════════
-
-  async logVerification(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.verification) return;
-
-    const embed = new EmbedBuilder()
-      .setTitle(data.type === 'player' ? '🎮 New Player Verified' : '👋 New Visitor Joined')
-      .setColor(data.type === 'player' ? COLORS.SUCCESS : COLORS.INFO)
-      .addFields(
-        { name: '👤 User', value: `<@${data.userId}>`, inline: true },
-        { name: '📊 Type', value: data.type === 'player' ? 'Player' : 'Visitor', inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
-      )
-      .setTimestamp();
-
-    await this.sendLog(guildId, 'general', embed);
-  }
-
-  async logRoleChange(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.role_changes) return;
-
-    const embed = new EmbedBuilder()
-      .setTitle('🎭 Role Updated')
-      .setColor(COLORS.INFO)
-      .addFields(
-        { name: '👤 User', value: `<@${data.userId}>`, inline: true },
-        { name: '📊 Action', value: data.action === 'add' ? 'Added' : 'Removed', inline: true },
-        { name: '🎭 Role', value: `<@&${data.roleId}>`, inline: true },
-        { name: '👑 By', value: data.adminId ? `<@${data.adminId}>` : 'System', inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
-      )
-      .setTimestamp();
-
-    await this.sendLog(guildId, 'general', embed);
-  }
-
-  async logSettingsChange(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.settings_changes) return;
-
-    const embed = new EmbedBuilder()
-      .setTitle('⚙️ Settings Changed')
-      .setColor(COLORS.WARNING)
-      .addFields(
-        { name: '👑 Admin', value: `<@${data.adminId}>`, inline: true },
-        { name: '🔧 Setting', value: data.setting, inline: true },
-        { name: '📥 New Value', value: `\`${data.value}\``, inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
-      )
-      .setTimestamp();
-
-    await this.sendLog(guildId, 'general', embed);
-  }
-
-  async logBattleImagineChange(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.battle_imagine_changes) return;
-
-    const actionIcon = data.action === 'add' ? '➕' : data.action === 'update' ? '✏️' : '➖';
-    const actionColor = data.action === 'add' ? COLORS.SUCCESS : data.action === 'update' ? COLORS.INFO : COLORS.ERROR;
-
-    const embed = new EmbedBuilder()
-      .setTitle(`${actionIcon} Battle Imagine ${data.action.charAt(0).toUpperCase() + data.action.slice(1)}ed`)
-      .setColor(actionColor)
-      .addFields(
-        { name: '👤 User', value: `<@${data.userId}>`, inline: true },
-        { name: '🎮 Character', value: data.ign, inline: true },
-        { name: '⚔️ Imagine', value: data.imagineName, inline: true },
-        { name: '⭐ Tier', value: data.tier, inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
-      )
-      .setTimestamp();
-
-    await this.sendLog(guildId, 'general', embed);
-  }
-
-  async logTimezoneChange(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.timezone_changes) return;
-
-    const embed = new EmbedBuilder()
-      .setTitle('🌍 Timezone Updated')
-      .setColor(COLORS.INFO)
-      .addFields(
-        { name: '👤 User', value: `<@${data.userId}>`, inline: true },
-        { name: '📤 Old Timezone', value: data.oldTimezone || 'Not set', inline: true },
-        { name: '📥 New Timezone', value: data.newTimezone, inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
-      )
-      .setTimestamp();
-
-    await this.sendLog(guildId, 'general', embed);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ERROR LOGGING
-  // ═══════════════════════════════════════════════════════════════════
-
-  async logError(guildId, data) {
-    const config = await this.getConfig(guildId);
-    if (!config.enabled.errors) return;
-
-    const embed = new EmbedBuilder()
-      .setTitle('⚠️ Error Occurred')
-      .setColor(COLORS.ERROR)
-      .addFields(
-        { name: '📍 Location', value: data.location, inline: true },
-        { name: '👤 User', value: data.userId ? `<@${data.userId}>` : 'System', inline: true },
-        { name: '🕐 Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true },
-        { name: '❌ Error', value: `\`\`\`${data.error}\`\`\``, inline: false }
-      )
-      .setTimestamp();
-
-    await this.sendLog(guildId, 'general', embed);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // HELPER METHODS
-  // ═══════════════════════════════════════════════════════════════════
-
-  async sendLog(guildId, type, embed) {
+  async log(client, guildId, eventType, data) {
     try {
-      const config = await this.getConfig(guildId);
-      const channelId = type === 'application' ? config.channels.application : config.channels.general;
+      const config = await LoggingRepo.getSettings(guildId);
       
-      if (!channelId) return;
+      // Check if logging is enabled for this event
+      if (!config.settings[eventType]) {
+        console.log(`[Logger] Event ${eventType} disabled, skipping`);
+        return;
+      }
 
-      const client = global.client;
+      // Determine which channel to use
+      let channelId;
+      if ([
+        UnifiedLogger.EVENTS.GUILD_APPLICATIONS,
+        UnifiedLogger.EVENTS.APPLICATION_VOTES,
+        UnifiedLogger.EVENTS.ADMIN_OVERRIDES
+      ].includes(eventType)) {
+        channelId = config.applicationChannelId;
+      } else {
+        channelId = config.generalChannelId;
+      }
+
+      if (!channelId) {
+        console.log(`[Logger] No channel configured for ${eventType}`);
+        return;
+      }
+
+      const shouldGroup = config.grouping[eventType];
+      
+      if (shouldGroup) {
+        this.addToGroup(client, guildId, channelId, eventType, data, config.grouping.grouping_window_minutes || 10);
+      } else {
+        await this.sendLog(client, channelId, eventType, [data]);
+      }
+    } catch (error) {
+      console.error('[Logger] Error:', error);
+    }
+  }
+
+  addToGroup(client, guildId, channelId, eventType, data, windowMinutes) {
+    const key = `${guildId}-${eventType}`;
+    
+    if (!this.pendingLogs.has(key)) {
+      this.pendingLogs.set(key, {
+        events: [],
+        timeout: null,
+        channelId,
+        eventType
+      });
+    }
+
+    const group = this.pendingLogs.get(key);
+    group.events.push(data);
+
+    if (group.timeout) {
+      clearTimeout(group.timeout);
+    }
+
+    group.timeout = setTimeout(async () => {
+      const events = [...group.events];
+      this.pendingLogs.delete(key);
+      await this.sendLog(client, channelId, eventType, events);
+    }, windowMinutes * 60 * 1000);
+  }
+
+  async sendLog(client, channelId, eventType, events) {
+    try {
       const channel = await client.channels.fetch(channelId);
-      
-      if (channel) {
-        await channel.send({ embeds: [embed] });
+      if (!channel) {
+        console.log(`[Logger] Channel ${channelId} not found`);
+        return;
       }
+
+      const embed = this.createEmbed(eventType, events);
+      await channel.send({ embeds: [embed] });
+      console.log(`[Logger] ✅ Sent ${eventType} log to ${channel.name}`);
     } catch (error) {
-      console.error('[LOGGER] Failed to send log:', error);
+      console.error('[Logger] Error sending log:', error);
     }
   }
 
-  async getConfig(guildId) {
-    try {
-      const result = await pool.query(
-        'SELECT * FROM guild_settings WHERE guild_id = $1',
-        [guildId]
-      );
+  createEmbed(eventType, events) {
+    const isGrouped = events.length > 1;
+    const data = events[0];
 
-      if (result.rows.length === 0) {
-        // Return default config
-        return {
-          channels: {
-            general: null,
-            application: null
-          },
-          enabled: {
-            character_registration: true,
-            character_updates: true,
-            character_deletion: true,
-            verification: true,
-            timezone_changes: true,
-            battle_imagine_changes: true,
-            guild_applications: true,
-            application_votes: true,
-            admin_overrides: true,
-            settings_changes: true,
-            role_changes: true,
-            errors: true
-          }
-        };
-      }
+    const embed = new EmbedBuilder()
+      .setColor(COLORS.PRIMARY)
+      .setTimestamp();
 
-      const settings = result.rows[0];
-      return {
-        channels: {
-          general: settings.general_log_channel_id,
-          application: settings.application_log_channel_id
-        },
-        enabled: settings.log_settings || {}
-      };
-    } catch (error) {
-      console.error('[LOGGER] Failed to get config:', error);
-      return { channels: {}, enabled: {} };
+    switch (eventType) {
+      case UnifiedLogger.EVENTS.CHARACTER_REGISTRATION:
+        embed.setTitle(isGrouped ? `📝 ${events.length} Character Registrations` : '📝 Character Registered')
+          .setDescription(isGrouped 
+            ? events.map(e => `• **${e.ign}** (${e.className}) by <@${e.userId}>`).join('\n')
+            : `**IGN:** ${data.ign}\n**UID:** ${data.uid}\n**Class:** ${data.className}\n**User:** <@${data.userId}>`
+          );
+        break;
+
+      case UnifiedLogger.EVENTS.CHARACTER_UPDATES:
+        embed.setTitle(isGrouped ? `✏️ ${events.length} Character Updates` : '✏️ Character Updated')
+          .setDescription(isGrouped
+            ? events.map(e => `• **${e.ign}** by <@${e.userId}>`).join('\n')
+            : `**Character:** ${data.ign}\n**Updated by:** <@${data.userId}>\n**Changes:** ${data.changes || 'Various fields'}`
+          );
+        break;
+
+      case UnifiedLogger.EVENTS.CHARACTER_DELETION:
+        embed.setTitle('🗑️ Character Deleted')
+          .setDescription(`**IGN:** ${data.ign}\n**Deleted by:** <@${data.userId}>`);
+        break;
+
+      case UnifiedLogger.EVENTS.VERIFICATION:
+        embed.setTitle(isGrouped ? `✅ ${events.length} Verifications` : '✅ User Verified')
+          .setDescription(isGrouped
+            ? events.map(e => `• <@${e.userId}>`).join('\n')
+            : `**User:** <@${data.userId}>\n**Verified by:** <@${data.verifiedBy}>`
+          );
+        break;
+
+      case UnifiedLogger.EVENTS.TIMEZONE_CHANGES:
+        embed.setTitle(isGrouped ? `🌍 ${events.length} Timezone Changes` : '🌍 Timezone Changed')
+          .setDescription(isGrouped
+            ? events.map(e => `• <@${e.userId}> → ${e.timezone}`).join('\n')
+            : `**User:** <@${data.userId}>\n**New Timezone:** ${data.timezone}`
+          );
+        break;
+
+      case UnifiedLogger.EVENTS.BATTLE_IMAGINE_CHANGES:
+        embed.setTitle(isGrouped ? `⚔️ ${events.length} Battle Imagine Changes` : '⚔️ Battle Imagine Updated')
+          .setDescription(isGrouped
+            ? events.map(e => `• **${e.characterIgn}**: ${e.action} ${e.imagineName}`).join('\n')
+            : `**Character:** ${data.characterIgn}\n**Action:** ${data.action}\n**Imagine:** ${data.imagineName} (${data.tier})`
+          );
+        break;
+
+      case UnifiedLogger.EVENTS.GUILD_APPLICATIONS:
+        embed.setTitle('📨 Guild Application Submitted')
+          .setDescription(`**User:** <@${data.userId}>\n**Character:** ${data.characterIgn}\n**Guild:** ${data.guildName}`);
+        break;
+
+      case UnifiedLogger.EVENTS.APPLICATION_VOTES:
+        embed.setTitle('🗳️ Application Vote')
+          .setDescription(`**Voter:** <@${data.voterId}>\n**Vote:** ${data.voteType}\n**Application ID:** ${data.applicationId}`);
+        break;
+
+      case UnifiedLogger.EVENTS.ADMIN_OVERRIDES:
+        embed.setTitle('⚠️ Admin Override')
+          .setDescription(`**Admin:** <@${data.adminId}>\n**Action:** ${data.action}\n**Target:** ${data.target || 'N/A'}`);
+        break;
+
+      case UnifiedLogger.EVENTS.SETTINGS_CHANGES:
+        embed.setTitle('⚙️ Settings Changed')
+          .setDescription(`**Changed by:** <@${data.userId}>\n**Setting:** ${data.setting}\n**Value:** ${data.value}`);
+        break;
+
+      case UnifiedLogger.EVENTS.ROLE_CHANGES:
+        embed.setTitle(isGrouped ? `👤 ${events.length} Role Changes` : '👤 Role Changed')
+          .setDescription(isGrouped
+            ? events.map(e => `• <@${e.userId}>: ${e.action} ${e.roleName}`).join('\n')
+            : `**User:** <@${data.userId}>\n**Action:** ${data.action}\n**Role:** ${data.roleName}\n**By:** <@${data.changedBy}>`
+          );
+        break;
     }
+
+    return embed;
   }
 
-  async setChannel(guildId, type, channelId) {
-    const field = type === 'application' ? 'application_log_channel_id' : 'general_log_channel_id';
-    await pool.query(
-      `INSERT INTO guild_settings (guild_id, ${field}) 
-       VALUES ($1, $2) 
-       ON CONFLICT (guild_id) 
-       DO UPDATE SET ${field} = $2`,
-      [guildId, channelId]
-    );
+  // ═══════════════════════════════════════════════════════════════════
+  // CONVENIENCE METHODS (BACKWARDS COMPATIBLE)
+  // ═══════════════════════════════════════════════════════════════════
+
+  startup(botTag, commandCount) {
+    console.log(`[BOT] 🚀 ${botTag} started with ${commandCount} commands`);
   }
 
-  async toggleEvent(guildId, eventType) {
-    const config = await this.getConfig(guildId);
-    const newValue = !config.enabled[eventType];
-    
-    config.enabled[eventType] = newValue;
-    
-    await pool.query(
-      `INSERT INTO guild_settings (guild_id, log_settings) 
-       VALUES ($1, $2) 
-       ON CONFLICT (guild_id) 
-       DO UPDATE SET log_settings = $2`,
-      [guildId, JSON.stringify(config.enabled)]
-    );
-    
-    return newValue;
+  shutdown(signal) {
+    console.log(`[BOT] 🔴 Shutting down (${signal})`);
+  }
+
+  info(title, message) {
+    console.log(`[INFO] ${title}: ${message}`);
+  }
+
+  error(category, message, error = null) {
+    console.error(`[ERROR] ${category}: ${message}`);
+    if (error) console.error(error);
+  }
+
+  command(commandName, username, subcommand = null) {
+    const sub = subcommand ? ` (${subcommand})` : '';
+    console.log(`[COMMAND] ${username} used /${commandName}${sub}`);
+  }
+
+  register(username, type, ign, className) {
+    console.log(`[REGISTER] ${username} registered ${type}: ${ign} (${className})`);
+  }
+
+  edit(username, field, oldValue, newValue) {
+    console.log(`[EDIT] ${username} changed ${field}: ${oldValue} → ${newValue}`);
+  }
+
+  delete(username, type, target) {
+    console.log(`[DELETE] ${username} deleted ${type}: ${target}`);
+  }
+
+  viewProfile(viewer, target) {
+    console.log(`[VIEW] ${viewer} viewed ${target}'s profile`);
+  }
+
+  nicknameSync(updated, failed) {
+    console.log(`[NICKNAME] Synced ${updated} nicknames (${failed} failed)`);
+  }
+
+  send(category, title, message) {
+    console.log(`[${category.toUpperCase()}] ${title}: ${message}`);
   }
 }
 
-export const Logger = new ProfessionalLogger();
+// Single instance
+const logger = new UnifiedLogger();
+
+// Export both ways
+export const Logger = logger;
+export default logger;
