@@ -3,7 +3,8 @@
 import { Client, GatewayIntentBits, Events, MessageFlags, REST, Routes } from 'discord.js';
 import config from './config/index.js';
 import db from './database/index.js';
-import logger from './services/logger.js';
+import consoleLogger from './services/consoleLogger.js';
+import discordLogger from './services/discordLogger.js';
 import sheets from './services/sheets.js';
 import applicationService from './services/applications.js';
 import classRoleService from './services/classRoles.js';
@@ -33,50 +34,51 @@ async function deployCommands() {
         Routes.applicationGuildCommands(config.discord.clientId, config.discord.guildId),
         { body: commandData }
       );
-      logger.info('Deploy', `${commandData.length} commands deployed to guild`);
+      consoleLogger.info('Deploy', `${commandData.length} commands deployed to guild`);
     } else {
       await rest.put(
         Routes.applicationCommands(config.discord.clientId),
         { body: commandData }
       );
-      logger.info('Deploy', `${commandData.length} commands deployed globally`);
+      consoleLogger.info('Deploy', `${commandData.length} commands deployed globally`);
     }
   } catch (e) {
-    logger.error('Deploy', 'Command deployment failed', e);
+    consoleLogger.error('Deploy', 'Command deployment failed', e);
   }
 }
 
 client.once(Events.ClientReady, async () => {
-  // Initialize logger first
-  await logger.init(client);
+  // Initialize loggers
+  await consoleLogger.init(client);
+  discordLogger.init(client);
   
   // Print startup banner
-  logger.startup(client.user.tag, commands.size);
+  consoleLogger.startup(client.user.tag, commands.size);
 
   await deployCommands();
   
   // Database
   await db.initialize();
-  logger.database('Connected and initialized');
+  consoleLogger.database('Connected and initialized');
   
   // Application service
   await applicationService.init(client);
-  logger.info('Service', 'Application service initialized');
+  consoleLogger.info('Service', 'Application service initialized');
   
   // Class role service
   classRoleService.init(client);
-  logger.info('Service', 'Class role service initialized');
+  consoleLogger.info('Service', 'Class role service initialized');
   
   // Google Sheets
   const sheetsReady = await sheets.init();
   if (sheetsReady) {
-    logger.sheets('Initialized successfully');
+    consoleLogger.sheets('Initialized successfully');
   } else {
-    logger.warn('Sheets', 'Not configured or failed to initialize');
+    consoleLogger.warn('Sheets', 'Not configured or failed to initialize');
   }
 
   // Role validation
-  logger.info('Startup', 'Starting role validation...');
+  consoleLogger.info('Startup', 'Starting role validation...');
   try {
     const allChars = await CharacterRepo.findAll();
     const userMap = new Map();
@@ -100,23 +102,23 @@ client.once(Events.ClientReady, async () => {
           totalFixed++;
         }
       } catch (error) {
-        logger.debug('Roles', `Failed for ${userId}: ${error.message}`);
+        consoleLogger.debug('Roles', `Failed for ${userId}: ${error.message}`);
       }
       
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    logger.roleValidation(totalChecked, totalFixed);
+    consoleLogger.roleValidation(totalChecked, totalFixed);
   } catch (error) {
-    logger.error('Startup', 'Role validation error', error);
+    consoleLogger.error('Startup', 'Role validation error', error);
   }
 
   // Verification channel
   try {
     await VerificationSystem.setupVerificationChannel(client, config.discord.guildId);
-    logger.verification('Channel setup complete');
+    consoleLogger.verification('Channel setup complete');
   } catch (error) {
-    logger.error('Verification', 'Setup error', error);
+    consoleLogger.error('Verification', 'Setup error', error);
   }
 
   // Scheduled tasks
@@ -125,9 +127,9 @@ client.once(Events.ClientReady, async () => {
       const chars = await CharacterRepo.findAll();
       const start = Date.now();
       await sheets.sync(chars, client);
-      logger.sheetsSync(chars.length, Date.now() - start);
+      consoleLogger.sheetsSync(chars.length, Date.now() - start);
     }, config.sync.sheetsInterval);
-    logger.info('Scheduler', `Sheets sync every ${config.sync.sheetsInterval / 1000}s`);
+    consoleLogger.info('Scheduler', `Sheets sync every ${config.sync.sheetsInterval / 1000}s`);
   }
 
   if (config.sync.nicknameEnabled && config.sync.nicknameInterval > 0) {
@@ -135,9 +137,9 @@ client.once(Events.ClientReady, async () => {
       const chars = await CharacterRepo.findAll();
       const mains = chars.filter(c => c.characterType === 'main');
       const result = await syncAllNicknames(client, config.discord.guildId, mains);
-      logger.nicknameSync(result.updated, result.failed);
+      consoleLogger.nicknameSync(result.updated, result.failed);
     }, config.sync.nicknameInterval);
-    logger.info('Scheduler', `Nickname sync every ${config.sync.nicknameInterval / 1000}s`);
+    consoleLogger.info('Scheduler', `Nickname sync every ${config.sync.nicknameInterval / 1000}s`);
   }
 
   // Memory monitoring
@@ -146,49 +148,43 @@ client.once(Events.ClientReady, async () => {
       global.gc();
       const mem = process.memoryUsage();
       if (mem.heapUsed > 200 * 1024 * 1024) {
-        logger.memory(mem.heapUsed, mem.heapTotal);
+        consoleLogger.memory(mem.heapUsed, mem.heapTotal);
       }
     }, 300000);
   }
 
   // Ready!
-  logger.ready(4);
+  consoleLogger.ready(4);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // Slash commands
     if (interaction.isChatInputCommand()) {
       const cmd = commands.get(interaction.commandName);
       if (cmd) {
-        logger.command(interaction.commandName, interaction.user.username, interaction.options.getSubcommand?.(false));
+        consoleLogger.command(interaction.commandName, interaction.user.username, interaction.options.getSubcommand?.(false));
         await cmd.execute(interaction);
       }
       return;
     }
 
-    // Buttons
     if (interaction.isButton()) {
       return route(interaction);
     }
 
-    // All select menus (String, Channel, Role, User, Mentionable)
     if (interaction.isAnySelectMenu()) {
       return routeSelectMenu(interaction);
     }
 
-    // Modals
     if (interaction.isModalSubmit()) {
       return routeModal(interaction);
     }
 
-    // Autocomplete (if needed in future)
     if (interaction.isAutocomplete()) {
-      // Handle autocomplete here if needed
       return;
     }
   } catch (e) {
-    logger.error('Interaction', `Failed: ${interaction.customId || interaction.commandName}`, e);
+    consoleLogger.error('Interaction', `Failed: ${interaction.customId || interaction.commandName}`, e);
 
     const reply = { content: 'Something went wrong.', flags: MessageFlags.Ephemeral };
     if (interaction.replied || interaction.deferred) {
@@ -200,21 +196,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 process.on('SIGINT', async () => {
-  logger.shutdown('SIGINT');
-  logger.printStats();
+  consoleLogger.shutdown('SIGINT');
+  consoleLogger.printStats();
   await db.end?.();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  logger.shutdown('SIGTERM');
-  logger.printStats();
+  consoleLogger.shutdown('SIGTERM');
+  consoleLogger.printStats();
   await db.end?.();
   process.exit(0);
 });
 
 process.on('unhandledRejection', (e) => {
-  logger.error('Unhandled', 'Promise rejection', e);
+  consoleLogger.error('Unhandled', 'Promise rejection', e);
 });
 
 client.login(config.discord.token);
