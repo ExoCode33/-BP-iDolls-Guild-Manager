@@ -59,23 +59,10 @@ export async function showSettingsMenu(interaction) {
 
   const row1 = new ActionRowBuilder().addComponents(menu);
 
-  const payload = {
+  return interaction.update({
     embeds: [embed],
     components: [row1]
-  };
-
-  // For slash commands, use reply
-  if (interaction.isChatInputCommand()) {
-    return interaction.reply({ ...payload, ephemeral: true });
-  }
-  
-  // For button/select menu interactions, use update
-  if (interaction.isButton() || interaction.isStringSelectMenu()) {
-    return interaction.update(payload);
-  }
-  
-  // Fallback
-  return interaction.reply({ ...payload, ephemeral: true });
+  });
 }
 
 export async function showChannelsMenu(interaction) {
