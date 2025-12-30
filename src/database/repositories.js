@@ -94,33 +94,144 @@ export const BattleImagineRepo = {
 
 export const LogSettingsRepo = {
   async get(guildId) {
-    const result = await db.query(`SELECT * FROM log_settings WHERE guild_id = $1`, [guildId]);
-    return result.rows[0] || null;
+    try {
+      const result = await db.query(`SELECT * FROM log_settings WHERE guild_id = $1`, [guildId]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('[LogSettingsRepo] Error getting settings:', error.message);
+      return null;
+    }
   },
+  
   async upsert(guildId, data) {
-    const { enabledCategories, channelId, batchInterval, pingRoleId, pingOnError } = data;
-    await db.query(
-      `INSERT INTO log_settings (guild_id, enabled_categories, log_channel_id, batch_interval, ping_role_id, ping_on_error)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (guild_id) DO UPDATE SET
-         enabled_categories = COALESCE($2, log_settings.enabled_categories),
-         log_channel_id = COALESCE($3, log_settings.log_channel_id),
-         batch_interval = COALESCE($4, log_settings.batch_interval),
-         ping_role_id = COALESCE($5, log_settings.ping_role_id),
-         ping_on_error = COALESCE($6, log_settings.ping_on_error),
-         updated_at = NOW()`,
-      [guildId, enabledCategories, channelId, batchInterval, pingRoleId, pingOnError]
-    );
+    try {
+      const { enabledCategories, channelId, batchInterval, pingRoleId, pingOnError } = data;
+      
+      // Build dynamic update query based on what fields are provided
+      const updates = [];
+      const values = [guildId];
+      let paramIndex = 2;
+      
+      if (enabledCategories !== undefined) {
+        updates.push(`enabled_categories = $${paramIndex}`);
+        values.push(enabledCategories);
+        paramIndex++;
+      }
+      
+      if (channelId !== undefined) {
+        updates.push(`log_channel_id = $${paramIndex}`);
+        values.push(channelId);
+        paramIndex++;
+      }
+      
+      if (batchInterval !== undefined) {
+        updates.push(`batch_interval = $${paramIndex}`);
+        values.push(batchInterval);
+        paramIndex++;
+      }
+      
+      if (pingRoleId !== undefined) {
+        updates.push(`ping_role_id = $${paramIndex}`);
+        values.push(pingRoleId);
+        paramIndex++;
+      }
+      
+      if (pingOnError !== undefined) {
+        updates.push(`ping_on_error = $${paramIndex}`);
+        values.push(pingOnError);
+        paramIndex++;
+      }
+      
+      if (updates.length === 0) {
+        console.log('[LogSettingsRepo] No updates to make');
+        return;
+      }
+      
+      // Check if record exists
+      const existing = await db.query(`SELECT guild_id FROM log_settings WHERE guild_id = $1`, [guildId]);
+      
+      if (existing.rows.length > 0) {
+        // Update existing record
+        updates.push(`updated_at = NOW()`);
+        const query = `UPDATE log_settings SET ${updates.join(', ')} WHERE guild_id = $1`;
+        await db.query(query, values);
+        console.log('[LogSettingsRepo] Updated settings for guild:', guildId);
+      } else {
+        // Insert new record
+        const insertFields = ['guild_id'];
+        const insertValues = ['$1'];
+        const insertParams = [guildId];
+        let insertIndex = 2;
+        
+        if (enabledCategories !== undefined) {
+          insertFields.push('enabled_categories');
+          insertValues.push(`$${insertIndex}`);
+          insertParams.push(enabledCategories);
+          insertIndex++;
+        }
+        
+        if (channelId !== undefined) {
+          insertFields.push('log_channel_id');
+          insertValues.push(`$${insertIndex}`);
+          insertParams.push(channelId);
+          insertIndex++;
+        }
+        
+        if (batchInterval !== undefined) {
+          insertFields.push('batch_interval');
+          insertValues.push(`$${insertIndex}`);
+          insertParams.push(batchInterval);
+          insertIndex++;
+        }
+        
+        if (pingRoleId !== undefined) {
+          insertFields.push('ping_role_id');
+          insertValues.push(`$${insertIndex}`);
+          insertParams.push(pingRoleId);
+          insertIndex++;
+        }
+        
+        if (pingOnError !== undefined) {
+          insertFields.push('ping_on_error');
+          insertValues.push(`$${insertIndex}`);
+          insertParams.push(pingOnError);
+          insertIndex++;
+        }
+        
+        const query = `INSERT INTO log_settings (${insertFields.join(', ')}) VALUES (${insertValues.join(', ')})`;
+        await db.query(query, insertParams);
+        console.log('[LogSettingsRepo] Created settings for guild:', guildId);
+      }
+    } catch (error) {
+      console.error('[LogSettingsRepo] Error upserting settings:', error.message);
+      throw error;
+    }
   }
 };
 
 export const EphemeralRepo = {
   async get(guildId) {
-    const result = await db.query(`SELECT ephemeral_commands FROM ephemeral_settings WHERE guild_id = $1`, [guildId]);
-    return result.rows[0]?.ephemeral_commands || ['character', 'admin'];
+    try {
+      const result = await db.query(`SELECT ephemeral_commands FROM ephemeral_settings WHERE guild_id = $1`, [guildId]);
+      return result.rows[0]?.ephemeral_commands || ['edit_character', 'admin', 'registration', 'errors'];
+    } catch (error) {
+      console.error('[EphemeralRepo] Error getting settings:', error.message);
+      return ['edit_character', 'admin', 'registration', 'errors'];
+    }
   },
   async set(guildId, commands) {
-    await db.query(`INSERT INTO ephemeral_settings (guild_id, ephemeral_commands) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET ephemeral_commands = $2, updated_at = NOW()`, [guildId, commands]);
+    try {
+      await db.query(
+        `INSERT INTO ephemeral_settings (guild_id, ephemeral_commands) 
+         VALUES ($1, $2) 
+         ON CONFLICT (guild_id) 
+         DO UPDATE SET ephemeral_commands = $2, updated_at = NOW()`, 
+        [guildId, commands]
+      );
+    } catch (error) {
+      console.error('[EphemeralRepo] Error setting:', error.message);
+      throw error;
+    }
   }
 };
 
@@ -167,7 +278,7 @@ export const ApplicationRepo = {
     return result.rows[0] || null;
   },
 
-  async addVote(id, userId, voteType) {
+  async addVote(id, oduserId, voteType) {
     const field = voteType === 'accept' ? 'accept_votes' : 'deny_votes';
     const otherField = voteType === 'accept' ? 'deny_votes' : 'accept_votes';
     
@@ -178,12 +289,12 @@ export const ApplicationRepo = {
            updated_at = NOW()
        WHERE id = $1 
        RETURNING *`,
-      [id, userId]
+      [id, oduserId]
     );
     return result.rows[0];
   },
 
-  async removeVote(id, userId) {
+  async removeVote(id, oduserId) {
     const result = await db.query(
       `UPDATE guild_applications 
        SET accept_votes = array_remove(accept_votes, $2),
@@ -191,7 +302,7 @@ export const ApplicationRepo = {
            updated_at = NOW()
        WHERE id = $1 
        RETURNING *`,
-      [id, userId]
+      [id, oduserId]
     );
     return result.rows[0];
   },
