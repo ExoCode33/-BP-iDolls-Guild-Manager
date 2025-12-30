@@ -1,603 +1,146 @@
-import { MessageFlags, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } from 'discord.js';
-import * as adminSettings from '../services/adminSettings.js';
-import { EphemeralSettingsRepo, LoggingRepo } from '../database/repositories.js';
-import consoleLogger from '../services/consoleLogger.js';
-import discordLogger from '../services/discordLogger.js';
-import { COLORS } from '../config/game.js';
-import * as reg from './registration.js';
-import * as edit from './editing.js';
-import applicationService from '../services/applications.js';
+import pg from 'pg';
+const { Pool } = pg;
 
-const successEmbed = (description) => 
-  new EmbedBuilder().setDescription(`✅ ${description}`).setColor(0xEC4899);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false
+});
 
-const errorEmbed = (description) => 
-  new EmbedBuilder().setDescription(`❌ ${description}`).setColor(0xEC4899);
+async function initialize() {
+  // Characters table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS characters (
+      id SERIAL PRIMARY KEY,
+      user_id VARCHAR(20) NOT NULL,
+      character_type VARCHAR(20) NOT NULL,
+      ign VARCHAR(100) NOT NULL,
+      uid VARCHAR(20) NOT NULL,
+      class VARCHAR(50) NOT NULL,
+      subclass VARCHAR(50),
+      ability_score VARCHAR(20),
+      guild VARCHAR(100),
+      rank VARCHAR(50),
+      parent_character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+      role VARCHAR(20),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-// ═══════════════════════════════════════════════════════════════════
-// BUTTON ROUTING
-// ═══════════════════════════════════════════════════════════════════
+  // Applications table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS applications (
+      id SERIAL PRIMARY KEY,
+      user_id VARCHAR(20) NOT NULL,
+      character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+      guild_name VARCHAR(100),
+      message_id VARCHAR(20),
+      channel_id VARCHAR(20),
+      status VARCHAR(20) DEFAULT 'pending',
+      character_data JSONB,
+      accept_votes TEXT[] DEFAULT '{}',
+      deny_votes TEXT[] DEFAULT '{}',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-export async function route(interaction) {
-  const customId = interaction.customId;
-  consoleLogger.button(customId, interaction.user.username);
+  // Guild applications table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS guild_applications (
+      id SERIAL PRIMARY KEY,
+      user_id VARCHAR(20) NOT NULL,
+      character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+      guild_name VARCHAR(100) NOT NULL,
+      message_id VARCHAR(20),
+      channel_id VARCHAR(20),
+      status VARCHAR(20) DEFAULT 'pending',
+      accept_votes TEXT[] DEFAULT '{}',
+      deny_votes TEXT[] DEFAULT '{}',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-  // ═══════════════════════════════════════════════════════════════════
-  // VERIFICATION BUTTONS
-  // ═══════════════════════════════════════════════════════════════════
+  // User timezones table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_timezones (
+      user_id VARCHAR(20) PRIMARY KEY,
+      timezone VARCHAR(100) NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-  if (customId === 'verification_register') {
-    const userId = interaction.user.id;
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    return reg.start(interaction, userId, 'main');
+  // Battle imagines table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS battle_imagines (
+      id SERIAL PRIMARY KEY,
+      character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+      imagine_name VARCHAR(100) NOT NULL,
+      tier VARCHAR(10) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(character_id, imagine_name)
+    )
+  `);
+
+  // Ephemeral settings table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ephemeral_settings (
+      guild_id VARCHAR(20) PRIMARY KEY,
+      ephemeral_commands TEXT[] DEFAULT '{}',
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Guild settings table - COMPLETE with all logging columns
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS guild_settings (
+      guild_id VARCHAR(20) PRIMARY KEY,
+      verification_channel_id TEXT,
+      general_log_channel_id TEXT,
+      application_log_channel_id TEXT,
+      log_settings JSONB DEFAULT '{
+        "character_registration": true,
+        "character_updates": true,
+        "character_deletion": true,
+        "verification": true,
+        "timezone_changes": true,
+        "battle_imagine_changes": true,
+        "guild_applications": true,
+        "application_votes": true,
+        "admin_overrides": true,
+        "settings_changes": true,
+        "role_changes": true
+      }'::jsonb,
+      log_grouping JSONB DEFAULT '{
+        "character_registration": false,
+        "character_updates": true,
+        "character_deletion": false,
+        "verification": true,
+        "timezone_changes": true,
+        "battle_imagine_changes": true,
+        "settings_changes": false,
+        "role_changes": false,
+        "grouping_window_minutes": 10
+      }'::jsonb,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Ensure columns exist (for existing databases)
+  try {
+    await pool.query(`ALTER TABLE guild_settings ADD COLUMN IF NOT EXISTS general_log_channel_id TEXT`);
+    await pool.query(`ALTER TABLE guild_settings ADD COLUMN IF NOT EXISTS application_log_channel_id TEXT`);
+    await pool.query(`ALTER TABLE guild_settings ADD COLUMN IF NOT EXISTS log_settings JSONB DEFAULT '{}'::jsonb`);
+    await pool.query(`ALTER TABLE guild_settings ADD COLUMN IF NOT EXISTS log_grouping JSONB DEFAULT '{}'::jsonb`);
+  } catch (e) {
+    // Columns already exist, ignore
   }
 
-  if (customId === 'verification_non_player') {
-    try {
-      const config = (await import('../config/index.js')).default;
-      const guild = interaction.guild;
-      const member = await guild.members.fetch(interaction.user.id);
-      
-      if (config.roles.visitor) {
-        await member.roles.add(config.roles.visitor);
-      }
-
-      consoleLogger.verification(`Visitor joined: ${interaction.user.username}`);
-      
-      // Log to Discord channel
-      await discordLogger.logVerification(interaction.guildId, interaction.user, 'visitor');
-      
-      const welcomeEmbed = new EmbedBuilder()
-        .setTitle('👋 Welcome to the Server!')
-        .setDescription(
-          'You now have access as a **Visitor**! Feel free to explore and chat.\n\n' +
-          '**Want to play Blue Protocol?**\n' +
-          'You can download it here: [Blue Protocol Official Website](https://blue-protocol.com)\n\n' +
-          'If you decide to play, come back and click **"I play BP"** to register your character!'
-        )
-        .setColor(0xEC4899)
-        .setFooter({ text: 'Enjoy your stay! 🎉' });
-      
-      return interaction.reply({
-        embeds: [welcomeEmbed],
-        flags: MessageFlags.Ephemeral
-      });
-    } catch (error) {
-      consoleLogger.error('Verification', 'Non-player error', error);
-      return interaction.reply({
-        embeds: [errorEmbed('Something went wrong. Please contact an admin.')],
-        flags: MessageFlags.Ephemeral
-      });
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ADMIN SETTINGS (PERSISTENT NAVIGATION)
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('admin_settings_back_')) {
-    const userId = customId.split('_')[3];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleSettingsBackButton(interaction);
-  }
-
-  if (customId.startsWith('logging_back_')) {
-    const userId = customId.split('_')[2];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleLoggingBackButton(interaction);
-  }
-
-  if (customId.startsWith('admin_enable_all_')) {
-    const userId = customId.split('_')[3];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleEnableAll(interaction);
-  }
-
-  if (customId.startsWith('admin_disable_all_')) {
-    const userId = customId.split('_')[3];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleDisableAll(interaction);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // REGISTRATION BUTTONS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('reg_start_')) {
-    const userId = customId.split('_')[2];
-    return reg.start(interaction, userId, 'main');
-  }
-
-  if (customId.startsWith('reg_subclass_')) {
-    const userId = customId.split('_')[2];
-    return reg.start(interaction, userId, 'subclass');
-  }
-
-  if (customId.startsWith('retry_ign_uid_')) {
-    const userId = customId.split('_')[3];
-    return reg.retryIGN(interaction, userId);
-  }
-
-  if (customId.startsWith('back_to_region_')) {
-    const userId = customId.split('_')[3];
-    return reg.backToRegion(interaction, userId);
-  }
-
-  if (customId.startsWith('back_to_country_')) {
-    const userId = customId.split('_')[3];
-    return reg.backToCountry(interaction, userId);
-  }
-
-  if (customId.startsWith('back_to_timezone_')) {
-    const userId = customId.split('_')[3];
-    return reg.backToTimezone(interaction, userId);
-  }
-
-  if (customId.startsWith('back_to_class_')) {
-    const userId = customId.split('_')[3];
-    return reg.backToClass(interaction, userId);
-  }
-
-  if (customId.startsWith('back_to_subclass_')) {
-    const userId = customId.split('_')[3];
-    return reg.backToSubclass(interaction, userId);
-  }
-
-  if (customId.startsWith('back_to_battle_imagine_')) {
-    const userId = customId.split('_')[4];
-    return reg.backToBattleImagine(interaction, userId);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // PROFILE ACTIONS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('add_')) {
-    const userId = customId.split('_')[1];
-    return edit.showAddMenu(interaction, userId);
-  }
-
-  if (customId.startsWith('edit_') && !customId.includes('type') && !customId.includes('field') && !customId.includes('class') && !customId.includes('bi')) {
-    const userId = customId.split('_')[1];
-    return edit.showEditMenu(interaction, userId);
-  }
-
-  if (customId.startsWith('remove_') && !customId.includes('type') && !customId.includes('subclass')) {
-    const userId = customId.split('_')[1];
-    return edit.showRemoveMenu(interaction, userId);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // EDITING NAVIGATION
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('edit_type_back_')) {
-    const userId = customId.split('_')[3];
-    return edit.backToEditType(interaction, userId);
-  }
-
-  if (customId.startsWith('edit_field_back_')) {
-    const userId = customId.split('_')[3];
-    return edit.backToFieldSelect(interaction, userId);
-  }
-
-  if (customId.startsWith('edit_class_back_')) {
-    const userId = customId.split('_')[3];
-    return edit.backToClassSelect(interaction, userId);
-  }
-
-  if (customId.startsWith('edit_bi_back_')) {
-    const userId = customId.split('_')[3];
-    return edit.backToBattleImagineList(interaction, userId);
-  }
-
-  if (customId.startsWith('back_profile_')) {
-    const userId = customId.split('_')[2];
-    return edit.backToProfile(interaction, userId);
-  }
-
-  if (customId.startsWith('back_to_profile_')) {
-    const userId = customId.split('_')[3];
-    return edit.backToProfile(interaction, userId);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // CONFIRMATION BUTTONS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('confirm_delete_')) {
-    const userId = customId.split('_')[2];
-    return edit.confirmDelete(interaction, userId);
-  }
-
-  if (customId.startsWith('confirm_deleteall_')) {
-    const userId = customId.split('_')[2];
-    return edit.confirmDeleteAll(interaction, userId);
-  }
-
-  if (customId.startsWith('cancel_delete_') || customId.startsWith('cancel_deleteall_')) {
-    const userId = customId.split('_')[2];
-    return edit.cancelAction(interaction, userId);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // APPLICATION VOTING
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('app_vote_accept_')) {
-    const applicationId = parseInt(customId.split('_')[3]);
-    return applicationService.handleVote(interaction, applicationId, 'accept');
-  }
-
-  if (customId.startsWith('app_vote_deny_')) {
-    const applicationId = parseInt(customId.split('_')[3]);
-    return applicationService.handleVote(interaction, applicationId, 'deny');
-  }
-
-  if (customId.startsWith('app_override_accept_')) {
-    const applicationId = parseInt(customId.split('_')[3]);
-    return applicationService.handleOverride(interaction, applicationId, 'accept');
-  }
-
-  if (customId.startsWith('app_override_deny_')) {
-    const applicationId = parseInt(customId.split('_')[3]);
-    return applicationService.handleOverride(interaction, applicationId, 'deny');
-  }
-
-  if (customId.startsWith('app_override_') && !customId.includes('accept') && !customId.includes('deny') && !customId.includes('cancel')) {
-    const applicationId = parseInt(customId.split('_')[2]);
-    return applicationService.showOverrideMenu(interaction, applicationId);
-  }
-
-  if (customId.startsWith('app_override_cancel_')) {
-    return interaction.update({ content: '❌ Override cancelled.', components: [] });
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ADMIN CHARACTER MANAGEMENT
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('admin_reg_start_')) {
-    const userId = customId.split('_')[3];
-    return reg.start(interaction, userId, 'main');
-  }
-
-  if (customId.startsWith('admin_add_')) {
-    const userId = customId.split('_')[2];
-    return edit.showAddMenu(interaction, userId);
-  }
-
-  if (customId.startsWith('admin_edit_')) {
-    const userId = customId.split('_')[2];
-    return edit.showEditMenu(interaction, userId);
-  }
-
-  if (customId.startsWith('admin_remove_')) {
-    const userId = customId.split('_')[2];
-    return edit.showRemoveMenu(interaction, userId);
-  }
-
-  consoleLogger.warn('Router', `Unhandled button: ${customId}`);
+  console.log('[DATABASE] ✅ All tables initialized');
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SELECT MENU ROUTING
-// ═══════════════════════════════════════════════════════════════════
+pool.initialize = initialize;
 
-export async function routeSelectMenu(interaction) {
-  const customId = interaction.customId;
-  const value = interaction.values[0];
-  consoleLogger.select(customId, value, interaction.user.username);
-
-  // ═══════════════════════════════════════════════════════════════════
-  // REGISTRATION SELECTS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('select_region_') || customId.startsWith('reg_region_')) {
-    const userId = customId.split('_')[2];
-    return reg.handleRegion(interaction, userId);
-  }
-
-  if (customId.startsWith('select_country_') || customId.startsWith('reg_country_')) {
-    const userId = customId.split('_')[2];
-    return reg.handleCountry(interaction, userId);
-  }
-
-  if (customId.startsWith('select_timezone_') || customId.startsWith('reg_timezone_')) {
-    const userId = customId.split('_')[2];
-    return reg.handleTimezone(interaction, userId);
-  }
-
-  if (customId.startsWith('select_class_') || customId.startsWith('reg_class_')) {
-    const userId = customId.split('_')[2];
-    return reg.handleClass(interaction, userId);
-  }
-
-  if (customId.startsWith('select_subclass_') || customId.startsWith('reg_subclass_')) {
-    const userId = customId.split('_')[2];
-    return reg.handleSubclass(interaction, userId);
-  }
-
-  if (customId.startsWith('select_ability_score_') || customId.startsWith('reg_score_')) {
-    const userId = customId.split('_')[3] || customId.split('_')[2];
-    return reg.handleScore(interaction, userId);
-  }
-
-  if (customId.startsWith('select_battle_imagine_') || customId.startsWith('reg_bi_')) {
-    const userId = customId.split('_')[3] || customId.split('_')[2];
-    return reg.handleBattleImagine(interaction, userId);
-  }
-
-  if (customId.startsWith('select_guild_')) {
-    const userId = customId.split('_')[2];
-    return reg.handleGuild(interaction, userId);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // EDITING SELECTS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('add_type_')) {
-    const userId = customId.split('_')[2];
-    return edit.handleAddType(interaction, userId);
-  }
-
-  if (customId.startsWith('edit_type_')) {
-    const userId = customId.split('_')[2];
-    return edit.handleEditType(interaction, userId);
-  }
-
-  if (customId.startsWith('remove_type_')) {
-    const userId = customId.split('_')[2];
-    return edit.handleRemoveType(interaction, userId);
-  }
-
-  if (customId.startsWith('edit_subclass_') && !customId.includes('field')) {
-    const userId = customId.split('_')[2];
-    return edit.handleEditSubclassSelect(interaction, userId);
-  }
-
-  if (customId.startsWith('remove_subclass_')) {
-    const userId = customId.split('_')[2];
-    return edit.handleRemoveSubclassSelect(interaction, userId);
-  }
-
-  if (customId.startsWith('edit_field_')) {
-    const userId = customId.split('_')[2];
-    return edit.handleFieldSelect(interaction, userId);
-  }
-
-  if (customId.startsWith('edit_bi_select_')) {
-    const userId = customId.split('_')[3];
-    return edit.handleEditBattleImagineSelect(interaction, userId);
-  }
-
-  if (customId.startsWith('edit_bi_tier_')) {
-    const userId = customId.split('_')[3];
-    return edit.handleEditBattleImagineTier(interaction, userId);
-  }
-
-  // Edit class selection
-  if (customId.startsWith('reg_class_') && interaction.message?.embeds?.[0]?.description?.includes('Edit')) {
-    const userId = customId.split('_')[2];
-    return edit.handleEditClass(interaction, userId);
-  }
-
-  // Edit subclass selection
-  if (customId.startsWith('reg_subclass_') && interaction.message?.embeds?.[0]?.description?.includes('Edit')) {
-    const userId = customId.split('_')[2];
-    return edit.handleEditSubclass(interaction, userId);
-  }
-
-  // Edit score selection
-  if (customId.startsWith('reg_score_') && interaction.message?.embeds?.[0]?.description?.includes('Edit')) {
-    const userId = customId.split('_')[2];
-    return edit.handleEditScore(interaction, userId);
-  }
-
-  // Edit guild selection
-  if (customId.startsWith('select_guild_') && interaction.message?.embeds?.[0]?.description?.includes('Edit')) {
-    const userId = customId.split('_')[2];
-    return edit.handleEditGuild(interaction, userId);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ADMIN SETTINGS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('admin_settings_menu_')) {
-    const userId = customId.split('_')[3];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleSettingsMenuSelect(interaction);
-  }
-
-  if (customId === 'toggle_ephemeral_command') {
-    const selected = interaction.values;
-    await EphemeralSettingsRepo.updateSettings(interaction.guildId, selected);
-    consoleLogger.info('Settings', `Ephemeral settings updated by ${interaction.user.username}`);
-    return interaction.update({
-      embeds: [successEmbed(`Ephemeral settings updated! ${selected.length} command(s) will reply privately.`)],
-      components: []
-    });
-  }
-
-  if (customId === 'set_verification_channel') {
-    const channelId = interaction.values[0];
-    await LoggingRepo.setVerificationChannel(interaction.guildId, channelId);
-    consoleLogger.info('Settings', `Verification channel set to <#${channelId}>`);
-    return interaction.update({
-      embeds: [successEmbed(`Verification channel set to <#${channelId}>`)],
-      components: []
-    });
-  }
-
-  if (customId.startsWith('logging_menu_')) {
-    const userId = customId.split('_')[2];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleLoggingMenuSelect(interaction);
-  }
-
-  // Channel select menus with user ID
-  if (customId.startsWith('set_general_log_channel_')) {
-    const userId = customId.split('_')[4];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleGeneralChannelSelect(interaction);
-  }
-
-  if (customId.startsWith('set_application_log_channel_')) {
-    const userId = customId.split('_')[4];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleApplicationChannelSelect(interaction);
-  }
-
-  // Event toggle with user ID
-  if (customId.startsWith('toggle_log_event_')) {
-    const userId = customId.split('_')[3];
-    if (interaction.user.id !== userId) {
-      return interaction.reply({ 
-        content: '❌ This menu is not for you.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-    return adminSettings.handleEventToggle(interaction);
-  }
-
-  // Legacy handlers (without user ID) for backwards compatibility
-  if (customId === 'set_general_log_channel') {
-    return adminSettings.handleGeneralChannelSelect(interaction);
-  }
-
-  if (customId === 'set_application_log_channel') {
-    return adminSettings.handleApplicationChannelSelect(interaction);
-  }
-
-  if (customId === 'toggle_log_event') {
-    return adminSettings.handleEventToggle(interaction);
-  }
-
-  if (customId === 'toggle_log_grouping') {
-    const value = interaction.values[0];
-    
-    if (value === 'change_window') {
-      const modal = new ModalBuilder()
-        .setCustomId('log_grouping_window')
-        .setTitle('Set Grouping Time Window');
-
-      const input = new TextInputBuilder()
-        .setCustomId('minutes')
-        .setLabel('Minutes (1-60)')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('10')
-        .setRequired(true)
-        .setMinLength(1)
-        .setMaxLength(2);
-
-      modal.addComponents(new ActionRowBuilder().addComponents(input));
-      return interaction.showModal(modal);
-    }
-
-    // This would need Logger class - keeping for compatibility
-    consoleLogger.info('Settings', `Grouping setting changed: ${value}`);
-    return interaction.update({
-      embeds: [successEmbed(`Grouping setting updated`)],
-      components: []
-    });
-  }
-
-  consoleLogger.warn('Router', `Unhandled select: ${customId}`);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// MODAL ROUTING
-// ═══════════════════════════════════════════════════════════════════
-
-export async function routeModal(interaction) {
-  const customId = interaction.customId;
-  consoleLogger.modal(customId, interaction.user.username);
-
-  // ═══════════════════════════════════════════════════════════════════
-  // REGISTRATION MODALS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('ign_modal_') || customId.startsWith('reg_ign_')) {
-    const userId = customId.split('_')[2];
-    return reg.handleIGN(interaction, userId);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // EDITING MODALS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId.startsWith('edit_ign_')) {
-    const userId = customId.split('_')[2];
-    return edit.handleEditModal(interaction, userId, 'ign');
-  }
-
-  if (customId.startsWith('edit_uid_')) {
-    const userId = customId.split('_')[2];
-    return edit.handleEditModal(interaction, userId, 'uid');
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ADMIN SETTINGS MODALS
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId === 'log_grouping_window') {
-    const minutes = parseInt(interaction.fields.getTextInputValue('minutes'));
-    
-    if (isNaN(minutes) || minutes < 1 || minutes > 60) {
-      return interaction.reply({
-        embeds: [errorEmbed('Please enter a valid number between 1 and 60.')],
-        flags: MessageFlags.Ephemeral
-      });
-    }
-
-    consoleLogger.info('Settings', `Grouping window set to ${minutes} minutes`);
-    return interaction.reply({
-      embeds: [successEmbed(`Grouping window set to ${minutes} minutes`)],
-      flags: MessageFlags.Ephemeral
-    });
-  }
-
-  consoleLogger.warn('Router', `Unhandled modal: ${customId}`);
-}
+export default pool;
