@@ -92,21 +92,3 @@ export default {
   },
   classRoles: loadClassRoles()
 };
-```
-
----
-
-## ✅ **Deployment:**
-
-1. Replace `/src/commands/admin.js`
-2. Replace `/src/commands/index.js`
-3. Replace `/src/config/index.js`
-4. **Restart bot**
-5. Commands auto-register
-
----
-
-## 🎯 **Usage:**
-```
-/admin guild-assign user:@JohnDoe guild:iDolls
-/admin guild-remove user:@JohnDoe
