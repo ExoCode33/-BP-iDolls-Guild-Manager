@@ -1,4 +1,4 @@
-import { MessageFlags } from 'discord.js';
+import { MessageFlags, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
 import logger from '../services/logger.js';
 import state from '../services/state.js';
 import * as reg from './registration.js';
