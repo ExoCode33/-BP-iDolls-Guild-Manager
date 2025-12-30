@@ -228,10 +228,12 @@ async function showEphemeralSettings(interaction) {
   const current = await EphemeralRepo.get(interaction.guildId);
   
   const options = [
-    { label: '/character (own profile)', value: 'character_own', description: 'Viewing your own profile', emoji: '👤' },
-    { label: '/character @user (view others)', value: 'character_view', description: 'Viewing another user\'s profile', emoji: '👁️' },
+    { label: '/edit-character', value: 'edit_character', description: 'Managing your own profile', emoji: '✏️' },
+    { label: '/view-character', value: 'view_character', description: 'Viewing character profiles', emoji: '👁️' },
+    { label: '/character (own profile)', value: 'character_own', description: 'Viewing your own profile (legacy)', emoji: '👤' },
+    { label: '/character @user (view others)', value: 'character_view', description: 'Viewing another user\'s profile (legacy)', emoji: '🔍' },
     { label: 'Registration Flow', value: 'registration', description: 'Character registration process', emoji: '📝' },
-    { label: 'Edit Character', value: 'edit', description: 'Character editing interactions', emoji: '✏️' },
+    { label: 'Edit Actions', value: 'edit', description: 'Character editing interactions', emoji: '🔧' },
     { label: 'Add Character', value: 'add', description: 'Adding subclasses', emoji: '➕' },
     { label: 'Delete Character', value: 'delete', description: 'Character deletion confirmations', emoji: '🗑️' },
     { label: 'Admin Commands', value: 'admin', description: '/admin command responses', emoji: '👑' },
@@ -239,10 +241,12 @@ async function showEphemeralSettings(interaction) {
   ].map(opt => ({ ...opt, default: current.includes(opt.value) }));
   
   const categoryNames = {
+    'edit_character': '✏️ /edit-character',
+    'view_character': '👁️ /view-character',
     'character_own': '👤 /character (own)',
-    'character_view': '👁️ /character @user',
+    'character_view': '🔍 /character @user',
     'registration': '📝 Registration',
-    'edit': '✏️ Edit',
+    'edit': '🔧 Edit Actions',
     'add': '➕ Add',
     'delete': '🗑️ Delete',
     'admin': '👑 Admin',
@@ -526,10 +530,12 @@ export async function handleEphemeralSelect(interaction) {
   await EphemeralRepo.set(interaction.guildId, selected);
   
   const categoryNames = {
+    'edit_character': '✏️ /edit-character',
+    'view_character': '👁️ /view-character',
     'character_own': '👤 /character (own)',
-    'character_view': '👁️ /character @user',
+    'character_view': '🔍 /character @user',
     'registration': '📝 Registration',
-    'edit': '✏️ Edit',
+    'edit': '🔧 Edit Actions',
     'add': '➕ Add',
     'delete': '🗑️ Delete',
     'admin': '👑 Admin',
