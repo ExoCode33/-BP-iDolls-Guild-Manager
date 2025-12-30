@@ -948,7 +948,7 @@ export async function handleIGN(interaction, userId) {
     await interaction.reply({ 
       embeds: [embed], 
       components: buttons,
-      ephemeral: false
+      flags: MessageFlags.Ephemeral
     });
 
     logger.register(interaction.user.username, 'main', ign, currentState.class);
