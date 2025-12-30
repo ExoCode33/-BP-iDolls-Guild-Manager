@@ -3,6 +3,7 @@ import logger from '../services/logger.js';
 import { isEphemeral } from '../services/ephemeral.js';
 import { CharacterRepo } from '../database/repositories.js';
 import { profileEmbed, errorEmbed } from '../ui/embeds.js';
+import * as ui from '../ui/components.js';
 
 export const data = new SlashCommandBuilder()
   .setName('view-character')
@@ -27,6 +28,14 @@ export async function execute(interaction) {
 
   // Check if user has no character
   if (!main && chars.length === 0) {
+    // ✅ If viewing your OWN profile → redirect to edit-character flow with register button
+    if (isOwn) {
+      const embed = await profileEmbed(interaction.user, chars, interaction);
+      const components = ui.profileButtons(interaction.user.id, false); // false = no main, shows register button
+      return interaction.reply({ embeds: [embed], components, ...ephemeralFlag });
+    }
+    
+    // If viewing someone else's profile → show error
     return interaction.reply({
       embeds: [errorEmbed(`${targetUser.username} hasn't registered yet.`)],
       ...ephemeralFlag
@@ -37,7 +46,7 @@ export async function execute(interaction) {
     logger.viewProfile(interaction.user.username, targetUser.username);
   }
 
-  // View only - no buttons
+  // View only - no buttons for other users' profiles
   const embed = await profileEmbed(targetUser, chars, interaction);
   return interaction.reply({ embeds: [embed], components: [], ...ephemeralFlag });
 }
