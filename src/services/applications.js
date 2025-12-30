@@ -158,17 +158,22 @@ class ApplicationService {
       const guild = await this.client.guilds.fetch(config.discord.guildId);
       const member = await guild.members.fetch(application.user_id);
 
+      // ✅ Add guild role
       if (config.roles.guild1) {
         await member.roles.add(config.roles.guild1);
         console.log(`[APP] Added guild role to ${application.user_id}`);
       }
 
-      if (config.roles.registered && !member.roles.cache.has(config.roles.registered)) {
-        await member.roles.add(config.roles.registered);
+      // ✅ Make sure they have verified role (they should already have it from pending)
+      if (config.roles.verified && !member.roles.cache.has(config.roles.verified)) {
+        await member.roles.add(config.roles.verified);
+        console.log(`[APP] Added Verified role to ${application.user_id}`);
       }
 
+      // ✅ Remove visitor role (they're now a full member)
       if (config.roles.visitor && member.roles.cache.has(config.roles.visitor)) {
         await member.roles.remove(config.roles.visitor);
+        console.log(`[APP] Removed Visitor role from ${application.user_id}`);
       }
 
       await this.updateApplicationMessage(application, 'approved', overrideBy);
@@ -191,17 +196,24 @@ class ApplicationService {
       const guild = await this.client.guilds.fetch(config.discord.guildId);
       const member = await guild.members.fetch(application.user_id);
 
+      // ✅ Remove guild role if they somehow have it
       if (config.roles.guild1 && member.roles.cache.has(config.roles.guild1)) {
         await member.roles.remove(config.roles.guild1);
         console.log(`[APP] Removed guild role from ${application.user_id}`);
       }
 
-      if (config.roles.visitor) {
+      // ✅ Make sure they have visitor role
+      if (config.roles.visitor && !member.roles.cache.has(config.roles.visitor)) {
         await member.roles.add(config.roles.visitor);
+        console.log(`[APP] Added Visitor role to ${application.user_id}`);
       }
 
-      if (config.roles.registered && member.roles.cache.has(config.roles.registered)) {
-        await member.roles.remove(config.roles.registered);
+      // ✅ FIXED: Keep the Verified role - they're still a registered user!
+      // Do NOT remove the verified role when denied
+      // They registered a character, they just didn't get into the guild
+      if (config.roles.verified && !member.roles.cache.has(config.roles.verified)) {
+        await member.roles.add(config.roles.verified);
+        console.log(`[APP] Ensured Verified role for ${application.user_id}`);
       }
 
       await this.updateApplicationMessage(application, 'denied', overrideBy);
