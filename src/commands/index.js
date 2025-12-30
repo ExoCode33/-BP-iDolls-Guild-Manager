@@ -3,12 +3,10 @@
 import * as admin from './admin.js';
 import * as editCharacter from './editCharacter.js';
 import * as viewCharacter from './viewCharacter.js';
-import adminSettings from './admin/settings.js';
 
 // Collection of all commands
 const commands = {
   admin,
-  adminSettings,
   editCharacter,
   viewCharacter
 };
