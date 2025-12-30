@@ -3,7 +3,7 @@ import { ApplicationRepo, CharacterRepo } from '../database/repositories.js';
 import { addVotingFooter, createApplicationButtons, createOverrideButtons } from '../ui/applications.js';
 import { profileEmbed } from '../ui/embeds.js';
 import config from '../config/index.js';
-import logger from './consoleLogger.js';
+import logger from './logger.js';
 
 class ApplicationService {
   constructor() {
