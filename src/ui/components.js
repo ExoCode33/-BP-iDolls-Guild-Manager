@@ -221,7 +221,7 @@ export function editTypeSelect(userId, main, alts, subs) {
     options.push({ 
       label: 'Main Character', 
       value: 'main', 
-      description: `${main.ign} - ${main.class}`,
+      description: `${main.ign} - ${main.className}`,
       emoji: '⭐' 
     });
   }
@@ -283,9 +283,9 @@ export function removeTypeSelect(userId, main, alts, subs) {
 
 export function subclassListSelect(userId, subs, action) {
   const options = subs.map((sub, i) => ({
-    label: `Subclass ${i + 1}: ${sub.class}`,
+    label: `Subclass ${i + 1}: ${sub.className}`,
     value: String(sub.id),
-    description: `${sub.subclass} - ${formatScore(sub.ability_score)}`,
+    description: `${sub.subclass} - ${formatScore(sub.abilityScore)}`,
     emoji: '📊'
   }));
   
@@ -308,8 +308,8 @@ export function editFieldSelect(userId, char, type, battleImagines = []) {
   }
   
   options.push(
-    { label: 'Class & Subclass', value: 'class', description: `${char.class} - ${char.subclass}`, emoji: '🎭' },
-    { label: 'Ability Score', value: 'score', description: `Current: ${formatScore(char.ability_score)}`, emoji: '💪' }
+    { label: 'Class & Subclass', value: 'class', description: `${char.className} - ${char.subclass}`, emoji: '🎭' },
+    { label: 'Ability Score', value: 'score', description: `Current: ${formatScore(char.abilityScore)}`, emoji: '💪' }
   );
   
   if (type !== 'subclass') {
@@ -338,7 +338,7 @@ export function editFieldSelect(userId, char, type, battleImagines = []) {
 
 export function editBattleImagineListSelect(userId, currentImagines) {
   const options = config.battleImagines.map(bi => {
-    const current = currentImagines.find(ci => ci.imagine_name === bi.name);
+    const current = currentImagines.find(ci => ci.imagineName === bi.name);
     return {
       label: bi.name,
       value: bi.name,
