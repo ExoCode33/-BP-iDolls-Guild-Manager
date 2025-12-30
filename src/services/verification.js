@@ -17,7 +17,7 @@ export class VerificationSystem {
       '',
       '\u001b[1;36m' + centerText('🌸 Just Vibing?') + '\u001b[0m',
       '\u001b[0;37m' + centerText('Get basic access to chat!') + '\u001b[0m',
-      '\u001b[0;37m' + centerText('No character needed (´｡• ᵕ •｡`)') + '\u001b[0m',
+      '\u001b[0;37m' + centerText('No character needed ^_^') + '\u001b[0m',
       '',
       '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
     ].join('\n');
@@ -194,22 +194,3 @@ export class VerificationSystem {
     }
   }
 }
-```
-
----
-
-## ✨ **What's in the ANSI now:**
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-            ≽^•⩊•^≼
-
-         💫 For BP Players
-      Register your character &
-       unlock the full server! ♡
-
-         🌸 Just Vibing?
-       Get basic access to chat!
-    No character needed (´｡• ᵕ •｡`)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
