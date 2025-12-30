@@ -65,8 +65,7 @@ async function showSettingsMenu(interaction) {
     '**Choose a category to configure:**\n\n' +
     '🔔 **Logging** - Discord logging configuration\n' +
     '👁️ **Ephemeral** - Privacy settings for responses\n' +
-    '✅ **Verification** - Registration channel status\n' +
-    '📊 **Statistics** - View bot statistics';
+    '✅ **Verification** - Registration channel status';
 
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -90,12 +89,6 @@ async function showSettingsMenu(interaction) {
           value: 'verification',
           description: 'View registration channel',
           emoji: '✅'
-        },
-        {
-          label: 'View Statistics',
-          value: 'stats',
-          description: 'View bot statistics',
-          emoji: '📊'
         }
       ])
   );
@@ -366,15 +359,9 @@ async function showStatistics(interaction) {
       }
     )
     .setTimestamp();
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`admin_settings_back_${interaction.user.id}`)
-      .setLabel('← Back to Settings')
-      .setStyle(ButtonStyle.Secondary)
-  );
   
-  await interaction.update({ embeds: [e], components: [row] });
+  const isEph = await isEphemeral(interaction.guildId, 'admin');
+  await interaction.reply({ embeds: [e], ephemeral: isEph });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -640,7 +627,6 @@ export async function handleSettingsMenuSelect(interaction) {
     case 'logs': return await showLoggingSettings(interaction);
     case 'ephemeral': return await showEphemeralSettings(interaction);
     case 'verification': return await showVerificationStatus(interaction);
-    case 'stats': return await showStatistics(interaction);
   }
 }
 
