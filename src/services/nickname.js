@@ -37,12 +37,12 @@ export async function syncAllNicknames(client, guildId, mainCharacters) {
   const failures = [];
 
   for (const char of mainCharacters) {
-    const result = await updateNickname(client, guildId, char.userId, char.ign);
+    const result = await updateNickname(client, guildId, char.user_id, char.ign);
     if (result.success) {
       updated++;
     } else {
       failed++;
-      failures.push({ userId: char.userId, ign: char.ign, reason: result.reason });
+      failures.push({ userId: char.user_id, ign: char.ign, reason: result.reason });
       console.log(`⚠️  [NICKNAME] Failed to update ${char.ign}: ${result.reason}`);
     }
     await new Promise(r => setTimeout(r, 100));
