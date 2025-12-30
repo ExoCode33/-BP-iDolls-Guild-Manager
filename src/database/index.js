@@ -128,16 +128,6 @@ async function initialize() {
     )
   `);
 
-  // Ensure columns exist (for existing databases)
-  try {
-    await pool.query(`ALTER TABLE guild_settings ADD COLUMN IF NOT EXISTS general_log_channel_id TEXT`);
-    await pool.query(`ALTER TABLE guild_settings ADD COLUMN IF NOT EXISTS application_log_channel_id TEXT`);
-    await pool.query(`ALTER TABLE guild_settings ADD COLUMN IF NOT EXISTS log_settings JSONB DEFAULT '{}'::jsonb`);
-    await pool.query(`ALTER TABLE guild_settings ADD COLUMN IF NOT EXISTS log_grouping JSONB DEFAULT '{}'::jsonb`);
-  } catch (e) {
-    // Columns already exist, ignore
-  }
-
   console.log('[DATABASE] ✅ All tables initialized');
 }
 
