@@ -1,524 +1,353 @@
-import { EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType } from 'discord.js';
-import { Logger } from './logger-PROFESSIONAL.js';
+import { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType } from 'discord.js';
 import { COLORS } from '../config/game.js';
-import pool from '../database/index.js';
+import { EphemeralSettingsRepo, LoggingRepo } from '../database/repositories.js';
+import { Logger } from './logger.js';
 
-// ═══════════════════════════════════════════════════════════════════
-// MAIN SETTINGS PANEL
-// ═══════════════════════════════════════════════════════════════════
+const embed = (title, description, color = COLORS.PRIMARY) => 
+  new EmbedBuilder().setTitle(title).setDescription(description).setColor(color);
 
-export async function showMainPanel(interaction) {
-  const config = await Logger.getConfig(interaction.guildId);
-  
-  const embed = new EmbedBuilder()
-    .setTitle('⚙️ Admin Settings Panel')
-    .setDescription('**Professional Logging & Configuration System**\n\nSelect a category below to configure:')
-    .setColor(COLORS.PRIMARY)
-    .addFields(
+export async function showSettingsMenu(interaction) {
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(`admin_settings_menu_${interaction.user.id}`)
+    .setPlaceholder('Choose a setting to configure')
+    .addOptions([
       {
-        name: '📋 Logging Channels',
-        value: `General: ${config.channels.general ? `<#${config.channels.general}>` : '`Not Set`'}\nApplication: ${config.channels.application ? `<#${config.channels.application}>` : '`Not Set`'}`,
-        inline: false
+        label: 'Ephemeral Commands',
+        description: 'Configure which commands reply privately',
+        value: 'ephemeral',
+        emoji: '🔒'
       },
       {
-        name: '🔔 Event Types',
-        value: 'Configure which events get logged',
-        inline: true
+        label: 'Verification Channel',
+        description: 'Set channel for verification notifications',
+        value: 'verification',
+        emoji: '✅'
       },
       {
-        name: '📊 Status',
-        value: `${Object.values(config.enabled).filter(v => v).length}/${Object.keys(config.enabled).length} events enabled`,
-        inline: true
+        label: 'Logging System',
+        description: 'Configure activity logging',
+        value: 'logging',
+        emoji: '📋'
       }
-    )
-    .setFooter({ text: 'Use the menu below to navigate' })
-    .setTimestamp();
+    ]);
+
+  const row = new ActionRowBuilder().addComponents(menu);
+
+  await interaction.reply({
+    embeds: [embed('⚙️ Admin Settings', 'Select a setting category to configure:')],
+    components: [row],
+    ephemeral: true
+  });
+}
+
+export async function handleSettingsMenuSelect(interaction) {
+  const value = interaction.values[0];
+
+  if (value === 'ephemeral') {
+    await showEphemeralSettings(interaction);
+  } else if (value === 'verification') {
+    await showVerificationSettings(interaction);
+  } else if (value === 'logging') {
+    await showLoggingMenu(interaction);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EPHEMERAL SETTINGS
+// ═══════════════════════════════════════════════════════════════════
+
+async function showEphemeralSettings(interaction) {
+  const currentSettings = await EphemeralSettingsRepo.getSettings(interaction.guildId);
+  
+  const allCommands = [
+    'register', 'view-character', 'edit-character', 'delete-character',
+    'verify', 'set-timezone', 'battle-imagine', 'apply-guild'
+  ];
+
+  const options = allCommands.map(cmd => ({
+    label: `/${cmd}`,
+    value: cmd,
+    default: currentSettings.includes(cmd),
+    emoji: currentSettings.includes(cmd) ? '✅' : '❌'
+  }));
 
   const menu = new StringSelectMenuBuilder()
-    .setCustomId(`admin_main_menu_${interaction.user.id}`)
-    .setPlaceholder('📂 Select a category...')
-    .addOptions(
+    .setCustomId('toggle_ephemeral_command')
+    .setPlaceholder('Select commands to toggle')
+    .setMinValues(0)
+    .setMaxValues(allCommands.length)
+    .addOptions(options);
+
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`admin_settings_back_${interaction.user.id}`)
+      .setLabel('← Back to Settings')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  await interaction.update({
+    embeds: [embed(
+      '🔒 Ephemeral Command Settings',
+      'Commands marked with ✅ will reply privately (only visible to the user).\n\n' +
+      'Select commands below to toggle their ephemeral status:'
+    )],
+    components: [new ActionRowBuilder().addComponents(menu), backButton]
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VERIFICATION SETTINGS
+// ═══════════════════════════════════════════════════════════════════
+
+async function showVerificationSettings(interaction) {
+  const currentChannel = await LoggingRepo.getVerificationChannel(interaction.guildId);
+  
+  const description = currentChannel 
+    ? `**Current Channel:** <#${currentChannel}>\n\nSelect a new channel for verification notifications:`
+    : '**Not configured**\n\nSelect a channel for verification notifications:';
+
+  const channels = interaction.guild.channels.cache
+    .filter(ch => ch.type === ChannelType.GuildText)
+    .map(ch => ({ 
+      label: `#${ch.name}`, 
+      value: ch.id,
+      description: ch.parent?.name || 'No category',
+      default: ch.id === currentChannel
+    }))
+    .slice(0, 25);
+
+  if (channels.length === 0) {
+    return interaction.update({
+      embeds: [embed('❌ No Channels', 'No text channels found in this server.')],
+      components: []
+    });
+  }
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId('set_verification_channel')
+    .setPlaceholder('✅ Select verification channel')
+    .addOptions(channels);
+
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`admin_settings_back_${interaction.user.id}`)
+      .setLabel('← Back to Settings')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  await interaction.update({
+    embeds: [embed('✅ Verification Channel', description)],
+    components: [new ActionRowBuilder().addComponents(menu), backButton]
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LOGGING SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+
+async function showLoggingMenu(interaction) {
+  const config = await Logger.getSettings(interaction.guildId);
+  
+  const generalStatus = config.generalChannelId 
+    ? `<#${config.generalChannelId}>` 
+    : '❌ Not set';
+  
+  const applicationStatus = config.applicationChannelId 
+    ? `<#${config.applicationChannelId}>` 
+    : '❌ Not set';
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(`logging_menu_${interaction.user.id}`)
+    .setPlaceholder('Choose a logging setting')
+    .addOptions([
       {
-        label: 'Set Logging Channels',
-        description: 'Configure where logs are posted',
-        value: 'channels',
+        label: 'General Log Channel',
+        description: `Currently: ${config.generalChannelId ? 'Set' : 'Not set'}`,
+        value: 'general_channel',
         emoji: '📋'
       },
       {
-        label: 'Configure Event Logging',
+        label: 'Application Log Channel',
+        description: `Currently: ${config.applicationChannelId ? 'Set' : 'Not set'}`,
+        value: 'application_channel',
+        emoji: '📨'
+      },
+      {
+        label: 'Event Settings',
         description: 'Toggle which events to log',
-        value: 'events',
-        emoji: '🔔'
-      },
-      {
-        label: 'View Current Settings',
-        description: 'See all current configurations',
-        value: 'view',
-        emoji: '📊'
-      },
-      {
-        label: 'Test Logging System',
-        description: 'Send test messages to verify setup',
-        value: 'test',
-        emoji: '🧪'
-      }
-    );
-
-  const closeButton = new ButtonBuilder()
-    .setCustomId(`admin_close_${interaction.user.id}`)
-    .setLabel('Close Panel')
-    .setStyle(ButtonStyle.Secondary)
-    .setEmoji('❌');
-
-  const row1 = new ActionRowBuilder().addComponents(menu);
-  const row2 = new ActionRowBuilder().addComponents(closeButton);
-
-  return interaction.update({
-    embeds: [embed],
-    components: [row1, row2]
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// CHANNEL CONFIGURATION
-// ═══════════════════════════════════════════════════════════════════
-
-export async function showChannelConfig(interaction) {
-  const config = await Logger.getConfig(interaction.guildId);
-  
-  const embed = new EmbedBuilder()
-    .setTitle('📋 Logging Channels')
-    .setDescription('**Configure where logs are posted**\n\nSet different channels for different log types:')
-    .setColor(COLORS.INFO)
-    .addFields(
-      {
-        name: '📢 General Logs',
-        value: config.channels.general ? `<#${config.channels.general}>` : '`Not Set`',
-        inline: true
-      },
-      {
-        name: '📋 Application Logs',
-        value: config.channels.application ? `<#${config.channels.application}>` : '`Not Set`',
-        inline: true
-      },
-      {
-        name: '\u200b',
-        value: '**What goes where?**',
-        inline: false
-      },
-      {
-        name: '📢 General Logs Include:',
-        value: '• Character registration\n• Character updates\n• Character deletion\n• Verification\n• Role changes\n• Settings changes\n• Timezone changes\n• Battle Imagine changes\n• Errors',
-        inline: true
-      },
-      {
-        name: '📋 Application Logs Include:',
-        value: '• New applications\n• Vote notifications\n• Application decisions\n• Admin overrides\n• Vote summaries',
-        inline: true
-      }
-    )
-    .setFooter({ text: 'Select channels below' })
-    .setTimestamp();
-
-  const generalChannel = new ChannelSelectMenuBuilder()
-    .setCustomId(`set_general_channel_${interaction.user.id}`)
-    .setPlaceholder('📢 Select General Log Channel')
-    .setChannelTypes(ChannelType.GuildText);
-
-  const appChannel = new ChannelSelectMenuBuilder()
-    .setCustomId(`set_app_channel_${interaction.user.id}`)
-    .setPlaceholder('📋 Select Application Log Channel')
-    .setChannelTypes(ChannelType.GuildText);
-
-  const backButton = new ButtonBuilder()
-    .setCustomId(`admin_back_${interaction.user.id}`)
-    .setLabel('Back to Main Menu')
-    .setStyle(ButtonStyle.Secondary)
-    .setEmoji('⬅️');
-
-  const row1 = new ActionRowBuilder().addComponents(generalChannel);
-  const row2 = new ActionRowBuilder().addComponents(appChannel);
-  const row3 = new ActionRowBuilder().addComponents(backButton);
-
-  return interaction.update({
-    embeds: [embed],
-    components: [row1, row2, row3]
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// EVENT CONFIGURATION
-// ═══════════════════════════════════════════════════════════════════
-
-export async function showEventConfig(interaction) {
-  const config = await Logger.getConfig(interaction.guildId);
-  
-  const embed = new EmbedBuilder()
-    .setTitle('🔔 Event Logging Configuration')
-    .setDescription('**Toggle which events get logged**\n\nEnable or disable specific event types:')
-    .setColor(COLORS.INFO)
-    .setFooter({ text: 'Select an event to toggle' })
-    .setTimestamp();
-
-  // Build event list with status
-  const events = {
-    'character_registration': '📝 Character Registration',
-    'character_updates': '✏️ Character Updates',
-    'character_deletion': '🗑️ Character Deletion',
-    'verification': '✅ User Verification',
-    'timezone_changes': '🌍 Timezone Changes',
-    'battle_imagine_changes': '⚔️ Battle Imagine Changes',
-    'guild_applications': '📋 Guild Applications',
-    'application_votes': '🗳️ Application Votes',
-    'admin_overrides': '⚠️ Admin Overrides',
-    'settings_changes': '⚙️ Settings Changes',
-    'role_changes': '🎭 Role Changes',
-    'errors': '❌ Error Logging'
-  };
-
-  const enabledCount = Object.values(config.enabled).filter(v => v).length;
-  const totalCount = Object.keys(events).length;
-
-  embed.addFields({
-    name: '📊 Status',
-    value: `**${enabledCount}/${totalCount}** events enabled`,
-    inline: false
-  });
-
-  // Add current status for each event
-  for (const [key, label] of Object.entries(events)) {
-    const status = config.enabled[key] ? '🟢 Enabled' : '🔴 Disabled';
-    embed.addFields({
-      name: label,
-      value: status,
-      inline: true
-    });
-  }
-
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId(`toggle_event_${interaction.user.id}`)
-    .setPlaceholder('🔔 Select an event to toggle...')
-    .addOptions(
-      Object.entries(events).map(([key, label]) => ({
-        label: label,
-        value: key,
-        description: config.enabled[key] ? 'Currently enabled - click to disable' : 'Currently disabled - click to enable',
-        emoji: config.enabled[key] ? '🟢' : '🔴'
-      }))
-    );
-
-  const enableAllButton = new ButtonBuilder()
-    .setCustomId(`admin_enable_all_${interaction.user.id}`)
-    .setLabel('Enable All')
-    .setStyle(ButtonStyle.Success)
-    .setEmoji('✅');
-
-  const disableAllButton = new ButtonBuilder()
-    .setCustomId(`admin_disable_all_${interaction.user.id}`)
-    .setLabel('Disable All')
-    .setStyle(ButtonStyle.Danger)
-    .setEmoji('❌');
-
-  const backButton = new ButtonBuilder()
-    .setCustomId(`admin_back_${interaction.user.id}`)
-    .setLabel('Back')
-    .setStyle(ButtonStyle.Secondary)
-    .setEmoji('⬅️');
-
-  const row1 = new ActionRowBuilder().addComponents(menu);
-  const row2 = new ActionRowBuilder().addComponents(enableAllButton, disableAllButton, backButton);
-
-  return interaction.update({
-    embeds: [embed],
-    components: [row1, row2]
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// VIEW SETTINGS
-// ═══════════════════════════════════════════════════════════════════
-
-export async function showViewSettings(interaction) {
-  const config = await Logger.getConfig(interaction.guildId);
-  
-  const embed = new EmbedBuilder()
-    .setTitle('📊 Current Settings Overview')
-    .setDescription('**Your complete logging configuration**')
-    .setColor(COLORS.SUCCESS)
-    .addFields(
-      {
-        name: '📋 Logging Channels',
-        value: `**General:** ${config.channels.general ? `<#${config.channels.general}>` : '`Not Set`'}\n**Application:** ${config.channels.application ? `<#${config.channels.application}>` : '`Not Set`'}`,
-        inline: false
-      }
-    )
-    .setTimestamp();
-
-  // Split events into enabled and disabled
-  const enabled = [];
-  const disabled = [];
-  
-  const eventNames = {
-    'character_registration': 'Character Registration',
-    'character_updates': 'Character Updates',
-    'character_deletion': 'Character Deletion',
-    'verification': 'User Verification',
-    'timezone_changes': 'Timezone Changes',
-    'battle_imagine_changes': 'Battle Imagine Changes',
-    'guild_applications': 'Guild Applications',
-    'application_votes': 'Application Votes',
-    'admin_overrides': 'Admin Overrides',
-    'settings_changes': 'Settings Changes',
-    'role_changes': 'Role Changes',
-    'errors': 'Error Logging'
-  };
-
-  for (const [key, label] of Object.entries(eventNames)) {
-    if (config.enabled[key]) {
-      enabled.push(label);
-    } else {
-      disabled.push(label);
-    }
-  }
-
-  if (enabled.length > 0) {
-    embed.addFields({
-      name: '🟢 Enabled Events',
-      value: enabled.map(e => `• ${e}`).join('\n'),
-      inline: false
-    });
-  }
-
-  if (disabled.length > 0) {
-    embed.addFields({
-      name: '🔴 Disabled Events',
-      value: disabled.map(e => `• ${e}`).join('\n'),
-      inline: false
-    });
-  }
-
-  const backButton = new ButtonBuilder()
-    .setCustomId(`admin_back_${interaction.user.id}`)
-    .setLabel('Back to Main Menu')
-    .setStyle(ButtonStyle.Secondary)
-    .setEmoji('⬅️');
-
-  const row = new ActionRowBuilder().addComponents(backButton);
-
-  return interaction.update({
-    embeds: [embed],
-    components: [row]
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// TEST LOGGING
-// ═══════════════════════════════════════════════════════════════════
-
-export async function showTestMenu(interaction) {
-  const embed = new EmbedBuilder()
-    .setTitle('🧪 Test Logging System')
-    .setDescription('**Send test messages to verify your setup**\n\nSelect which type of log to test:')
-    .setColor(COLORS.WARNING)
-    .addFields(
-      {
-        name: '📝 Character Log Test',
-        value: 'Tests character registration, updates, and deletion logs',
-        inline: false
-      },
-      {
-        name: '📋 Application Log Test',
-        value: 'Tests application creation, voting, and decision logs',
-        inline: false
-      },
-      {
-        name: '⚙️ System Log Test',
-        value: 'Tests verification, role changes, and settings logs',
-        inline: false
-      }
-    )
-    .setFooter({ text: 'Test messages will be sent to your configured channels' })
-    .setTimestamp();
-
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId(`test_log_${interaction.user.id}`)
-    .setPlaceholder('🧪 Select a test type...')
-    .addOptions(
-      {
-        label: 'Character Log Test',
-        description: 'Send test character-related logs',
-        value: 'character',
-        emoji: '📝'
-      },
-      {
-        label: 'Application Log Test',
-        description: 'Send test application logs',
-        value: 'application',
-        emoji: '📋'
-      },
-      {
-        label: 'System Log Test',
-        description: 'Send test system logs',
-        value: 'system',
+        value: 'event_settings',
         emoji: '⚙️'
       },
       {
-        label: 'All Tests',
-        description: 'Send all test logs',
-        value: 'all',
-        emoji: '🎯'
+        label: 'Grouping Settings',
+        description: 'Configure log grouping',
+        value: 'grouping_settings',
+        emoji: '🔄'
       }
-    );
+    ]);
 
-  const backButton = new ButtonBuilder()
-    .setCustomId(`admin_back_${interaction.user.id}`)
-    .setLabel('Back to Main Menu')
-    .setStyle(ButtonStyle.Secondary)
-    .setEmoji('⬅️');
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`admin_settings_back_${interaction.user.id}`)
+      .setLabel('← Back to Settings')
+      .setStyle(ButtonStyle.Secondary)
+  );
 
-  const row1 = new ActionRowBuilder().addComponents(menu);
-  const row2 = new ActionRowBuilder().addComponents(backButton);
-
-  return interaction.update({
-    embeds: [embed],
-    components: [row1, row2]
+  await interaction.update({
+    embeds: [embed(
+      '📋 Logging System',
+      `**General Logs:** ${generalStatus}\n` +
+      `**Application Logs:** ${applicationStatus}\n\n` +
+      'Select an option below to configure:'
+    )],
+    components: [new ActionRowBuilder().addComponents(menu), backButton]
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// HANDLERS
-// ═══════════════════════════════════════════════════════════════════
-
-export async function handleMenuSelect(interaction) {
+export async function handleLoggingMenuSelect(interaction) {
   const value = interaction.values[0];
-  
-  switch (value) {
-    case 'channels':
-      return showChannelConfig(interaction);
-    case 'events':
-      return showEventConfig(interaction);
-    case 'view':
-      return showViewSettings(interaction);
-    case 'test':
-      return showTestMenu(interaction);
+
+  if (value === 'general_channel') {
+    await showChannelSelector(interaction, 'general');
+  } else if (value === 'application_channel') {
+    await showChannelSelector(interaction, 'application');
+  } else if (value === 'event_settings') {
+    await showEventSettings(interaction);
+  } else if (value === 'grouping_settings') {
+    await showGroupingSettings(interaction);
   }
 }
 
-export async function handleChannelSet(interaction, type) {
-  const channelId = interaction.values[0];
-  await Logger.setChannel(interaction.guildId, type, channelId);
+async function showChannelSelector(interaction, type) {
+  const config = await Logger.getSettings(interaction.guildId);
+  const currentChannel = type === 'general' ? config.generalChannelId : config.applicationChannelId;
   
-  await Logger.logSettingsChange(interaction.guildId, {
-    adminId: interaction.user.id,
-    setting: `${type} log channel`,
-    value: `<#${channelId}>`
-  });
-  
-  const embed = new EmbedBuilder()
-    .setDescription(`✅ ${type === 'general' ? 'General' : 'Application'} log channel set to <#${channelId}>`)
-    .setColor(COLORS.SUCCESS);
-  
-  await interaction.reply({ embeds: [embed], ephemeral: true });
-  
-  // Refresh the channel config view
-  return showChannelConfig(interaction);
-}
+  const title = type === 'general' ? '📋 General Log Channel' : '📨 Application Log Channel';
+  const description = currentChannel 
+    ? `**Current:** <#${currentChannel}>\n\nSelect a new channel:`
+    : '**Not configured**\n\nSelect a channel:';
 
-export async function handleEventToggle(interaction) {
-  const eventType = interaction.values[0];
-  const newValue = await Logger.toggleEvent(interaction.guildId, eventType);
-  
-  await Logger.logSettingsChange(interaction.guildId, {
-    adminId: interaction.user.id,
-    setting: `${eventType} logging`,
-    value: newValue ? 'enabled' : 'disabled'
-  });
-  
-  const embed = new EmbedBuilder()
-    .setDescription(`${newValue ? '🟢' : '🔴'} ${eventType} logging ${newValue ? 'enabled' : 'disabled'}`)
-    .setColor(newValue ? COLORS.SUCCESS : COLORS.ERROR);
-  
-  await interaction.reply({ embeds: [embed], ephemeral: true });
-  
-  // Refresh the event config view
-  return showEventConfig(interaction);
-}
+  const channels = interaction.guild.channels.cache
+    .filter(ch => ch.type === ChannelType.GuildText)
+    .map(ch => ({ 
+      label: `#${ch.name}`, 
+      value: ch.id,
+      description: ch.parent?.name || 'No category',
+      default: ch.id === currentChannel
+    }))
+    .slice(0, 25);
 
-export async function handleEnableAll(interaction) {
-  const config = await Logger.getConfig(interaction.guildId);
-  
-  for (const key of Object.keys(config.enabled)) {
-    config.enabled[key] = true;
+  if (channels.length === 0) {
+    return interaction.update({
+      embeds: [embed('❌ No Channels', 'No text channels found.')],
+      components: []
+    });
   }
-  
-  await pool.query(
-    `INSERT INTO guild_settings (guild_id, log_settings) 
-     VALUES ($1, $2) 
-     ON CONFLICT (guild_id) 
-     DO UPDATE SET log_settings = $2`,
-    [interaction.guildId, JSON.stringify(config.enabled)]
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(`set_${type}_log_channel`)
+    .setPlaceholder(`Select ${type} log channel`)
+    .addOptions(channels);
+
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`logging_back_${interaction.user.id}`)
+      .setLabel('← Back to Logging')
+      .setStyle(ButtonStyle.Secondary)
   );
-  
-  await Logger.logSettingsChange(interaction.guildId, {
-    adminId: interaction.user.id,
-    setting: 'all event logging',
-    value: 'enabled'
+
+  await interaction.update({
+    embeds: [embed(title, description)],
+    components: [new ActionRowBuilder().addComponents(menu), backButton]
   });
-  
-  const embed = new EmbedBuilder()
-    .setDescription('✅ All event logging enabled')
-    .setColor(COLORS.SUCCESS);
-  
-  await interaction.reply({ embeds: [embed], ephemeral: true });
-  
-  return showEventConfig(interaction);
 }
 
-export async function handleDisableAll(interaction) {
-  const config = await Logger.getConfig(interaction.guildId);
+async function showEventSettings(interaction) {
+  const config = await Logger.getSettings(interaction.guildId);
   
-  for (const key of Object.keys(config.enabled)) {
-    config.enabled[key] = false;
-  }
-  
-  await pool.query(
-    `INSERT INTO guild_settings (guild_id, log_settings) 
-     VALUES ($1, $2) 
-     ON CONFLICT (guild_id) 
-     DO UPDATE SET log_settings = $2`,
-    [interaction.guildId, JSON.stringify(config.enabled)]
+  const statusText = Object.entries(config.settings)
+    .map(([key, enabled]) => {
+      const label = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      return `${enabled ? '✅' : '❌'} **${label}**`;
+    })
+    .join('\n');
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId('toggle_log_event')
+    .setPlaceholder('Select events to toggle')
+    .addOptions([
+      { label: 'Character Registration', value: 'character_registration' },
+      { label: 'Character Updates', value: 'character_updates' },
+      { label: 'Character Deletion', value: 'character_deletion' },
+      { label: 'Verification', value: 'verification' },
+      { label: 'Timezone Changes', value: 'timezone_changes' },
+      { label: 'Battle Imagine Changes', value: 'battle_imagine_changes' },
+      { label: 'Guild Applications', value: 'guild_applications' },
+      { label: 'Application Votes', value: 'application_votes' },
+      { label: 'Admin Overrides', value: 'admin_overrides' },
+      { label: 'Settings Changes', value: 'settings_changes' },
+      { label: 'Role Changes', value: 'role_changes' }
+    ]);
+
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`logging_back_${interaction.user.id}`)
+      .setLabel('← Back to Logging')
+      .setStyle(ButtonStyle.Secondary)
   );
-  
-  await Logger.logSettingsChange(interaction.guildId, {
-    adminId: interaction.user.id,
-    setting: 'all event logging',
-    value: 'disabled'
+
+  await interaction.update({
+    embeds: [embed('⚙️ Event Logging Settings', statusText)],
+    components: [new ActionRowBuilder().addComponents(menu), backButton]
   });
-  
-  const embed = new EmbedBuilder()
-    .setDescription('🔴 All event logging disabled')
-    .setColor(COLORS.ERROR);
-  
-  await interaction.reply({ embeds: [embed], ephemeral: true });
-  
-  return showEventConfig(interaction);
 }
 
-export async function handleTestLog(interaction) {
-  const testType = interaction.values[0];
+async function showGroupingSettings(interaction) {
+  const config = await Logger.getSettings(interaction.guildId);
   
-  const embed = new EmbedBuilder()
-    .setDescription('🧪 Sending test logs...')
-    .setColor(COLORS.INFO);
-  
-  await interaction.reply({ embeds: [embed], ephemeral: true });
-  
-  // Send test logs based on type
-  // (Implementation would go here)
-  
-  const successEmbed = new EmbedBuilder()
-    .setDescription('✅ Test logs sent! Check your configured channels.')
-    .setColor(COLORS.SUCCESS);
-  
-  await interaction.editReply({ embeds: [successEmbed] });
+  const statusText = 
+    `**Grouping Window:** ${config.grouping.grouping_window_minutes} minutes\n\n` +
+    'Events marked ✅ will be grouped:\n\n' +
+    Object.entries(config.grouping)
+      .filter(([key]) => key !== 'grouping_window_minutes')
+      .map(([key, enabled]) => {
+        const label = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        return `${enabled ? '✅' : '❌'} **${label}**`;
+      })
+      .join('\n');
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId('toggle_log_grouping')
+    .setPlaceholder('Toggle grouping or change window')
+    .addOptions([
+      { label: '⏱️ Change Time Window', value: 'change_window', emoji: '⏱️' },
+      { label: 'Character Registration', value: 'character_registration' },
+      { label: 'Character Updates', value: 'character_updates' },
+      { label: 'Character Deletion', value: 'character_deletion' },
+      { label: 'Verification', value: 'verification' },
+      { label: 'Timezone Changes', value: 'timezone_changes' },
+      { label: 'Battle Imagine Changes', value: 'battle_imagine_changes' },
+      { label: 'Settings Changes', value: 'settings_changes' },
+      { label: 'Role Changes', value: 'role_changes' }
+    ]);
+
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`logging_back_${interaction.user.id}`)
+      .setLabel('← Back to Logging')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  await interaction.update({
+    embeds: [embed('🔄 Log Grouping Settings', statusText)],
+    components: [new ActionRowBuilder().addComponents(menu), backButton]
+  });
+}
+
+export async function handleLoggingBackButton(interaction) {
+  await showLoggingMenu(interaction);
+}
+
+export async function handleSettingsBackButton(interaction) {
+  await showSettingsMenu(interaction);
 }
