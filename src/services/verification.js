@@ -9,31 +9,24 @@ export class VerificationSystem {
     const welcomeText = [
       '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
       '',
-      '\u001b[1;35m' + centerText('/\\\\\\\\_/\\\\\\\\     Welcome to iDolls     /\\\\\\\\_/\\\\\\\\') + '\u001b[0m',
-      '\u001b[1;35m' + centerText('( ^.^ )                         ( ^.^ )') + '\u001b[0m',
-      '\u001b[1;35m' + centerText('> ♡ <                           > ♡ <') + '\u001b[0m',
+      '\u001b[1;35m' + centerText('♡  Welcome to iDolls  ♡') + '\u001b[0m',
+      '',
+      '\u001b[1;35m' + centerText('ᓚᘏᗢ') + '\u001b[0m',
+      '',
+      '\u001b[1;34m' + centerText('Let\'s get you set up! ≽^•⩊•^≼') + '\u001b[0m',
       '',
       '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
       '',
-      '\u001b[1;34m' + centerText('Let\'s get you started! 💫') + '\u001b[0m',
+      '\u001b[1;36m📝 We\'ll need:\u001b[0m',
       '',
-      '\u001b[1;36m📋 What You\'ll Need:\u001b[0m',
-      '',
-      '  \u001b[1;34m•\u001b[0m Your In-Game Name (IGN)',
-      '  \u001b[1;34m•\u001b[0m Your User ID (UID)',
-      '  \u001b[1;34m•\u001b[0m Your Main Class',
-      '  \u001b[1;34m•\u001b[0m Your Guild Choice',
-      '',
-      '\u001b[1;36m✨ What You\'ll Get:\u001b[0m',
-      '',
-      '  \u001b[1;35m✓\u001b[0m Verified Member Status',
-      '  \u001b[1;35m✓\u001b[0m Guild Role & Access',
-      '  \u001b[1;35m✓\u001b[0m Class Role & Perks',
-      '  \u001b[1;35m✓\u001b[0m Full Server Access',
+      '  \u001b[1;34m•\u001b[0m Your IGN',
+      '  \u001b[1;34m•\u001b[0m Your UID',
+      '  \u001b[1;34m•\u001b[0m Your Class',
+      '  \u001b[1;34m•\u001b[0m Your Guild',
       '',
       '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
       '',
-      '\u001b[1;34m' + centerText('Tap the button to register! 💖') + '\u001b[0m',
+      '\u001b[1;34m' + centerText('Tap the button below~ ♡') + '\u001b[0m',
       '',
       '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
     ].join('\n');
@@ -48,9 +41,9 @@ export class VerificationSystem {
       .addComponents(
         new ButtonBuilder()
           .setCustomId('verification_register')
-          .setLabel('✨ Register Character')
+          .setLabel('Register Character')
           .setStyle(ButtonStyle.Primary)
-          .setEmoji('📝')
+          .setEmoji('✨')
       );
 
     return { embeds: [embed], components: [row] };
