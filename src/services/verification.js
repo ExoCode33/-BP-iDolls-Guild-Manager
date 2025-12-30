@@ -9,31 +9,24 @@ export class VerificationSystem {
     const welcomeText = [
       '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
       '',
-      '\u001b[1;35m' + centerText('♡  Welcome to iDolls  ♡') + '\u001b[0m',
+      '\u001b[1;35m' + centerText('Welcome to iDolls ✨') + '\u001b[0m',
       '',
       '\u001b[1;35m' + centerText('ᓚᘏᗢ') + '\u001b[0m',
       '',
-      '\u001b[1;34m' + centerText('Let\'s get you set up! ≽^•⩊•^≼') + '\u001b[0m',
+      '\u001b[1;34m' + centerText('A new adventure awaits! ≽^•⩊•^≼') + '\u001b[0m',
       '',
       '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
       '',
-      '\u001b[1;36m📝 We\'ll need:\u001b[0m',
+      '\u001b[1;36m' + centerText('Register to unlock the full server! ♡') + '\u001b[0m',
       '',
-      '  \u001b[1;34m•\u001b[0m Your IGN',
-      '  \u001b[1;34m•\u001b[0m Your UID',
-      '  \u001b[1;34m•\u001b[0m Your Class',
-      '  \u001b[1;34m•\u001b[0m Your Guild',
-      '',
-      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
-      '',
-      '\u001b[1;34m' + centerText('Tap the button below~ ♡') + '\u001b[0m',
-      '',
-      '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
+      '\u001b[1;34m' + centerText('Press the button below to start~') + '\u001b[0m',
+      ''
     ].join('\n');
 
     const embed = new EmbedBuilder()
       .setColor(COLORS.PRIMARY)
       .setDescription('## **iDolls 💫**\n```ansi\n' + welcomeText + '\n```')
+      .setImage('https://i.imgur.com/YOUR_GIF_URL.gif') // Replace with your GIF URL
       .setFooter({ text: 'iDolls • Registration' })
       .setTimestamp();
 
