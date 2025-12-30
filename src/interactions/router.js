@@ -22,44 +22,6 @@ export async function route(interaction) {
   console.log(`[ROUTER] Button: ${customId}`);
 
   // ═══════════════════════════════════════════════════════════════════
-  // VERIFICATION BUTTONS - MUST BE FIRST TO HANDLE SPECIALLY
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (customId === 'verification_register') {
-    const userId = interaction.user.id;
-    
-    // ✅ Reply EPHEMERALLY so verification embed stays visible
-    await interaction.deferReply({ ephemeral: true });
-    
-    // Now start registration in the ephemeral reply
-    return reg.start(interaction, userId, 'main');
-  }
-
-  if (customId === 'verification_non_player') {
-    try {
-      const config = (await import('../config/index.js')).default;
-      const guild = interaction.guild;
-      const member = await guild.members.fetch(interaction.user.id);
-      
-      if (config.roles.visitor) {
-        await member.roles.add(config.roles.visitor);
-      }
-      
-      // ✅ Reply EPHEMERALLY so verification embed stays visible
-      return interaction.reply({
-        embeds: [successEmbed('Welcome! You now have access to the server. 💫')],
-        ephemeral: true
-      });
-    } catch (error) {
-      console.error('[VERIFICATION] Error:', error);
-      return interaction.reply({
-        embeds: [errorEmbed('Something went wrong. Please contact an admin.')],
-        ephemeral: true
-      });
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
   // REGISTRATION BUTTONS
   // ═══════════════════════════════════════════════════════════════════
 
@@ -211,6 +173,38 @@ export async function route(interaction) {
 
   if (customId.startsWith('app_override_cancel_')) {
     return interaction.update({ content: '❌ Override cancelled.', components: [] });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // VERIFICATION
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (customId === 'verification_register') {
+    const userId = interaction.user.id;
+    return reg.start(interaction, userId, 'main');
+  }
+
+  if (customId === 'verification_non_player') {
+    try {
+      const config = (await import('../config/index.js')).default;
+      const guild = interaction.guild;
+      const member = await guild.members.fetch(interaction.user.id);
+      
+      if (config.roles.visitor) {
+        await member.roles.add(config.roles.visitor);
+      }
+      
+      return interaction.reply({
+        embeds: [successEmbed('Welcome! You now have access to the server. 💫')],
+        ephemeral: true
+      });
+    } catch (error) {
+      console.error('[VERIFICATION] Error:', error);
+      return interaction.reply({
+        embeds: [errorEmbed('Something went wrong. Please contact an admin.')],
+        ephemeral: true
+      });
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
