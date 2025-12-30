@@ -1,6 +1,6 @@
 import { MessageFlags } from 'discord.js';
 import state from '../services/state.js';
-import logger from '../services/consoleLogger.js';
+import logger from '../services/logger.js';
 import config from '../config/index.js';
 import { isEphemeral } from '../services/ephemeral.js';
 import { CharacterRepo, BattleImagineRepo, ApplicationRepo } from '../database/repositories.js';
