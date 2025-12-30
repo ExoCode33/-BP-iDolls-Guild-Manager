@@ -227,29 +227,43 @@ async function showLoggingSettings(interaction) {
 async function showEphemeralSettings(interaction) {
   const current = await EphemeralRepo.get(interaction.guildId);
   
+  // ═══════════════════════════════════════════════════════════
+  // CLEAN EPHEMERAL OPTIONS - ORGANIZED BY TYPE
+  // ═══════════════════════════════════════════════════════════
+  
   const options = [
-    { label: '/edit-character', value: 'edit_character', description: 'Managing your own profile', emoji: '✏️' },
-    { label: '/view-character', value: 'view_character', description: 'Viewing character profiles', emoji: '👁️' },
-    { label: '/character (own profile)', value: 'character_own', description: 'Viewing your own profile (legacy)', emoji: '👤' },
-    { label: '/character @user (view others)', value: 'character_view', description: 'Viewing another user\'s profile (legacy)', emoji: '🔍' },
-    { label: 'Registration Flow', value: 'registration', description: 'Character registration process', emoji: '📝' },
-    { label: 'Edit Actions', value: 'edit', description: 'Character editing interactions', emoji: '🔧' },
-    { label: 'Add Character', value: 'add', description: 'Adding subclasses', emoji: '➕' },
-    { label: 'Delete Character', value: 'delete', description: 'Character deletion confirmations', emoji: '🗑️' },
-    { label: 'Admin Commands', value: 'admin', description: '/admin command responses', emoji: '👑' },
+    // COMMANDS
+    { label: '💬 COMMANDS', value: 'header_commands', description: '────────────────────', emoji: '─', default: false },
+    { label: '/edit-character', value: 'edit_character', description: 'Manage your profile with buttons', emoji: '✏️' },
+    { label: '/view-character', value: 'view_character', description: 'View character profiles', emoji: '👁️' },
+    { label: '/admin', value: 'admin', description: 'Admin command responses', emoji: '⚙️' },
+    
+    // FLOWS
+    { label: '🔄 FLOWS', value: 'header_flows', description: '────────────────────', emoji: '─', default: false },
+    { label: 'Registration', value: 'registration', description: 'New character registration', emoji: '📝' },
+    { label: 'Edit Actions', value: 'edit_actions', description: 'Editing character info', emoji: '🔧' },
+    { label: 'Add Character', value: 'add_character', description: 'Adding subclasses', emoji: '➕' },
+    { label: 'Delete Character', value: 'delete_character', description: 'Character deletion', emoji: '🗑️' },
+    
+    // MESSAGES
+    { label: '💬 MESSAGES', value: 'header_messages', description: '────────────────────', emoji: '─', default: false },
     { label: 'Error Messages', value: 'errors', description: 'Error/validation messages', emoji: '❌' }
-  ].map(opt => ({ ...opt, default: current.includes(opt.value) }));
+  ].map(opt => ({ 
+    ...opt, 
+    default: opt.value.startsWith('header_') ? false : current.includes(opt.value) 
+  }));
   
   const categoryNames = {
+    // Commands
     'edit_character': '✏️ /edit-character',
     'view_character': '👁️ /view-character',
-    'character_own': '👤 /character (own)',
-    'character_view': '🔍 /character @user',
+    'admin': '⚙️ /admin',
+    // Flows
     'registration': '📝 Registration',
-    'edit': '🔧 Edit Actions',
-    'add': '➕ Add',
-    'delete': '🗑️ Delete',
-    'admin': '👑 Admin',
+    'edit_actions': '🔧 Edit Actions',
+    'add_character': '➕ Add Character',
+    'delete_character': '🗑️ Delete Character',
+    // Messages
     'errors': '❌ Errors'
   };
   
@@ -261,12 +275,12 @@ async function showEphemeralSettings(interaction) {
     `**Currently Private:**\n${currentList}\n\n` +
     '✅ Selected = Private (only you see)\n' +
     '❌ Not Selected = Public (everyone sees)\n\n' +
-    '**Recommended Private:**\n' +
-    '• 👤 Own profile\n' +
-    '• 📝 Registration\n' +
-    '• ✏️ Edit\n' +
-    '• 🗑️ Delete\n' +
-    '• ❌ Errors';
+    '**💡 Recommended Settings:**\n' +
+    '• ✏️ /edit-character - Private ✅\n' +
+    '• 👁️ /view-character - Public ❌\n' +
+    '• 📝 Registration - Private ✅\n' +
+    '• 🔧 Edit Actions - Private ✅\n' +
+    '• ❌ Errors - Private ✅';
   
   const rows = [];
   
@@ -526,19 +540,21 @@ export async function handleLogCategoriesSelect(interaction) {
 }
 
 export async function handleEphemeralSelect(interaction) {
-  const selected = interaction.values;
+  // Filter out header values (they're just visual separators)
+  const selected = interaction.values.filter(v => !v.startsWith('header_'));
   await EphemeralRepo.set(interaction.guildId, selected);
   
   const categoryNames = {
+    // Commands
     'edit_character': '✏️ /edit-character',
     'view_character': '👁️ /view-character',
-    'character_own': '👤 /character (own)',
-    'character_view': '🔍 /character @user',
+    'admin': '⚙️ /admin',
+    // Flows
     'registration': '📝 Registration',
-    'edit': '🔧 Edit Actions',
-    'add': '➕ Add',
-    'delete': '🗑️ Delete',
-    'admin': '👑 Admin',
+    'edit_actions': '🔧 Edit Actions',
+    'add_character': '➕ Add Character',
+    'delete_character': '🗑️ Delete Character',
+    // Messages
     'errors': '❌ Errors'
   };
   
