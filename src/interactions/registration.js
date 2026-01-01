@@ -914,10 +914,10 @@ export async function handleIGN(interaction, userId) {
     
     const row = new ActionRowBuilder().addComponents(retryButton);
     
-    await interaction.reply({ 
+    // ✅ FIXED: Use update() instead of reply()
+    await interaction.update({ 
       embeds: [errorEmbed], 
-      components: [row],
-      flags: MessageFlags.Ephemeral
+      components: [row]
     });
     
     return;
@@ -959,14 +959,29 @@ export async function handleIGN(interaction, userId) {
     // ✅ ADD CLASS ROLE
     await classRoleService.addClassRole(userId, currentState.class);
 
-    // ✅ FIXED: Assign roles based on guild selection
+    // Handle guild-specific logic
     if (currentState.guild === 'iDolls' && config.roles.guild1) {
       // Pending application: Give Visitor + Verified roles
       await assignPendingRoles(interaction.client, userId);
       await applicationService.createApplication(userId, character.id, currentState.guild);
-    } else {
-      await assignRoles(interaction.client, userId, currentState.guild, character);
+      
+      // ✅ FIXED: Update the existing message instead of creating a new one
+      await interaction.update({
+        content: '✅ **Registration Complete!**\n\n' +
+                 '📋 Your application to **iDolls** has been submitted to the admin team.\n' +
+                 '⏳ You\'ll be notified once it\'s reviewed!\n\n' +
+                 '💙 In the meantime, you have access to the server as a Verified member.',
+        embeds: [],
+        components: []
+      });
+      
+      logger.register(interaction.user.username, 'main', ign, currentState.class);
+      state.clear(userId, 'reg');
+      return;
     }
+    
+    // For other guilds
+    await assignRoles(interaction.client, userId, currentState.guild, character);
     
     state.clear(userId, 'reg');
 
@@ -976,19 +991,23 @@ export async function handleIGN(interaction, userId) {
     const embed = await profileEmbed(interaction.user, characters, interaction);
     const buttons = ui.profileButtons(userId, !!main);
 
-    await interaction.reply({ 
+    // ✅ FIXED: Use update() instead of reply()
+    await interaction.update({ 
       embeds: [embed], 
-      components: buttons,
-      flags: MessageFlags.Ephemeral
+      components: buttons
     });
 
     logger.register(interaction.user.username, 'main', ign, currentState.class);
+    
   } catch (error) {
     console.error('[REGISTRATION ERROR]', error);
     logger.error('Registration', `Registration error: ${error.message}`, error);
-    await interaction.reply({
+    
+    // ✅ FIXED: Use update() instead of reply()
+    await interaction.update({
       content: '❌ Something went wrong. Please try again!',
-      flags: MessageFlags.Ephemeral
+      embeds: [],
+      components: []
     });
   }
 }
