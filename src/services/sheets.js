@@ -706,13 +706,30 @@ class GoogleSheetsService {
       if (diff.rowsToUpdate.length > 0) {
         console.log(`🔄 [SHEETS] Updating ${diff.rowsToUpdate.length} changed rows...`);
         
-        // ✅ BATCH UPDATE: Use batchUpdate to send multiple rows at once
-        const batchData = diff.rowsToUpdate.map(update => ({
-          range: `Member List!A${update.index + 2}:M${update.index + 2}`,
-          values: [update.data]
-        }));
+        // ✅ CRITICAL FIX: Skip column L (timezone) to preserve formulas!
+        // Update columns A-K and M only, leaving L untouched
+        const batchData = [];
         
-        // Send all updates in one API call (much faster, avoids quota)
+        for (const update of diff.rowsToUpdate) {
+          const rowNum = update.index + 2;
+          
+          // Columns A-K (indices 0-10): Discord Name through Guild
+          const columnsAK = update.data.slice(0, 11);
+          batchData.push({
+            range: `Member List!A${rowNum}:K${rowNum}`,
+            values: [columnsAK]
+          });
+          
+          // Column M (index 12): Registered date
+          // Skip index 11 (column L - timezone with formula)
+          const columnM = [update.data[12]];
+          batchData.push({
+            range: `Member List!M${rowNum}`,
+            values: [columnM]
+          });
+        }
+        
+        // Send all updates in one API call
         try {
           await this.sheets.spreadsheets.values.batchUpdate({
             spreadsheetId: this.spreadsheetId,
@@ -721,7 +738,7 @@ class GoogleSheetsService {
               data: batchData
             }
           });
-          console.log(`✅ [SHEETS] Batch updated ${diff.rowsToUpdate.length} rows in one call`);
+          console.log(`✅ [SHEETS] Batch updated ${diff.rowsToUpdate.length} rows (preserved timezone formulas)`);
         } catch (error) {
           console.error(`❌ [SHEETS] Batch update error:`, error.message);
         }
