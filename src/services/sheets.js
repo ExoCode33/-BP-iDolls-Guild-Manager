@@ -966,10 +966,24 @@ class GoogleSheetsService {
             });
             
             if (i + batchSize < valueUpdates.length) {
-              await new Promise(resolve => setTimeout(resolve, 300));
+              await new Promise(resolve => setTimeout(resolve, 500));  // ✅ Increased from 300ms
             }
           } catch (error) {
-            // Silently continue
+            if (error.message && error.message.includes('Quota exceeded')) {
+              console.log(`   ⚠️  Quota hit in addClassLogos, waiting 3 seconds...`);
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              // Retry once
+              try {
+                await this.sheets.spreadsheets.batchUpdate({
+                  spreadsheetId: this.spreadsheetId,
+                  requestBody: { requests }
+                });
+              } catch (retryError) {
+                console.error(`   ❌ addClassLogos retry failed:`, retryError.message);
+                // Continue to next batch anyway
+              }
+            }
+            // Continue even if error (logos/formulas not critical)
           }
         }
       }
@@ -1270,16 +1284,43 @@ class GoogleSheetsService {
       }
 
       if (requests.length > 0) {
-        const batchSize = 100;
+        const batchSize = 50;  // ✅ Reduced from 100 to 50 (more conservative)
+        console.log(`   📦 Sending ${requests.length} formatting requests in ${Math.ceil(requests.length / batchSize)} batches...`);
+        
         for (let i = 0; i < requests.length; i += batchSize) {
           const batch = requests.slice(i, i + batchSize);
-          await this.sheets.spreadsheets.batchUpdate({
-            spreadsheetId: this.spreadsheetId,
-            requestBody: { requests: batch }
-          });
+          const batchNum = Math.floor(i / batchSize) + 1;
+          const totalBatches = Math.ceil(requests.length / batchSize);
           
+          try {
+            await this.sheets.spreadsheets.batchUpdate({
+              spreadsheetId: this.spreadsheetId,
+              requestBody: { requests: batch }
+            });
+            console.log(`   ✅ Batch ${batchNum}/${totalBatches} complete (${batch.length} requests)`);
+          } catch (error) {
+            if (error.message.includes('Quota exceeded')) {
+              console.log(`   ⚠️  Quota hit on batch ${batchNum}, waiting 5 seconds...`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              // Retry once
+              try {
+                await this.sheets.spreadsheets.batchUpdate({
+                  spreadsheetId: this.spreadsheetId,
+                  requestBody: { requests: batch }
+                });
+                console.log(`   ✅ Batch ${batchNum}/${totalBatches} complete after retry`);
+              } catch (retryError) {
+                console.error(`   ❌ Batch ${batchNum} failed even after retry:`, retryError.message);
+                throw retryError; // Re-throw to stop further batches
+              }
+            } else {
+              throw error;
+            }
+          }
+          
+          // ✅ Increased delay from 200ms to 1000ms (1 second)
           if (i + batchSize < requests.length) {
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
       }
