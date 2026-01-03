@@ -1217,7 +1217,8 @@ class GoogleSheetsService {
         } else if (meta.isAlt) {
           this.addPillBadge(requests, sheetId, rowIndex, 3, { red: 0.96, green: 0.49, blue: 0.13 });
         } else {
-          this.addCleanTextCell(requests, sheetId, rowIndex, 3, 'Subclass', rowBg);
+          // ✅ Subclass: Grey pill badge (same style as Main/Alt)
+          this.addPillBadge(requests, sheetId, rowIndex, 3, { red: 0.62, green: 0.64, blue: 0.66 });
         }
         
         this.addCleanTextCell(requests, sheetId, rowIndex, 4, '', rowBg);
