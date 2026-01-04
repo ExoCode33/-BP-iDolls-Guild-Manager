@@ -7,6 +7,42 @@ export function formatScore(score) {
   return score;
 }
 
+export function formatTime(timestamp) {
+  if (!timestamp) return 'Unknown';
+  const date = new Date(timestamp);
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+export function getRoleEmoji(role) {
+  const roleEmojis = {
+    'Tank': '🛡️',
+    'DPS': '⚔️',
+    'Support': '💚',
+    'Healer': '💚'
+  };
+  return roleEmojis[role] || '🎮';
+}
+
+export function getClassEmoji(className) {
+  const classEmojis = {
+    'Beat Performer': '🎵',
+    'Frost Mage': '❄️',
+    'Heavy Guardian': '🛡️',
+    'Marksman': '🏹',
+    'Shield Knight': '⚔️',
+    'Stormblade': '⚡',
+    'Verdant Oracle': '🌿',
+    'Wind Knight': '💨'
+  };
+  return classEmojis[className] || '🎮';
+}
+
 export function centerText(text, width = 42) {
   const padding = Math.max(0, width - text.length);
   const leftPad = Math.floor(padding / 2);
@@ -133,6 +169,9 @@ export function getTimezoneAbbr(timezoneLabel) {
 
 export default {
   formatScore,
+  formatTime,
+  getRoleEmoji,
+  getClassEmoji,
   centerText,
   getCountryEmoji,
   getTimezoneCities,
