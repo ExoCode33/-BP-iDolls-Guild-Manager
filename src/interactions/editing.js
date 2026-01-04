@@ -855,7 +855,7 @@ export async function showNicknameSelection(interaction, userId) {
     .addOptions(options);
 
   // 🆕 Style selector dropdown
-  const styleOptions = getStyleOptions();
+  const styleOptions = getStyleOptions(previewNickname);
   const styleSelectMenu = new StringSelectMenuBuilder()
     .setCustomId(`edit_select_nickname_style_${userId}`)
     .setPlaceholder('🎨 Select text style')
