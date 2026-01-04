@@ -60,16 +60,26 @@ class ApplicationService {
 
   async handleVote(interaction, applicationId, voteType) {
     try {
+      console.log(`[APP] handleVote called - appId: ${applicationId}, voteType: ${voteType}`);
+      
       const application = await ApplicationRepo.findById(applicationId);
       if (!application) {
+        console.log('[APP] Application not found');
         return interaction.reply({ content: '❌ Application not found.', ephemeral: true });
       }
 
       if (application.status !== 'pending') {
+        console.log('[APP] Application already processed');
         return interaction.reply({ content: '❌ This application is already processed.', ephemeral: true });
       }
 
-      const updated = await ApplicationRepo.addVote(applicationId, interaction.user.id, voteType);
+      // Add the vote
+      await ApplicationRepo.addVote(applicationId, interaction.user.id, voteType);
+      console.log(`[APP] Vote added for user ${interaction.user.id}`);
+      
+      // ✅ REFETCH to get updated vote counts AND message_id/channel_id
+      const updated = await ApplicationRepo.findById(applicationId);
+      console.log(`[APP] Refetched application - accept: ${updated.accept_votes?.length || 0}, deny: ${updated.deny_votes?.length || 0}`);
       
       // ✅ UPDATE THE MESSAGE TO SHOW NEW VOTE COUNTS
       await this.updateApplicationMessage(updated);
@@ -78,11 +88,13 @@ class ApplicationService {
       const denyCount = updated.deny_votes?.length || 0;
 
       if (acceptCount >= 2) {
+        console.log('[APP] 2 accept votes reached - approving');
         await this.approveApplication(updated);
         return interaction.reply({ content: '✅ Application approved! (2 accept votes)', ephemeral: true });
       }
 
       if (denyCount >= 2) {
+        console.log('[APP] 2 deny votes reached - denying');
         await this.denyApplication(updated);
         return interaction.reply({ content: '❌ Application denied! (2 deny votes)', ephemeral: true });
       }
@@ -130,6 +142,8 @@ class ApplicationService {
     }
 
     try {
+      console.log(`[APP] handleOverride called - appId: ${applicationId}, decision: ${decision}, userId: ${interaction.user.id}`);
+      
       const application = await ApplicationRepo.findById(applicationId);
       if (!application) {
         return interaction.update({ content: '❌ Application not found.', components: [] });
@@ -140,9 +154,11 @@ class ApplicationService {
       }
 
       if (decision === 'accept') {
+        console.log(`[APP] Approving via override by ${interaction.user.id}`);
         await this.approveApplication(application, interaction.user.id);
         await interaction.update({ content: '✅ Application approved via admin override.', components: [] });
       } else {
+        console.log(`[APP] Denying via override by ${interaction.user.id}`);
         await this.denyApplication(application, interaction.user.id);
         await interaction.update({ content: '❌ Application denied via admin override.', components: [] });
       }
@@ -158,8 +174,11 @@ class ApplicationService {
 
   async approveApplication(application, overrideBy = null) {
     try {
+      console.log(`[APP] approveApplication - appId: ${application.id}, overrideBy: ${overrideBy}`);
+      
       // Update status first
       await ApplicationRepo.updateStatus(application.id, 'approved');
+      console.log('[APP] Status updated to approved');
 
       const guild = await this.client.guilds.fetch(config.discord.guildId);
       const member = await guild.members.fetch(application.user_id);
@@ -182,21 +201,27 @@ class ApplicationService {
         console.log(`[APP] Removed Visitor role from ${application.user_id}`);
       }
 
-      // ✅ REFETCH the application to ensure we have message_id and channel_id
+      // ✅ REFETCH the application to ensure we have ALL fields including message_id and channel_id
       const updatedApp = await ApplicationRepo.findById(application.id);
+      console.log(`[APP] Refetched app - message_id: ${updatedApp.message_id}, channel_id: ${updatedApp.channel_id}`);
       
       // ✅ UPDATE MESSAGE TO SHOW APPROVAL
+      console.log('[APP] Calling updateApplicationMessage with approved status');
       await this.updateApplicationMessage(updatedApp, 'approved', overrideBy);
 
       logger.info('Application approved', `User: ${application.user_id} | Guild: ${application.guild_name}`);
     } catch (error) {
       console.error('[APP] Approve error:', error);
+      console.error('[APP] Stack:', error.stack);
     }
   }
 
   async denyApplication(application, overrideBy = null) {
     try {
+      console.log(`[APP] denyApplication - appId: ${application.id}, overrideBy: ${overrideBy}`);
+      
       await ApplicationRepo.updateStatus(application.id, 'denied');
+      console.log('[APP] Status updated to denied');
 
       const character = await CharacterRepo.findById(application.character_id);
       if (character) {
@@ -224,28 +249,39 @@ class ApplicationService {
         console.log(`[APP] Ensured Verified role for ${application.user_id}`);
       }
 
-      // ✅ REFETCH the application to ensure we have message_id and channel_id
+      // ✅ REFETCH the application to ensure we have ALL fields including message_id and channel_id
       const updatedApp = await ApplicationRepo.findById(application.id);
+      console.log(`[APP] Refetched app - message_id: ${updatedApp.message_id}, channel_id: ${updatedApp.channel_id}`);
       
       // ✅ UPDATE MESSAGE TO SHOW DENIAL
+      console.log('[APP] Calling updateApplicationMessage with denied status');
       await this.updateApplicationMessage(updatedApp, 'denied', overrideBy);
 
       logger.info('Application denied', `User: ${application.user_id} | Guild: ${application.guild_name}`);
     } catch (error) {
       console.error('[APP] Deny error:', error);
+      console.error('[APP] Stack:', error.stack);
     }
   }
 
   async updateApplicationMessage(application, finalStatus = null, overrideBy = null) {
     try {
+      console.log(`[APP] updateApplicationMessage called - finalStatus: ${finalStatus}, overrideBy: ${overrideBy}`);
+      console.log(`[APP] Application data - id: ${application.id}, message_id: ${application.message_id}, channel_id: ${application.channel_id}`);
+      
       if (!application.message_id || !application.channel_id) {
-        console.log('[APP] Cannot update message - missing message_id or channel_id');
-        console.log('[APP] Application data:', JSON.stringify(application, null, 2));
+        console.error('[APP] CRITICAL: Cannot update message - missing message_id or channel_id');
+        console.error('[APP] Application:', JSON.stringify(application, null, 2));
         return;
       }
 
+      console.log(`[APP] Fetching channel ${application.channel_id}`);
       const channel = await this.client.channels.fetch(application.channel_id);
+      
+      console.log(`[APP] Fetching message ${application.message_id}`);
       const message = await channel.messages.fetch(application.message_id);
+      
+      console.log(`[APP] Fetching user ${application.user_id}`);
       const user = await this.client.users.fetch(application.user_id);
       const characters = await CharacterRepo.findAllByUser(application.user_id);
       
@@ -253,6 +289,7 @@ class ApplicationService {
 
       if (finalStatus) {
         // ✅ FINAL STATUS - Show approval or denial
+        console.log(`[APP] Creating final status embed - ${finalStatus}`);
         const color = finalStatus === 'approved' ? '#00FF00' : '#FF0000';
         const statusText = finalStatus === 'approved' ? '✅ APPROVED' : '❌ DENIED';
         const description = overrideBy 
@@ -261,6 +298,8 @@ class ApplicationService {
             ? 'Approved with 2+ votes' 
             : 'Denied with 2+ votes';
 
+        console.log(`[APP] Status text: ${statusText}, Description: ${description}`);
+
         const embed = await profileEmbed(user, characters, { guild });
         embed.addFields(
           { name: '\u200b', value: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
@@ -268,19 +307,26 @@ class ApplicationService {
         );
         embed.setColor(color);
 
+        console.log('[APP] Editing message with final status');
         await message.edit({ embeds: [embed], components: [] });
-        console.log(`[APP] Updated message to ${statusText}`);
+        console.log(`[APP] ✅ Message updated to ${statusText}`);
       } else {
         // ✅ PENDING STATUS - Update vote counts
+        console.log('[APP] Updating vote counts');
+        console.log(`[APP] Accept votes: ${application.accept_votes?.length || 0}, Deny votes: ${application.deny_votes?.length || 0}`);
+        
         const embed = await profileEmbed(user, characters, { guild });
         const applicationEmbed = addVotingFooter(embed, application);
         const buttons = createApplicationButtons(application.id);
+        
+        console.log('[APP] Editing message with updated votes');
         await message.edit({ embeds: [applicationEmbed], components: buttons });
-        console.log('[APP] Updated message with vote counts');
+        console.log('[APP] ✅ Message updated with vote counts');
       }
     } catch (error) {
-      console.error('[APP] Update message error:', error);
-      console.error('[APP] Application:', application);
+      console.error('[APP] ❌ Update message error:', error);
+      console.error('[APP] Error stack:', error.stack);
+      console.error('[APP] Application data:', JSON.stringify(application, null, 2));
     }
   }
 
