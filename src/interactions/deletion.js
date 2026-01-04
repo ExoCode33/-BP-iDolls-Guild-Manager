@@ -2,6 +2,7 @@ import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, StringSelec
 import { CharacterRepo } from '../database/repositories.js';
 import * as ui from '../ui/components.js';
 import { profileEmbed } from '../ui/embeds.js';
+import { getScoreRange } from '../ui/utils.js';
 import { COLORS } from '../config/game.js';
 import logger from '../services/logger.js';
 import * as classRoleService from '../services/classRoles.js';
@@ -51,12 +52,12 @@ export async function start(interaction, userId) {
     });
   }
 
-  // Add subclass options
+  // ✅ FIXED: Add subclass options with score range
   subclasses.forEach(sub => {
     options.push({
       label: `Subclass: ${sub.class}`,
       value: `subclass_${sub.id}`,
-      description: `${sub.subclass} - ${sub.ability_score}`,
+      description: `${sub.subclass} - ${getScoreRange(sub.ability_score)}`,
       emoji: '✨'
     });
   });
@@ -130,7 +131,7 @@ async function confirmRemoveMain(interaction, userId) {
       `🎮 **IGN:** ${main.ign}\n` +
       `🆔 **UID:** ${main.uid}\n` +
       `🎭 **Class:** ${main.class} - ${main.subclass}\n` +
-      `💪 **Score:** ${main.ability_score}\n` +
+      `💪 **Score:** ${getScoreRange(main.ability_score)}\n` +
       `🏰 **Guild:** ${main.guild}\n\n` +
       (subclasses.length > 0
         ? `⚠️ **This will also remove ${subclasses.length} subclass${subclasses.length > 1 ? 'es' : ''}:**\n` +
@@ -174,7 +175,7 @@ async function confirmRemoveSubclass(interaction, userId, subclassId) {
       '**You are about to remove:**\n\n' +
       `🎭 **Class:** ${subclass.class}\n` +
       `✨ **Subclass:** ${subclass.subclass}\n` +
-      `💪 **Score:** ${subclass.ability_score}\n\n` +
+      `💪 **Score:** ${getScoreRange(subclass.ability_score)}\n\n` +
       '**This action cannot be undone!**'
     )
     .setTimestamp();
@@ -214,7 +215,7 @@ async function confirmRemoveAlt(interaction, userId, altId) {
       `🎮 **IGN:** ${alt.ign}\n` +
       `🆔 **UID:** ${alt.uid}\n` +
       `🎭 **Class:** ${alt.class} - ${alt.subclass}\n` +
-      `💪 **Score:** ${alt.ability_score}\n` +
+      `💪 **Score:** ${getScoreRange(alt.ability_score)}\n` +
       `🏰 **Guild:** ${alt.guild}\n\n` +
       '**This action cannot be undone!**'
     )
