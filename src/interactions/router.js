@@ -69,6 +69,23 @@ export async function route(interaction) {
     if (customId === 'verification_register') {
       await registration.start(interaction, userId);
     }
+    // ✅ NEW: Verification Non-Player Button (I'm just here to vibe)
+    else if (customId === 'verification_non_player') {
+      const config = await import('../config/index.js').then(m => m.default);
+      const guild = await interaction.client.guilds.fetch(config.discord.guildId);
+      const member = await guild.members.fetch(userId);
+      
+      // Add visitor role
+      if (config.roles.visitor) {
+        await member.roles.add(config.roles.visitor);
+        console.log(`✅ [VERIFICATION] Added Visitor role to ${member.user.username}`);
+      }
+      
+      await interaction.reply({
+        content: '✅ **Welcome!** You now have the Visitor role. Enjoy chatting with us! 💕',
+        flags: MessageFlags.Ephemeral
+      });
+    }
     // Registration - Main Character
     else if (customId === `register_${userId}`) {
       await registration.start(interaction, userId);
@@ -92,6 +109,12 @@ export async function route(interaction) {
     // Registration - Alt
     else if (customId === `add_alt_${userId}`) {
       await registration.startAltRegistration(interaction, userId);
+    }
+
+    // ✅ NEW: Add Character Button
+    else if (customId === `add_character_${userId}`) {
+      const { showAddCharacterMenu } = await import('./addCharacter.js');
+      await showAddCharacterMenu(interaction, userId);
     }
 
     // Registration - Back Buttons
@@ -246,6 +269,12 @@ export async function routeSelectMenu(interaction) {
     // Registration - Guild
     else if (customId === `select_guild_${userId}`) {
       await registration.handleGuild(interaction, userId);
+    }
+
+    // ✅ NEW: Add Character Type Selection
+    else if (customId === `select_add_character_type_${userId}`) {
+      const { handleAddCharacterType } = await import('./addCharacter.js');
+      await handleAddCharacterType(interaction, userId);
     }
 
     // Editing - Character Selection
