@@ -331,42 +331,53 @@ export async function routeSelectMenu(interaction) {
     }
 
     // Editing - Character Selection
-    else if (customId === `select_edit_character_${userId}`) {
-      await editing.selectCharacter(interaction, userId);
+    else if (customId.startsWith('select_edit_character_')) {
+      // Extract target user ID from select menu (supports admin editing other users)
+      const targetUserId = customId.replace('select_edit_character_', '');
+      await editing.selectCharacter(interaction, targetUserId);
     }
-    else if (customId === `select_edit_field_${userId}`) {
-      await editing.selectField(interaction, userId);
+    else if (customId.startsWith('select_edit_field_')) {
+      // Extract target user ID from select menu
+      const targetUserId = customId.replace('select_edit_field_', '');
+      await editing.selectField(interaction, targetUserId);
     }
 
     // Editing - Class/Subclass
-    else if (customId === `edit_select_class_${userId}`) {
-      await editing.handleClassEdit(interaction, userId);
+    else if (customId.startsWith('edit_select_class_')) {
+      const targetUserId = customId.replace('edit_select_class_', '');
+      await editing.handleClassEdit(interaction, targetUserId);
     }
-    else if (customId === `edit_select_subclass_${userId}`) {
-      await editing.handleSubclassEdit(interaction, userId);
+    else if (customId.startsWith('edit_select_subclass_')) {
+      const targetUserId = customId.replace('edit_select_subclass_', '');
+      await editing.handleSubclassEdit(interaction, targetUserId);
     }
 
     // Editing - Score
-    else if (customId === `edit_select_score_${userId}`) {
-      await editing.handleScoreEdit(interaction, userId);
+    else if (customId.startsWith('edit_select_score_')) {
+      const targetUserId = customId.replace('edit_select_score_', '');
+      await editing.handleScoreEdit(interaction, targetUserId);
     }
 
     // Editing - Guild
-    else if (customId === `edit_select_guild_${userId}`) {
-      await editing.handleGuildEdit(interaction, userId);
+    else if (customId.startsWith('edit_select_guild_')) {
+      const targetUserId = customId.replace('edit_select_guild_', '');
+      await editing.handleGuildEdit(interaction, targetUserId);
     }
 
     // Editing - Battle Imagines
-    else if (customId === `edit_select_bi_${userId}`) {
-      await editing.selectBattleImagine(interaction, userId);
+    else if (customId.startsWith('edit_select_bi_')) {
+      const targetUserId = customId.replace('edit_select_bi_', '');
+      await editing.selectBattleImagine(interaction, targetUserId);
     }
-    else if (customId === `edit_select_bi_tier_${userId}`) {
-      await editing.handleBattleImagineTierEdit(interaction, userId);
+    else if (customId.startsWith('edit_select_bi_tier_')) {
+      const targetUserId = customId.replace('edit_select_bi_tier_', '');
+      await editing.handleBattleImagineTierEdit(interaction, targetUserId);
     }
 
     // ✅ NEW: Editing - Discord Nickname
-    else if (customId === `edit_select_nickname_${userId}`) {
-      await editing.handleNicknameEdit(interaction, userId);
+    else if (customId.startsWith('edit_select_nickname_')) {
+      const targetUserId = customId.replace('edit_select_nickname_', '');
+      await editing.handleNicknameEdit(interaction, targetUserId);
     }
 
     // Deletion - Remove Type Selection
