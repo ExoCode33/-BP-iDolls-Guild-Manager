@@ -783,7 +783,21 @@ export async function showNicknameSelection(interaction, userId) {
   console.log('[NICKNAME] Proceeding with nickname selection for main:', main.ign);
 
   // Get current nickname preferences and style
-  const prefs = await NicknamePrefsRepo.get(userId);
+  let prefs;
+  try {
+    console.log('[NICKNAME] Fetching nickname preferences...');
+    prefs = await NicknamePrefsRepo.get(userId);
+    console.log('[NICKNAME] Preferences:', prefs);
+  } catch (error) {
+    console.error('[NICKNAME] ERROR fetching preferences:', error.message);
+    await interaction.update({
+      content: '❌ **Database Error**\n\nThe nickname preferences table is not set up yet. Please restart the bot to run the database migration.\n\nError: ' + error.message,
+      components: [],
+      embeds: []
+    });
+    return;
+  }
+  
   const { characterIds, style } = prefs;
   const currentNickname = await buildNickname(userId);
 
