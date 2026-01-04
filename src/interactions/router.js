@@ -86,17 +86,28 @@ export async function route(interaction) {
       await editing.retryUIDEdit(interaction, userId);
     }
 
-    // Deletion
-    else if (customId === `delete_character_${userId}`) {
+    // Deletion/Removal
+    else if (customId === `remove_character_${userId}`) {
       await deletion.start(interaction, userId);
     }
-    else if (customId.startsWith('confirm_delete_')) {
-      const parts = customId.split('_');
-      const characterId = parseInt(parts[parts.length - 1]);
-      await deletion.confirmDelete(interaction, userId, characterId);
+    else if (customId === `confirm_remove_main_${userId}`) {
+      await deletion.executeRemoveMain(interaction, userId);
     }
-    else if (customId === `cancel_delete_${userId}`) {
-      await deletion.cancelDelete(interaction, userId);
+    else if (customId.startsWith('confirm_remove_subclass_')) {
+      const parts = customId.split('_');
+      const subclassId = parseInt(parts[parts.length - 1]);
+      await deletion.executeRemoveSubclass(interaction, userId, subclassId);
+    }
+    else if (customId.startsWith('confirm_remove_alt_')) {
+      const parts = customId.split('_');
+      const altId = parseInt(parts[parts.length - 1]);
+      await deletion.executeRemoveAlt(interaction, userId, altId);
+    }
+    else if (customId === `confirm_remove_all_${userId}`) {
+      await deletion.executeRemoveAll(interaction, userId);
+    }
+    else if (customId === `cancel_remove_${userId}`) {
+      await deletion.cancelRemove(interaction, userId);
     }
 
     // Profile / Back to Profile
@@ -220,9 +231,9 @@ export async function routeSelectMenu(interaction) {
       await editing.handleBattleImagineTierEdit(interaction, userId);
     }
 
-    // Deletion - Character Selection
-    else if (customId === `select_delete_character_${userId}`) {
-      await deletion.selectCharacter(interaction, userId);
+    // Deletion - Remove Type Selection
+    else if (customId === `select_remove_type_${userId}`) {
+      await deletion.selectRemoveType(interaction, userId);
     }
 
     else {
