@@ -986,16 +986,22 @@ export async function handleNicknameEdit(interaction, userId) {
 export async function handleNicknameStyleEdit(interaction, userId) {
   const selectedStyle = interaction.values[0];
   
+  console.log('[NICKNAME STYLE] User:', userId, 'Selected style:', selectedStyle);
+  
   try {
     // Save the new style
+    console.log('[NICKNAME STYLE] Saving style to database...');
     await NicknamePrefsRepo.setStyle(userId, selectedStyle);
-    console.log('[EDIT] Updated nickname style:', selectedStyle);
+    console.log('[NICKNAME STYLE] Style saved successfully');
 
     // Update Discord nickname with new style
+    console.log('[NICKNAME STYLE] Updating Discord nickname...');
     const result = await updateNickname(interaction.client, config.discord.guildId, userId);
+    console.log('[NICKNAME STYLE] Update result:', result);
     
     // Build preview with new style
     const newNickname = await buildNickname(userId);
+    console.log('[NICKNAME STYLE] New nickname:', newNickname);
 
     // Show updated profile
     const characters = await CharacterRepo.findAllByUser(userId);
@@ -1011,19 +1017,21 @@ export async function handleNicknameStyleEdit(interaction, userId) {
       inline: false
     });
 
+    console.log('[NICKNAME STYLE] Sending update to Discord...');
     await interaction.update({
       embeds: [embed],
       components: buttons
     });
+    console.log('[NICKNAME STYLE] ✅ Success!');
 
     logger.edit(interaction.user.username, 'Discord Nickname', 'style', selectedStyle);
     state.clear(userId, 'edit');
   } catch (error) {
-    console.error('[EDIT ERROR]', error);
+    console.error('[NICKNAME STYLE ERROR]', error);
     logger.error('Edit', `Nickname style edit error: ${error.message}`, error);
 
     await interaction.update({
-      content: '❌ Something went wrong. Please try again!',
+      content: '❌ Something went wrong. Please try again!\n\nError: ' + error.message,
       components: []
     });
   }
