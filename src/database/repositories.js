@@ -285,7 +285,7 @@ export const ApplicationRepo = {
        (user_id, character_id, guild_name, message_id, channel_id, status, accept_votes, deny_votes, created_at, updated_at) 
        VALUES ($1, $2, $3, $4, $5, 'pending', '{}', '{}', NOW(), NOW()) 
        RETURNING *`,
-      [user_id, character_id, guild_name, message_id, channel_id]
+      [user_id, parseInt(character_id), guild_name, message_id, channel_id]  // ✅ Convert character_id to int
     );
     
     console.log('[APP REPO] Created application:', result.rows[0]);
@@ -295,7 +295,7 @@ export const ApplicationRepo = {
   async findById(id) {
     const result = await db.query(
       `SELECT * FROM guild_applications WHERE id = $1`,
-      [id]
+      [parseInt(id)]  // ✅ Convert to int
     );
     return result.rows[0];
   },
@@ -303,7 +303,7 @@ export const ApplicationRepo = {
   async findByCharacterId(characterId) {
     const result = await db.query(
       `SELECT * FROM guild_applications WHERE character_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [characterId]
+      [parseInt(characterId)]  // ✅ Convert to int
     );
     return result.rows[0];
   },
@@ -311,7 +311,7 @@ export const ApplicationRepo = {
   async findAllByUserAndCharacter(userId, characterId) {
     const result = await db.query(
       `SELECT * FROM guild_applications WHERE user_id = $1 AND character_id = $2 ORDER BY created_at DESC LIMIT 1`,
-      [userId, characterId]
+      [userId, parseInt(characterId)]  // ✅ Convert to int
     );
     return result.rows[0];
   },
@@ -335,7 +335,7 @@ export const ApplicationRepo = {
     });
 
     fields.push(`updated_at = NOW()`);
-    values.push(id);
+    values.push(parseInt(id));  // ✅ Convert to int
 
     const query = `UPDATE guild_applications SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
     
@@ -351,7 +351,7 @@ export const ApplicationRepo = {
   async updateStatus(id, status) {
     const result = await db.query(
       `UPDATE guild_applications SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *`,
-      [id, status]
+      [parseInt(id), status]  // ✅ Convert to int
     );
     return result.rows[0];
   },
@@ -367,13 +367,13 @@ export const ApplicationRepo = {
            updated_at = NOW()
        WHERE id = $1 
        RETURNING *`,
-      [id, userId]
+      [parseInt(id), userId]  // ✅ Convert to int
     );
     return result.rows[0];
   },
 
   async delete(id) {
-    await db.query('DELETE FROM guild_applications WHERE id = $1', [id]);
+    await db.query('DELETE FROM guild_applications WHERE id = $1', [parseInt(id)]);  // ✅ Convert to int
   }
 };
 
