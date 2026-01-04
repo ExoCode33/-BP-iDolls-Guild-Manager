@@ -7,16 +7,25 @@ export function formatScore(score) {
   return score;
 }
 
-export function formatTime(timestamp) {
-  if (!timestamp) return 'Unknown';
-  const date = new Date(timestamp);
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+export function formatTime(timezone) {
+  if (!timezone) return 'Unknown';
+  
+  try {
+    // timezone is a string like "America/New_York", so show current time in that timezone
+    const now = new Date();
+    return now.toLocaleString('en-US', {
+      timeZone: timezone,
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (error) {
+    console.error('[FORMAT TIME] Invalid timezone:', timezone, error);
+    return 'Unknown';
+  }
 }
 
 export function getRoleEmoji(role) {
