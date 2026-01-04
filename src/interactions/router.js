@@ -190,6 +190,11 @@ export async function route(interaction) {
       await editing.retryUIDEdit(interaction, userId);
     }
 
+    // 🆕 Discord Nickname (Main Button)
+    else if (customId === `discord_nickname_${userId}`) {
+      await editing.showNicknameSelection(interaction, userId);
+    }
+
     // Deletion/Removal
     else if (customId === `remove_character_${userId}`) {
       await deletion.start(interaction, userId);
