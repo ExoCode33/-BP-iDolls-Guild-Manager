@@ -158,6 +158,7 @@ class ApplicationService {
 
   async approveApplication(application, overrideBy = null) {
     try {
+      // Update status first
       await ApplicationRepo.updateStatus(application.id, 'approved');
 
       const guild = await this.client.guilds.fetch(config.discord.guildId);
@@ -181,8 +182,11 @@ class ApplicationService {
         console.log(`[APP] Removed Visitor role from ${application.user_id}`);
       }
 
+      // ✅ REFETCH the application to ensure we have message_id and channel_id
+      const updatedApp = await ApplicationRepo.findById(application.id);
+      
       // ✅ UPDATE MESSAGE TO SHOW APPROVAL
-      await this.updateApplicationMessage(application, 'approved', overrideBy);
+      await this.updateApplicationMessage(updatedApp, 'approved', overrideBy);
 
       logger.info('Application approved', `User: ${application.user_id} | Guild: ${application.guild_name}`);
     } catch (error) {
@@ -220,8 +224,11 @@ class ApplicationService {
         console.log(`[APP] Ensured Verified role for ${application.user_id}`);
       }
 
+      // ✅ REFETCH the application to ensure we have message_id and channel_id
+      const updatedApp = await ApplicationRepo.findById(application.id);
+      
       // ✅ UPDATE MESSAGE TO SHOW DENIAL
-      await this.updateApplicationMessage(application, 'denied', overrideBy);
+      await this.updateApplicationMessage(updatedApp, 'denied', overrideBy);
 
       logger.info('Application denied', `User: ${application.user_id} | Guild: ${application.guild_name}`);
     } catch (error) {
@@ -231,7 +238,11 @@ class ApplicationService {
 
   async updateApplicationMessage(application, finalStatus = null, overrideBy = null) {
     try {
-      if (!application.message_id || !application.channel_id) return;
+      if (!application.message_id || !application.channel_id) {
+        console.log('[APP] Cannot update message - missing message_id or channel_id');
+        console.log('[APP] Application data:', JSON.stringify(application, null, 2));
+        return;
+      }
 
       const channel = await this.client.channels.fetch(application.channel_id);
       const message = await channel.messages.fetch(application.message_id);
@@ -258,15 +269,18 @@ class ApplicationService {
         embed.setColor(color);
 
         await message.edit({ embeds: [embed], components: [] });
+        console.log(`[APP] Updated message to ${statusText}`);
       } else {
         // ✅ PENDING STATUS - Update vote counts
         const embed = await profileEmbed(user, characters, { guild });
         const applicationEmbed = addVotingFooter(embed, application);
         const buttons = createApplicationButtons(application.id);
         await message.edit({ embeds: [applicationEmbed], components: buttons });
+        console.log('[APP] Updated message with vote counts');
       }
     } catch (error) {
       console.error('[APP] Update message error:', error);
+      console.error('[APP] Application:', application);
     }
   }
 
