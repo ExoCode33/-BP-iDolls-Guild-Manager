@@ -1141,7 +1141,7 @@ export async function retryIGN(interaction, userId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// SUBCLASS REGISTRATION
+// SUBCLASS REGISTRATION (✅ FIXED - ALLOWS UP TO 3 SUBCLASSES)
 // ═══════════════════════════════════════════════════════════════════
 
 export async function startSubclassRegistration(interaction, userId, parentId) {
@@ -1182,14 +1182,13 @@ export async function startSubclassRegistration(interaction, userId, parentId) {
     });
   }
 
-  // Check if they already have a subclass with this parent
+  // ✅ FIXED: Check if they already have 3 subclasses (max limit)
   const existingSubs = await CharacterRepo.findSubclasses(userId);
-  const hasSubForThisParent = existingSubs.some(sub => sub.parent_character_id === actualParentId);
   
-  if (hasSubForThisParent) {
+  if (existingSubs.length >= 3) {
     clearActiveInteraction(userId);
     return interaction.update({
-      content: '❌ You already have a subclass for your main character! You can only have one subclass per main character.',
+      content: '❌ You already have 3 subclasses! That\'s the maximum allowed. Delete a subclass if you want to add a new one.',
       components: []
     });
   }
