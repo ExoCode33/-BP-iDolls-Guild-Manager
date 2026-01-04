@@ -3,11 +3,11 @@ import { CharacterRepo, UserRepo, BattleImagineRepo, TimezoneRepo } from '../dat
 import { updateNickname } from '../services/nickname.js';
 import * as ui from '../ui/components.js';
 import { profileEmbed } from '../ui/embeds.js';
-import { CLASSES, ABILITY_SCORES, REGIONS, COLORS } from '../config/game.js';
+import { CLASSES, ABILITY_SCORES, REGIONS, COLORS, TIERS } from '../config/game.js';
 import config from '../config/index.js';
 import logger from '../services/logger.js';
 import * as classRoleService from '../services/classRoles.js';
-import * as applicationService from '../services/applications.js';
+import applicationService from '../services/applications.js';
 import state from '../services/state.js';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -38,6 +38,168 @@ function clearActiveInteraction(userId) {
 // UTILITY FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════
 
+function centerText(text, width = 42) {
+  return text.padStart((text.length + width) / 2).padEnd(width);
+}
+
+function createRegEmbed(step, total, title, description) {
+  const titleLine = centerText(title);
+  const descLines = description.split('\n').map(line => centerText(line));
+  
+  const progress = step / total;
+  const filledBars = Math.floor(progress * 10);
+  const emptyBars = 10 - filledBars;
+  const progressBar = '♥'.repeat(filledBars) + '♡'.repeat(emptyBars);
+  const progressText = `${progressBar} ${step}/${total}`;
+  
+  const ansiText = [
+    '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
+    `\u001b[1;34m${titleLine}\u001b[0m`,
+    '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m',
+    '',
+    ...descLines.map(line => `\u001b[0;37m${line}\u001b[0m`),
+    '',
+    `\u001b[1;35m${centerText(progressText)}\u001b[0m`,
+    '\u001b[35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m'
+  ].join('\n');
+
+  return new EmbedBuilder()
+    .setColor('#EC4899')
+    .setDescription(`\`\`\`ansi\n${ansiText}\n\`\`\``)
+    .setTimestamp();
+}
+
+function getClassIconId(className) {
+  const iconMap = {
+    'Beat Performer': '1448837920931840021',
+    'Frost Mage': '1448837917144387604',
+    'Heavy Guardian': '1448837916171309147',
+    'Marksman': '1448837914338267350',
+    'Shield Knight': '1448837913218388000',
+    'Stormblade': '1448837911838593188',
+    'Verdant Oracle': '1448837910294958140',
+    'Wind Knight': '1448837908302925874'
+  };
+  return iconMap[className] || null;
+}
+
+function getTimezoneAbbr(timezoneLabel) {
+  const match = timezoneLabel.match(/^([A-Z]+)/);
+  return match ? match[1] : timezoneLabel;
+}
+
+function getCountryEmoji(countryName) {
+  const emojiMap = {
+    'United States': '🇺🇸',
+    'Canada': '🇨🇦',
+    'Mexico': '🇲🇽',
+    'Brazil': '🇧🇷',
+    'Argentina': '🇦🇷',
+    'Chile': '🇨🇱',
+    'Colombia': '🇨🇴',
+    'Peru': '🇵🇪',
+    'United Kingdom': '🇬🇧',
+    'France': '🇫🇷',
+    'Germany': '🇩🇪',
+    'Italy': '🇮🇹',
+    'Spain': '🇪🇸',
+    'Netherlands': '🇳🇱',
+    'Belgium': '🇧🇪',
+    'Austria': '🇦🇹',
+    'Poland': '🇵🇱',
+    'Sweden': '🇸🇪',
+    'Greece': '🇬🇷',
+    'Turkey': '🇹🇷',
+    'Russia': '🇷🇺',
+    'Japan': '🇯🇵',
+    'South Korea': '🇰🇷',
+    'China': '🇨🇳',
+    'Hong Kong': '🇭🇰',
+    'Taiwan': '🇹🇼',
+    'Singapore': '🇸🇬',
+    'Thailand': '🇹🇭',
+    'Vietnam': '🇻🇳',
+    'Philippines': '🇵🇭',
+    'Indonesia': '🇮🇩',
+    'India': '🇮🇳',
+    'UAE': '🇦🇪',
+    'Saudi Arabia': '🇸🇦',
+    'Australia': '🇦🇺',
+    'New Zealand': '🇳🇿',
+    'Fiji': '🇫🇯',
+    'South Africa': '🇿🇦',
+    'Egypt': '🇪🇬',
+    'Nigeria': '🇳🇬',
+    'Kenya': '🇰🇪',
+    'Morocco': '🇲🇦'
+  };
+  return emojiMap[countryName] || '🌍';
+}
+
+function getTimezoneCities(tzLabel) {
+  const cityExamples = {
+    'EST (Eastern)': 'New York, Toronto, Miami',
+    'CST (Central)': 'Chicago, Mexico City, Winnipeg',
+    'MST (Mountain)': 'Denver, Phoenix, Edmonton',
+    'PST (Pacific)': 'Los Angeles, Vancouver, Seattle',
+    'AKST (Alaska)': 'Anchorage, Juneau',
+    'HST (Hawaii)': 'Honolulu, Hilo',
+    'AST (Atlantic)': 'Halifax, San Juan',
+    'GMT (London)': 'London, Dublin, Lisbon',
+    'CET (Paris)': 'Paris, Berlin, Rome',
+    'CET (Berlin)': 'Berlin, Amsterdam, Brussels',
+    'CET (Rome)': 'Rome, Vienna, Stockholm',
+    'CET (Madrid)': 'Madrid, Barcelona',
+    'CET (Amsterdam)': 'Amsterdam, Copenhagen',
+    'CET (Brussels)': 'Brussels, Luxembourg',
+    'CET (Vienna)': 'Vienna, Prague',
+    'CET (Warsaw)': 'Warsaw, Budapest',
+    'CET (Stockholm)': 'Stockholm, Oslo',
+    'EET (Athens)': 'Athens, Helsinki, Cairo',
+    'TRT (Istanbul)': 'Istanbul, Ankara',
+    'MSK (Moscow)': 'Moscow, St. Petersburg',
+    'YEKT (Yekaterinburg)': 'Yekaterinburg',
+    'NOVT (Novosibirsk)': 'Novosibirsk',
+    'VLAT (Vladivostok)': 'Vladivostok',
+    'JST (Tokyo)': 'Tokyo, Osaka, Seoul',
+    'KST (Seoul)': 'Seoul, Busan',
+    'CST (Beijing)': 'Beijing, Shanghai, Hong Kong',
+    'HKT (Hong Kong)': 'Hong Kong, Macau',
+    'CST (Taipei)': 'Taipei, Kaohsiung',
+    'SGT (Singapore)': 'Singapore, Kuala Lumpur',
+    'ICT (Bangkok)': 'Bangkok, Hanoi, Jakarta',
+    'ICT (Ho Chi Minh)': 'Ho Chi Minh, Phnom Penh',
+    'PST (Manila)': 'Manila, Cebu',
+    'WIB (Jakarta)': 'Jakarta, Bandung',
+    'WITA (Bali)': 'Bali, Makassar',
+    'IST (New Delhi)': 'New Delhi, Mumbai, Bangalore',
+    'GST (Dubai)': 'Dubai, Abu Dhabi',
+    'AST (Riyadh)': 'Riyadh, Jeddah',
+    'AEDT (Sydney)': 'Sydney, Melbourne',
+    'AEST (Brisbane)': 'Brisbane, Gold Coast',
+    'ACDT (Adelaide)': 'Adelaide',
+    'AWST (Perth)': 'Perth',
+    'ACST (Darwin)': 'Darwin',
+    'NZDT (Auckland)': 'Auckland, Wellington',
+    'FJT (Suva)': 'Suva, Nadi',
+    'SAST (Johannesburg)': 'Johannesburg, Cape Town',
+    'EET (Cairo)': 'Cairo, Alexandria',
+    'WAT (Lagos)': 'Lagos, Accra',
+    'EAT (Nairobi)': 'Nairobi, Kampala',
+    'WET (Casablanca)': 'Casablanca, Rabat',
+    'BRT (Brasília)': 'São Paulo, Rio de Janeiro',
+    'AMT (Amazon)': 'Manaus',
+    'ART (Buenos Aires)': 'Buenos Aires, Córdoba',
+    'CLT (Santiago)': 'Santiago, Valparaíso',
+    'COT (Bogotá)': 'Bogotá, Medellín',
+    'PET (Lima)': 'Lima, Cusco',
+    'CST (Central)': 'Mexico City, Guadalajara',
+    'MST (Mountain)': 'Chihuahua, Hermosillo',
+    'PST (Pacific)': 'Tijuana, Mexicali'
+  };
+  return cityExamples[tzLabel] || tzLabel.split('(')[1]?.replace(')', '') || tzLabel;
+}
+
 function getTotalSteps(characterType) {
   if (characterType === 'subclass' || characterType === 'main_subclass') {
     return 3; // Class, Subclass, Score
@@ -51,18 +213,6 @@ function getTotalSteps(characterType) {
   // Main character
   const battleImagineSteps = config.battleImagines.length;
   return 10 + battleImagineSteps; // Region, Country, Timezone, Class, Subclass, Score, BIs, Guild, IGN/UID
-}
-
-function createRegEmbed(step, totalSteps, title, description) {
-  return new EmbedBuilder()
-    .setColor(COLORS.PRIMARY)
-    .setDescription(
-      `# ${title}\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `${description}\n\n` +
-      `**Step ${step}/${totalSteps}**`
-    )
-    .setTimestamp();
 }
 
 async function assignRoles(client, userId, guildName, character) {
@@ -140,7 +290,7 @@ export async function start(interaction, userId) {
   
   if (existingMain) {
     // Show warning about replacing main
-    const subclasses = await CharacterRepo.findSubclasses(userId);
+    const subclasses = await CharacterRepo.findSubclasses(existingMain.id);
     
     const warningEmbed = new EmbedBuilder()
       .setColor('#FF9900')
@@ -187,17 +337,18 @@ export async function start(interaction, userId) {
   state.set(userId, 'reg', { type: 'main' });
   
   const totalSteps = getTotalSteps('main');
-  const embed = createRegEmbed(1, totalSteps, '🌎 Region Selection', 'Choose your region');
+  const embed = createRegEmbed(1, totalSteps, '🌍 Choose Your Region', 'Where are you playing from?');
 
   const regionOptions = Object.keys(REGIONS).map(region => ({
     label: region,
     value: region,
-    emoji: region === 'North America' ? '🌎' : region === 'South America' ? '🌎' : region === 'Europe' ? '🌍' : region === 'Asia' ? '🌏' : region === 'Oceania' ? '🌏' : '🌍'
+    emoji: '🌍',
+    description: 'Select your region'
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_region_${userId}`)
-    .setPlaceholder('🌎 Select your region')
+    .setPlaceholder('🌍 Pick your region')
     .addOptions(regionOptions);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
@@ -263,17 +414,18 @@ export async function confirmReplaceMain(interaction, userId) {
     state.set(userId, 'reg', { type: 'main' });
     
     const totalSteps = getTotalSteps('main');
-    const embed = createRegEmbed(1, totalSteps, '🌎 Region Selection', 'Choose your region');
+    const embed = createRegEmbed(1, totalSteps, '🌍 Choose Your Region', 'Where are you playing from?');
 
     const regionOptions = Object.keys(REGIONS).map(region => ({
       label: region,
       value: region,
-      emoji: region === 'North America' ? '🌎' : region === 'South America' ? '🌎' : region === 'Europe' ? '🌍' : region === 'Asia' ? '🌏' : region === 'Oceania' ? '🌏' : '🌍'
+      emoji: '🌍',
+      description: 'Select your region'
     }));
 
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId(`select_region_${userId}`)
-      .setPlaceholder('🌎 Select your region')
+      .setPlaceholder('🌍 Pick your region')
       .addOptions(regionOptions);
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
@@ -321,24 +473,28 @@ export async function handleRegion(interaction, userId) {
   
   setActiveInteraction(userId, interaction.id);
   
-  const regionName = interaction.values[0];
-  const currentState = state.get(userId, 'reg');
-  state.set(userId, 'reg', { ...currentState, region: regionName });
+  const region = interaction.values[0];
+  const currentState = state.get(userId, 'reg') || {};
+  state.set(userId, 'reg', { ...currentState, region });
 
-  const region = REGIONS[regionName];
-  const totalSteps = getTotalSteps(currentState.type || 'main');
-  
-  const embed = createRegEmbed(2, totalSteps, '🏳️ Country Selection', `Region: ${regionName}`);
+  const totalSteps = getTotalSteps('main');
+  const embed = createRegEmbed(2, totalSteps, '🏳️ Choose Your Country', `Region: ${region}`);
 
-  const countryOptions = Object.keys(region).map(country => ({
-    label: country,
-    value: country,
-    emoji: '🏳️'
-  }));
+  const countries = Object.keys(REGIONS[region]);
+  const countryOptions = countries.map(country => {
+    const countryName = country.replace(/^[\u{1F1E6}-\u{1F1FF}]{2}\s*/u, '');
+    const emoji = getCountryEmoji(countryName);
+    return {
+      label: countryName,
+      value: country,
+      description: emoji + ' ' + region,
+      emoji: emoji
+    };
+  });
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_country_${userId}`)
-    .setPlaceholder('🏳️ Select your country')
+    .setPlaceholder('🏳️ Pick your country')
     .addOptions(countryOptions);
 
   const backButton = new ButtonBuilder()
@@ -362,25 +518,31 @@ export async function handleCountry(interaction, userId) {
   
   setActiveInteraction(userId, interaction.id);
   
-  const countryName = interaction.values[0];
   const currentState = state.get(userId, 'reg');
-  state.set(userId, 'reg', { ...currentState, country: countryName });
+  const country = interaction.values[0];
+  state.set(userId, 'reg', { ...currentState, country });
 
-  const totalSteps = getTotalSteps(currentState.type || 'main');
-  const embed = createRegEmbed(3, totalSteps, '🕐 Timezone Selection', `Country: ${countryName}`);
+  const totalSteps = getTotalSteps('main');
+  const countryName = country.replace(/^[\u{1F1E6}-\u{1F1FF}]{2}\s*/u, '');
+  const embed = createRegEmbed(3, totalSteps, '🕐 Choose Your Timezone', `Country: ${countryName}`);
 
-  const region = REGIONS[currentState.region];
-  const timezones = region[countryName];
-
-  const timezoneOptions = Object.entries(timezones).map(([label, value]) => ({
-    label: label,
-    value: value,
-    emoji: '🕐'
-  }));
+  const timezones = REGIONS[currentState.region][country];
+  
+  const timezoneOptions = Object.keys(timezones).map(tzLabel => {
+    const cities = getTimezoneCities(tzLabel);
+    const abbr = tzLabel.split(' ')[0];
+    
+    return {
+      label: abbr,
+      value: timezones[tzLabel],
+      description: cities,
+      emoji: '🕐'
+    };
+  });
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_timezone_${userId}`)
-    .setPlaceholder('🕐 Select your timezone')
+    .setPlaceholder('🕐 Pick your timezone')
     .addOptions(timezoneOptions);
 
   const backButton = new ButtonBuilder()
@@ -404,26 +566,38 @@ export async function handleTimezone(interaction, userId) {
   
   setActiveInteraction(userId, interaction.id);
   
-  const timezone = interaction.values[0];
   const currentState = state.get(userId, 'reg');
-  state.set(userId, 'reg', { ...currentState, timezone });
-
-  // Save timezone to user table
+  const timezone = interaction.values[0];
+  
+  let timezoneAbbr = '';
+  const timezones = REGIONS[currentState.region][currentState.country];
+  for (const [label, tz] of Object.entries(timezones)) {
+    if (tz === timezone) {
+      timezoneAbbr = getTimezoneAbbr(label);
+      break;
+    }
+  }
+  
   await TimezoneRepo.set(userId, timezone);
-  console.log('[REGISTRATION] Saved timezone for user:', userId, timezone);
+  state.set(userId, 'reg', { ...currentState, timezone, timezoneAbbr });
 
-  const totalSteps = getTotalSteps(currentState.type || 'main');
-  const embed = createRegEmbed(4, totalSteps, '🎭 Class Selection', `Timezone: ${timezone}`);
-
-  const classOptions = Object.entries(CLASSES).map(([name, data]) => {
-    const iconId = data.iconId || null;
-    return {
-      label: name,
-      value: name,
-      description: data.role,
-      emoji: iconId ? { id: iconId } : data.emoji
-    };
+  const now = new Date();
+  const timeString = now.toLocaleTimeString('en-US', { 
+    timeZone: timezone, 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true 
   });
+
+  const totalSteps = getTotalSteps('main');
+  const embed = createRegEmbed(4, totalSteps, '🎭 Which class speaks to you?', `Timezone: ${timezoneAbbr} • ${timeString}`);
+
+  const classOptions = Object.entries(CLASSES).map(([name, data]) => ({
+    label: name,
+    value: name,
+    description: data.role,
+    emoji: data.iconId ? { id: data.iconId } : data.emoji
+  }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_class_${userId}`)
@@ -471,11 +645,11 @@ export async function handleClass(interaction, userId) {
   else if (isAlt) stepNum = 2;
   else stepNum = 5;
   
-  const embed = createRegEmbed(stepNum, totalSteps, '✨ Subclass Selection', `Class: ${className}`);
+  const embed = createRegEmbed(stepNum, totalSteps, '✨ Subclass selection!', `Class: ${className}`);
 
   const subclassOptions = subclasses.map(subclassName => {
     const roleEmoji = classRole === 'Tank' ? '🛡️' : classRole === 'DPS' ? '⚔️' : '💚';
-    const iconId = CLASSES[className]?.iconId || null;
+    const iconId = getClassIconId(className);
     
     return {
       label: subclassName,
@@ -638,55 +812,66 @@ export async function handleScore(interaction, userId) {
 
 async function showBattleImagineSelection(interaction, userId) {
   const currentState = state.get(userId, 'reg');
-  const imagineIndex = currentState.currentImagineIndex || 0;
+  const { currentImagineIndex, battleImagines } = currentState;
   
-  if (imagineIndex >= config.battleImagines.length) {
-    // All battle imagines collected, move to guild selection
+  if (currentImagineIndex >= config.battleImagines.length) {
     await showGuildSelection(interaction, userId);
     return;
   }
   
-  const currentImagine = config.battleImagines[imagineIndex];
+  const currentImagine = config.battleImagines[currentImagineIndex];
   const isAlt = currentState.type === 'alt';
   const totalSteps = getTotalSteps(currentState.type || 'main');
   
   let stepNum;
   if (isAlt) {
-    stepNum = 4 + imagineIndex;
+    stepNum = 4 + currentImagineIndex;
   } else {
-    stepNum = 7 + imagineIndex;
+    stepNum = 7 + currentImagineIndex;
   }
+  
+  const title = `⚔️ Battle Imagine - ${currentImagine.name}`;
   
   const embed = createRegEmbed(
     stepNum, 
     totalSteps, 
-    `⚔️ ${currentImagine.name} Battle Imagine`, 
-    `Select your ${currentImagine.name} tier (or None)`
+    title,
+    `Do you own ${currentImagine.name}?\nSelect the highest tier you own:`
   );
-
+  
   const tierOptions = [
-    { label: 'None', value: 'none', emoji: '❌', description: `No ${currentImagine.name}` },
-    { label: 'Tier 0', value: 'T0', emoji: '0️⃣', description: 'Tier 0' },
-    { label: 'Tier 1', value: 'T1', emoji: '1️⃣', description: 'Tier 1' },
-    { label: 'Tier 2', value: 'T2', emoji: '2️⃣', description: 'Tier 2' },
-    { label: 'Tier 3', value: 'T3', emoji: '3️⃣', description: 'Tier 3' },
-    { label: 'Tier 4', value: 'T4', emoji: '4️⃣', description: 'Tier 4' },
-    { label: 'Tier 5', value: 'T5', emoji: '5️⃣', description: 'Tier 5' }
+    {
+      label: 'Skip / I don\'t own this',
+      value: 'skip',
+      description: 'I don\'t have this Battle Imagine',
+      emoji: '⏭️'
+    }
   ];
-
+  
+  for (const tier of TIERS) {
+    const option = {
+      label: tier,
+      value: tier,
+      description: tier === 'T5' ? 'Tier Five (Max)' : `Tier ${tier.substring(1)}`,
+      emoji: currentImagine.logo ? { id: currentImagine.logo } : '⭐'
+    };
+    
+    tierOptions.push(option);
+  }
+  
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_battle_imagine_${userId}`)
-    .setPlaceholder(`⚔️ Select ${currentImagine.name} tier`)
+    .setPlaceholder(`Choose tier for ${currentImagine.name}`)
     .addOptions(tierOptions);
-
+  
   const backButton = new ButtonBuilder()
     .setCustomId(`back_to_battle_imagine_${userId}`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
-
+  
   const row1 = new ActionRowBuilder().addComponents(selectMenu);
   const row2 = new ActionRowBuilder().addComponents(backButton);
-
+  
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
@@ -698,21 +883,20 @@ export async function handleBattleImagine(interaction, userId) {
   
   setActiveInteraction(userId, interaction.id);
   
-  const tier = interaction.values[0];
   const currentState = state.get(userId, 'reg');
-  const imagineIndex = currentState.currentImagineIndex || 0;
-  const currentImagine = config.battleImagines[imagineIndex];
+  const selectedTier = interaction.values[0];
+  const currentImagine = config.battleImagines[currentState.currentImagineIndex];
   
-  // Save the battle imagine if not "none"
-  if (tier !== 'none') {
-    currentState.battleImagines.push({ name: currentImagine.name, tier });
+  if (selectedTier !== 'skip') {
+    currentState.battleImagines.push({
+      name: currentImagine.name,
+      tier: selectedTier
+    });
   }
   
-  // Move to next imagine
-  currentState.currentImagineIndex = imagineIndex + 1;
+  currentState.currentImagineIndex++;
   state.set(userId, 'reg', currentState);
   
-  // Show next imagine or move to guild
   await showBattleImagineSelection(interaction, userId);
   
   clearActiveInteraction(userId);
@@ -724,22 +908,24 @@ export async function handleBattleImagine(interaction, userId) {
 
 async function showGuildSelection(interaction, userId) {
   const currentState = state.get(userId, 'reg');
+  const scoreLabel = ABILITY_SCORES.find(s => s.value === currentState.abilityScore)?.label || currentState.abilityScore;
   const isAlt = currentState.type === 'alt';
   const totalSteps = getTotalSteps(currentState.type || 'main');
   
   let stepNum = isAlt ? (4 + config.battleImagines.length) : (7 + config.battleImagines.length);
   
-  const embed = createRegEmbed(stepNum, totalSteps, '🏰 Guild Selection', 'Choose your guild');
+  const embed = createRegEmbed(stepNum, totalSteps, '💕 Did you finally join iDolls?', `Score: ${scoreLabel}\n\nOr still in denial?`);
 
   const guildOptions = config.guilds.map(guild => ({
     label: guild.name,
     value: guild.name,
-    emoji: guild.name === 'iDolls' ? '💖' : guild.name === 'Visitor' ? '👋' : '🤝'
+    description: 'Choose your guild',
+    emoji: '🏰'
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_guild_${userId}`)
-    .setPlaceholder('🏰 Select your guild')
+    .setPlaceholder('🏰 Pick your guild')
     .addOptions(guildOptions);
 
   const backButton = new ButtonBuilder()
@@ -768,21 +954,23 @@ export async function handleGuild(interaction, userId) {
   // Show IGN/UID modal
   const modal = new ModalBuilder()
     .setCustomId(`ign_modal_${userId}`)
-    .setTitle('Character Registration');
+    .setTitle('🎮 Your character name?');
 
   const ignInput = new TextInputBuilder()
     .setCustomId('ign')
     .setLabel('In-Game Name (IGN)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Enter your IGN')
-    .setRequired(true);
+    .setPlaceholder('Your character name')
+    .setRequired(true)
+    .setMaxLength(50);
 
   const uidInput = new TextInputBuilder()
     .setCustomId('uid')
-    .setLabel('User ID (UID)')
+    .setLabel('UID (User ID) - Numbers only!')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Enter your numeric UID')
-    .setRequired(true);
+    .setPlaceholder('Enter numeric UID (e.g. 123456789)')
+    .setRequired(true)
+    .setMaxLength(50);
 
   const row1 = new ActionRowBuilder().addComponents(ignInput);
   const row2 = new ActionRowBuilder().addComponents(uidInput);
@@ -877,7 +1065,17 @@ export async function handleIGN(interaction, userId) {
       if (characterType === 'main') {
         await assignPendingRoles(interaction.client, userId);
       }
-      await applicationService.createApplication(userId, character.id, currentState.guild);
+      
+      // Create application if service is available
+      try {
+        if (applicationService && typeof applicationService.createApplication === 'function') {
+          await applicationService.createApplication(userId, character.id, currentState.guild);
+        } else if (applicationService && typeof applicationService === 'function') {
+          await applicationService(userId, character.id, currentState.guild);
+        }
+      } catch (appError) {
+        console.error('[REGISTRATION] Application service error:', appError.message);
+      }
       
       const successEmbed = new EmbedBuilder()
         .setColor('#EC4899')
@@ -940,28 +1138,40 @@ export async function handleIGN(interaction, userId) {
 export async function retryIGN(interaction, userId) {
   const currentState = state.get(userId, 'reg');
   
+  if (!currentState) {
+    await interaction.reply({ 
+      content: '❌ Registration session expired. Please start over with `/character`.', 
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+  
   const modal = new ModalBuilder()
     .setCustomId(`ign_modal_${userId}`)
-    .setTitle('Character Registration');
+    .setTitle('🎮 Your character name?');
 
   const ignInput = new TextInputBuilder()
     .setCustomId('ign')
     .setLabel('In-Game Name (IGN)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Enter your IGN')
-    .setValue(currentState.lastIgnEntered || '')
-    .setRequired(true);
+    .setPlaceholder('Your character name')
+    .setRequired(true)
+    .setMaxLength(50);
+  
+  if (currentState.lastIgnEntered) {
+    ignInput.setValue(currentState.lastIgnEntered);
+  }
 
   const uidInput = new TextInputBuilder()
     .setCustomId('uid')
-    .setLabel('User ID (UID)')
+    .setLabel('UID (User ID) - Numbers only!')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Enter your numeric UID (numbers only)')
-    .setRequired(true);
+    .setPlaceholder('Enter numeric UID (e.g. 123456789)')
+    .setRequired(true)
+    .setMaxLength(50);
 
   const row1 = new ActionRowBuilder().addComponents(ignInput);
   const row2 = new ActionRowBuilder().addComponents(uidInput);
-
   modal.addComponents(row1, row2);
 
   await interaction.showModal(modal);
@@ -985,17 +1195,14 @@ export async function startSubclassRegistration(interaction, userId, parentId) {
   state.set(userId, 'reg', { type: 'subclass', parentId: parentId });
   
   const totalSteps = getTotalSteps('subclass');
-  const embed = createRegEmbed(1, totalSteps, '🎭 Subclass Class', 'Choose your subclass class');
+  const embed = createRegEmbed(1, totalSteps, '🎭 Which class speaks to you?', 'Choose your subclass');
 
-  const classOptions = Object.entries(CLASSES).map(([name, data]) => {
-    const iconId = data.iconId || null;
-    return {
-      label: name,
-      value: name,
-      description: data.role,
-      emoji: iconId ? { id: iconId } : data.emoji
-    };
-  });
+  const classOptions = Object.entries(CLASSES).map(([name, data]) => ({
+    label: name,
+    value: name,
+    description: data.role,
+    emoji: data.iconId ? { id: data.iconId } : data.emoji
+  }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_class_${userId}`)
@@ -1073,15 +1280,12 @@ export async function startAltRegistration(interaction, userId) {
   const totalSteps = getTotalSteps('alt');
   const embed = createRegEmbed(1, totalSteps, '🎭 Alt Character Class', 'Choose your alt\'s class');
 
-  const classOptions = Object.entries(CLASSES).map(([name, data]) => {
-    const iconId = data.iconId || null;
-    return {
-      label: name,
-      value: name,
-      description: data.role,
-      emoji: iconId ? { id: iconId } : data.emoji
-    };
-  });
+  const classOptions = Object.entries(CLASSES).map(([name, data]) => ({
+    label: name,
+    value: name,
+    description: data.role,
+    emoji: data.iconId ? { id: data.iconId } : data.emoji
+  }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_class_${userId}`)
@@ -1112,17 +1316,18 @@ export async function backToRegion(interaction, userId) {
   const currentState = state.get(userId, 'reg');
   const totalSteps = getTotalSteps(currentState.type || 'main');
   
-  const embed = createRegEmbed(1, totalSteps, '🌎 Region Selection', 'Choose your region');
+  const embed = createRegEmbed(1, totalSteps, '🌍 Choose Your Region', 'Where are you playing from?');
 
   const regionOptions = Object.keys(REGIONS).map(region => ({
     label: region,
     value: region,
-    emoji: region === 'North America' ? '🌎' : region === 'South America' ? '🌎' : region === 'Europe' ? '🌍' : region === 'Asia' ? '🌏' : region === 'Oceania' ? '🌏' : '🌍'
+    emoji: '🌍',
+    description: 'Select your region'
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_region_${userId}`)
-    .setPlaceholder('🌎 Select your region')
+    .setPlaceholder('🌍 Pick your region')
     .addOptions(regionOptions);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
@@ -1136,20 +1341,26 @@ export async function backToCountry(interaction, userId) {
   setActiveInteraction(userId, interaction.id);
   
   const currentState = state.get(userId, 'reg');
-  const region = REGIONS[currentState.region];
+  const region = currentState.region;
   const totalSteps = getTotalSteps(currentState.type || 'main');
   
-  const embed = createRegEmbed(2, totalSteps, '🏳️ Country Selection', `Region: ${currentState.region}`);
+  const embed = createRegEmbed(2, totalSteps, '🏳️ Choose Your Country', `Region: ${region}`);
 
-  const countryOptions = Object.keys(region).map(country => ({
-    label: country,
-    value: country,
-    emoji: '🏳️'
-  }));
+  const countries = Object.keys(REGIONS[region]);
+  const countryOptions = countries.map(country => {
+    const countryName = country.replace(/^[\u{1F1E6}-\u{1F1FF}]{2}\s*/u, '');
+    const emoji = getCountryEmoji(countryName);
+    return {
+      label: countryName,
+      value: country,
+      description: emoji + ' ' + region,
+      emoji: emoji
+    };
+  });
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_country_${userId}`)
-    .setPlaceholder('🏳️ Select your country')
+    .setPlaceholder('🏳️ Pick your country')
     .addOptions(countryOptions);
 
   const backButton = new ButtonBuilder()
@@ -1170,21 +1381,27 @@ export async function backToTimezone(interaction, userId) {
   
   const currentState = state.get(userId, 'reg');
   const totalSteps = getTotalSteps(currentState.type || 'main');
+  const countryName = currentState.country.replace(/^[\u{1F1E6}-\u{1F1FF}]{2}\s*/u, '');
   
-  const embed = createRegEmbed(3, totalSteps, '🕐 Timezone Selection', `Country: ${currentState.country}`);
+  const embed = createRegEmbed(3, totalSteps, '🕐 Choose Your Timezone', `Country: ${countryName}`);
 
-  const region = REGIONS[currentState.region];
-  const timezones = region[currentState.country];
-
-  const timezoneOptions = Object.entries(timezones).map(([label, value]) => ({
-    label: label,
-    value: value,
-    emoji: '🕐'
-  }));
+  const timezones = REGIONS[currentState.region][currentState.country];
+  
+  const timezoneOptions = Object.keys(timezones).map(tzLabel => {
+    const cities = getTimezoneCities(tzLabel);
+    const abbr = tzLabel.split(' ')[0];
+    
+    return {
+      label: abbr,
+      value: timezones[tzLabel],
+      description: cities,
+      emoji: '🕐'
+    };
+  });
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_timezone_${userId}`)
-    .setPlaceholder('🕐 Select your timezone')
+    .setPlaceholder('🕐 Pick your timezone')
     .addOptions(timezoneOptions);
 
   const backButton = new ButtonBuilder()
@@ -1213,26 +1430,30 @@ export async function backToClass(interaction, userId) {
   
   if (isSubclass) {
     stepNum = 1;
-    description = 'Choose your subclass class';
+    description = 'Choose your subclass';
   } else if (isAlt) {
     stepNum = 1;
     description = 'Choose your alt\'s class';
   } else {
     stepNum = 4;
-    description = `Timezone: ${currentState.timezone}`;
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { 
+      timeZone: currentState.timezone, 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    description = `Timezone: ${currentState.timezoneAbbr} • ${timeString}`;
   }
   
-  const embed = createRegEmbed(stepNum, totalSteps, '🎭 Class Selection', description);
+  const embed = createRegEmbed(stepNum, totalSteps, '🎭 Which class speaks to you?', description);
 
-  const classOptions = Object.entries(CLASSES).map(([name, data]) => {
-    const iconId = data.iconId || null;
-    return {
-      label: name,
-      value: name,
-      description: data.role,
-      emoji: iconId ? { id: iconId } : data.emoji
-    };
-  });
+  const classOptions = Object.entries(CLASSES).map(([name, data]) => ({
+    label: name,
+    value: name,
+    description: data.role,
+    emoji: data.iconId ? { id: data.iconId } : data.emoji
+  }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_class_${userId}`)
@@ -1269,11 +1490,11 @@ export async function backToSubclass(interaction, userId) {
   else if (isAlt) stepNum = 2;
   else stepNum = 5;
   
-  const embed = createRegEmbed(stepNum, totalSteps, '✨ Subclass Selection', `Class: ${className}`);
+  const embed = createRegEmbed(stepNum, totalSteps, '✨ Subclass selection!', `Class: ${className}`);
 
   const subclassOptions = subclasses.map(subclassName => {
     const roleEmoji = classRole === 'Tank' ? '🛡️' : classRole === 'DPS' ? '⚔️' : '💚';
-    const iconId = CLASSES[className]?.iconId || null;
+    const iconId = getClassIconId(className);
     
     return {
       label: subclassName,
