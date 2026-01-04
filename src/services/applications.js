@@ -26,8 +26,8 @@ class ApplicationService {
         userId,
         characterId,
         guildName,
-        messageId: null, // Will update after message is created
-        channelId: config.channels.admin
+        message_id: null, // Will update after message is created
+        channel_id: config.channels.admin
       });
 
       const channel = await this.client.channels.fetch(config.channels.admin);
@@ -47,8 +47,9 @@ class ApplicationService {
         components: buttons
       });
 
-      // ✅ Step 3: Update DB with message ID
-      await ApplicationRepo.update(application.id, { messageId: message.id });
+      // ✅ Step 3: Update DB with message ID (FIXED: snake_case)
+      console.log(`[APP] Updating application ${application.id} with message_id: ${message.id}`);
+      await ApplicationRepo.update(application.id, { message_id: message.id });
 
       logger.info('Application created', `${user.username} -> ${guildName}`);
       return application;
@@ -80,6 +81,7 @@ class ApplicationService {
       // ✅ REFETCH to get updated vote counts AND message_id/channel_id
       const updated = await ApplicationRepo.findById(applicationId);
       console.log(`[APP] Refetched application - accept: ${updated.accept_votes?.length || 0}, deny: ${updated.deny_votes?.length || 0}`);
+      console.log(`[APP] Message ID: ${updated.message_id}, Channel ID: ${updated.channel_id}`);
       
       // ✅ UPDATE THE MESSAGE TO SHOW NEW VOTE COUNTS
       await this.updateApplicationMessage(updated);
@@ -376,8 +378,9 @@ class ApplicationService {
             components: buttons
           });
 
-          // UPDATE the existing application with new message ID
-          await ApplicationRepo.update(fullApp.id, { messageId: newMessage.id });
+          // UPDATE the existing application with new message ID (FIXED: snake_case)
+          console.log(`[APP] Updating application ${fullApp.id} with new message_id: ${newMessage.id}`);
+          await ApplicationRepo.update(fullApp.id, { message_id: newMessage.id });
 
           console.log(`[APP] Updated application ID ${fullApp.id} with new message ${newMessage.id}, preserved ${fullApp.accept_votes?.length || 0} accept votes, ${fullApp.deny_votes?.length || 0} deny votes`);
         } catch (error) {
