@@ -1,4 +1,4 @@
-import config from '../config.js';
+import config from '../config/index.js';
 import { getClassRoleId } from '../utils/classRoleMapping.js';
 import logger from '../utils/logger.js';
 
