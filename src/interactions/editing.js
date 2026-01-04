@@ -791,8 +791,8 @@ export async function showNicknameSelection(interaction, userId) {
   // Build options
   const options = [];
   
-  // Add "All" option
-  const allSelected = prefs === null || (prefs && prefs.length === alts.length);
+  // Add "All" option - only selected if user explicitly chose all alts
+  const allSelected = prefs !== null && prefs.length === alts.length && alts.length > 0;
   const allOption = {
     label: 'All Characters',
     value: 'all',
@@ -802,7 +802,7 @@ export async function showNicknameSelection(interaction, userId) {
   if (allSelected) allOption.default = true;
   options.push(allOption);
   
-  // Add main (always included, but shown for clarity)
+  // Add main (always included, always selected by default)
   options.push({
     label: `${main.ign} (Main)`,
     value: `main_${main.id}`,
@@ -811,7 +811,7 @@ export async function showNicknameSelection(interaction, userId) {
     default: true // Always selected
   });
   
-  // Add alts
+  // Add alts - only selected if in preferences
   for (const alt of alts) {
     const altOption = {
       label: alt.ign,
@@ -819,7 +819,7 @@ export async function showNicknameSelection(interaction, userId) {
       description: `${alt.class} - Alt`,
       emoji: '🎭'
     };
-    // Only add default if true
+    // Only add default if user explicitly selected this alt
     if (prefs && prefs.includes(alt.id)) {
       altOption.default = true;
     }
