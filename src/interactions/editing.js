@@ -1,373 +1,152 @@
 import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { CharacterRepo, BattleImagineRepo } from '../database/repositories.js';
-import { updateNickname } from '../services/nickname.js';
+import { CLASSES, ABILITY_SCORES, COLORS } from '../config/game.js';
 import * as ui from '../ui/components.js';
-import { profileEmbed } from '../ui/profile.js';
-import { CLASSES, ABILITY_SCORES, COLORS } from '../utils/constants.js';
-import { getClassIconId } from '../utils/classRoleMapping.js';
-import config from '../config.js';
-import logger from '../utils/logger.js';
-import * as classRoleService from '../services/classRole.js';
-import * as applicationService from '../services/application.js';
+import { profileEmbed } from '../ui/embeds.js';
+import logger from '../services/logger.js';
+import * as classRoleService from '../services/classRoles.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // STATE MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════
 
-const editingState = new Map();
+const editState = new Map();
 
 const state = {
   set(userId, key, value) {
-    const userState = editingState.get(userId) || {};
+    const userState = editState.get(userId) || {};
     userState[key] = value;
-    editingState.set(userId, userState);
+    editState.set(userId, userState);
+    console.log(`[EDIT STATE] Set ${key} for user ${userId}:`, value);
   },
 
   get(userId, key) {
-    const userState = editingState.get(userId);
+    const userState = editState.get(userId);
     return userState ? userState[key] : null;
   },
 
-  clear(userId) {
-    editingState.delete(userId);
+  clear(userId, key) {
+    if (key) {
+      const userState = editState.get(userId);
+      if (userState) {
+        delete userState[key];
+        console.log(`[EDIT STATE] Cleared ${key} for user ${userId}`);
+      }
+    } else {
+      editState.delete(userId);
+      console.log(`[EDIT STATE] Cleared all state for user ${userId}`);
+    }
   }
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// EDIT CHARACTER - CHOOSE MAIN OR ALT
+// EDIT CHARACTER - SELECT CHARACTER
 // ═══════════════════════════════════════════════════════════════════
 
-export async function showEditCharacterChoice(interaction, userId) {
-  console.log('[EDITING] Showing edit character choice for user:', userId);
+export async function start(interaction, userId) {
+  console.log('[EDIT] Starting edit for user:', userId);
 
-  const main = await CharacterRepo.findMain(userId);
-  const alts = await CharacterRepo.findAlts(userId);
+  const characters = await CharacterRepo.findAllByUser(userId);
 
-  if (!main && alts.length === 0) {
-    const errorEmbed = new EmbedBuilder()
+  if (characters.length === 0) {
+    const embed = new EmbedBuilder()
       .setColor(COLORS.ERROR)
-      .setDescription(
-        '# ❌ **No Characters**\n' +
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-        'You don\'t have any characters to edit.'
-      )
+      .setDescription('# ❌ **No Characters**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nYou have no characters to edit.')
       .setTimestamp();
-    
-    await interaction.update({ embeds: [errorEmbed], components: [] });
+
+    await interaction.update({ embeds: [embed], components: [] });
     return;
   }
 
-  // If only main exists
-  if (main && alts.length === 0) {
-    await showEditOptions(interaction, userId, main.id, 'main');
-    return;
-  }
-
-  // If alts exist, show choice
-  const choiceEmbed = new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setDescription(
       '# ✏️ **Edit Character**\n' +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      'Choose which character to edit:\n\n' +
-      (main ? `**Main:** ${main.ign} (${main.class})\n\n` : '') +
-      (alts.length > 0 ? `**Alts:**\n${alts.map((a, i) => `${i + 1}. ${a.ign} (${a.class})`).join('\n')}` : '')
+      'Select the character you want to edit.'
     )
     .setTimestamp();
 
-  const options = [];
-  
-  if (main) {
-    options.push({
-      label: `Main: ${main.ign}`,
-      value: `main_${main.id}`,
-      description: `${main.class} - ${main.subclass}`,
-      emoji: '👑'
-    });
-  }
-
-  alts.forEach(alt => {
-    options.push({
-      label: `Alt: ${alt.ign}`,
-      value: `alt_${alt.id}`,
-      description: `${alt.class} - ${alt.subclass}`,
-      emoji: '🎮'
-    });
+  const characterOptions = characters.map(char => {
+    const iconId = CLASSES[char.class]?.iconId || null;
+    const emoji = iconId ? { id: iconId } : (CLASSES[char.class]?.emoji || '🎮');
+    
+    return {
+      label: `${char.ign} (${char.class})`,
+      value: String(char.id),
+      description: `${char.subclass} - ${char.ability_score}`,
+      emoji: emoji
+    };
   });
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_character_to_edit_${userId}`)
-    .setPlaceholder('Choose a character to edit')
-    .addOptions(options);
+    .setCustomId(`select_edit_character_${userId}`)
+    .setPlaceholder('🎮 Select character to edit')
+    .addOptions(characterOptions);
 
   const backButton = new ButtonBuilder()
     .setCustomId(`back_to_profile_${userId}`)
-    .setLabel('◀️ Back')
+    .setLabel('◀️ Back to Profile')
     .setStyle(ButtonStyle.Secondary);
 
   const row1 = new ActionRowBuilder().addComponents(selectMenu);
   const row2 = new ActionRowBuilder().addComponents(backButton);
 
-  await interaction.update({ embeds: [choiceEmbed], components: [row1, row2] });
-}
-
-export async function handleCharacterToEditSelection(interaction, userId, selection) {
-  const [type, characterId] = selection.split('_');
-  await showEditOptions(interaction, userId, parseInt(characterId), type);
+  await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// EDIT OPTIONS MENU
+// EDIT CHARACTER - SELECT FIELD
 // ═══════════════════════════════════════════════════════════════════
 
-async function showEditOptions(interaction, userId, characterId, characterType) {
+export async function selectCharacter(interaction, userId) {
+  const characterId = parseInt(interaction.values[0]);
   const character = await CharacterRepo.findById(characterId);
 
   if (!character) {
-    const errorEmbed = new EmbedBuilder()
-      .setColor(COLORS.ERROR)
-      .setDescription('❌ Character not found.');
-    await interaction.update({ embeds: [errorEmbed], components: [] });
+    await interaction.update({
+      content: '❌ Character not found.',
+      components: []
+    });
     return;
   }
 
-  state.set(userId, 'characterId', characterId);
-  state.set(userId, 'characterType', characterType);
-
-  const editEmbed = new EmbedBuilder()
-    .setColor(COLORS.PRIMARY)
-    .setDescription(
-      `# ✏️ **Edit ${characterType === 'main' ? 'Main' : 'Alt'} Character**\n` +
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      `**Current:** ${character.ign}\n` +
-      `**Class:** ${character.class} - ${character.subclass}\n` +
-      `**Score:** ${character.ability_score}\n` +
-      `**Guild:** ${character.guild}\n\n` +
-      'Select what to edit:'
-    )
-    .setTimestamp();
-
-  const editIGNButton = new ButtonBuilder()
-    .setCustomId(`edit_ign_${userId}`)
-    .setLabel('✏️ Edit IGN')
-    .setStyle(ButtonStyle.Primary);
-
-  const editUIDButton = new ButtonBuilder()
-    .setCustomId(`edit_uid_${userId}`)
-    .setLabel('🆔 Edit UID')
-    .setStyle(ButtonStyle.Primary);
-
-  const editClassButton = new ButtonBuilder()
-    .setCustomId(`edit_class_${userId}`)
-    .setLabel('🎭 Edit Class')
-    .setStyle(ButtonStyle.Primary);
-
-  const editScoreButton = new ButtonBuilder()
-    .setCustomId(`edit_score_${userId}`)
-    .setLabel('💪 Edit Score')
-    .setStyle(ButtonStyle.Primary);
-
-  const editBIButton = new ButtonBuilder()
-    .setCustomId(`edit_battle_imagines_${userId}`)
-    .setLabel('⚔️ Edit Battle Imagines')
-    .setStyle(ButtonStyle.Primary);
-
-  const editGuildButton = new ButtonBuilder()
-    .setCustomId(`edit_guild_${userId}`)
-    .setLabel('🏰 Edit Guild')
-    .setStyle(ButtonStyle.Primary);
-
-  const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_profile_${userId}`)
-    .setLabel('◀️ Back')
-    .setStyle(ButtonStyle.Secondary);
-
-  const row1 = new ActionRowBuilder().addComponents(editIGNButton, editUIDButton, editClassButton);
-  const row2 = new ActionRowBuilder().addComponents(editScoreButton, editBIButton, editGuildButton);
-  const row3 = new ActionRowBuilder().addComponents(backButton);
-
-  await interaction.update({ embeds: [editEmbed], components: [row1, row2, row3] });
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// EDIT IGN
-// ═══════════════════════════════════════════════════════════════════
-
-export async function showEditIGNModal(interaction, userId) {
-  const characterId = state.get(userId, 'characterId');
-  const character = await CharacterRepo.findById(characterId);
-
-  const modal = new ModalBuilder()
-    .setCustomId(`edit_ign_modal_${userId}`)
-    .setTitle('Edit IGN');
-
-  const ignInput = new TextInputBuilder()
-    .setCustomId('ign')
-    .setLabel('New In-Game Name (IGN)')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Enter new IGN')
-    .setValue(character.ign)
-    .setRequired(true);
-
-  const row = new ActionRowBuilder().addComponents(ignInput);
-  modal.addComponents(row);
-
-  await interaction.showModal(modal);
-}
-
-export async function handleEditIGN(interaction, userId) {
-  const newIGN = interaction.fields.getTextInputValue('ign');
-  const characterId = state.get(userId, 'characterId');
-  const characterType = state.get(userId, 'characterType');
-
-  try {
-    await CharacterRepo.update(characterId, { ign: newIGN });
-    console.log('[EDITING] Updated IGN:', characterId, newIGN);
-
-    // Only sync nickname for main character
-    if (characterType === 'main' && config.sync.nicknameEnabled) {
-      try {
-        const result = await updateNickname(interaction.client, config.discord.guildId, userId, newIGN);
-        if (result.success) {
-          console.log(`✅ [EDITING] Nickname synced: ${newIGN}`);
-        } else {
-          console.error(`❌ [EDITING] Nickname sync failed: ${result.reason}`);
-        }
-      } catch (e) {
-        console.error('[EDITING] Nickname sync error:', e.message);
-      }
-    }
-
-    logger.register(interaction.user.username, `edited_${characterType}_ign`, newIGN, 'IGN changed');
-
-    state.clear(userId);
-
-    const characters = await CharacterRepo.findAllByUser(userId);
-    const main = characters.find(c => c.character_type === 'main');
-
-    const embed = await profileEmbed(interaction.user, characters, interaction);
-    const buttons = ui.profileButtons(userId, !!main);
-
-    await interaction.update({ 
-      embeds: [embed], 
-      components: buttons
-    });
-
-  } catch (error) {
-    console.error('[EDITING ERROR]', error);
-    logger.error('Editing', `Edit IGN error: ${error.message}`, error);
-    
-    await interaction.update({
-      content: '❌ Something went wrong. Please try again!',
-      embeds: [],
-      components: []
-    });
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// EDIT UID
-// ═══════════════════════════════════════════════════════════════════
-
-export async function showEditUIDModal(interaction, userId) {
-  const characterId = state.get(userId, 'characterId');
-  const character = await CharacterRepo.findById(characterId);
-
-  const modal = new ModalBuilder()
-    .setCustomId(`edit_uid_modal_${userId}`)
-    .setTitle('Edit UID');
-
-  const uidInput = new TextInputBuilder()
-    .setCustomId('uid')
-    .setLabel('New User ID (UID)')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Enter new UID (numbers only)')
-    .setValue(character.uid)
-    .setRequired(true);
-
-  const row = new ActionRowBuilder().addComponents(uidInput);
-  modal.addComponents(row);
-
-  await interaction.showModal(modal);
-}
-
-export async function handleEditUID(interaction, userId) {
-  const newUID = interaction.fields.getTextInputValue('uid').trim();
-  const characterId = state.get(userId, 'characterId');
-  const characterType = state.get(userId, 'characterType');
-
-  if (!/^\d+$/.test(newUID)) {
-    const errorEmbed = new EmbedBuilder()
-      .setColor('#FF0000')
-      .setDescription('# ❌ **Invalid UID**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**UID must contain only numbers.**\n\nYou entered: `' + newUID + '`');
-    
-    await interaction.update({ embeds: [errorEmbed], components: [] });
-    return;
-  }
-
-  try {
-    await CharacterRepo.update(characterId, { uid: newUID });
-    console.log('[EDITING] Updated UID:', characterId, newUID);
-
-    logger.register(interaction.user.username, `edited_${characterType}_uid`, newUID, 'UID changed');
-
-    state.clear(userId);
-
-    const characters = await CharacterRepo.findAllByUser(userId);
-    const main = characters.find(c => c.character_type === 'main');
-
-    const embed = await profileEmbed(interaction.user, characters, interaction);
-    const buttons = ui.profileButtons(userId, !!main);
-
-    await interaction.update({ 
-      embeds: [embed], 
-      components: buttons
-    });
-
-  } catch (error) {
-    console.error('[EDITING ERROR]', error);
-    logger.error('Editing', `Edit UID error: ${error.message}`, error);
-    
-    await interaction.update({
-      content: '❌ Something went wrong. Please try again!',
-      embeds: [],
-      components: []
-    });
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// EDIT CLASS
-// ═══════════════════════════════════════════════════════════════════
-
-export async function showEditClass(interaction, userId) {
-  const characterId = state.get(userId, 'characterId');
-  const character = await CharacterRepo.findById(characterId);
+  console.log('[EDIT] Selected character:', characterId, character.ign);
+  state.set(userId, 'edit', { characterId, character });
 
   const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setDescription(
-      '# 🎭 **Edit Class**\n' +
+      `# ✏️ **Edit ${character.ign}**\n` +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      `**Current:** ${character.class} - ${character.subclass}\n\n` +
-      'Select new class:'
+      'What would you like to edit?'
+    )
+    .addFields(
+      { name: '🎭 Class', value: character.class, inline: true },
+      { name: '✨ Subclass', value: character.subclass, inline: true },
+      { name: '💪 Score', value: character.ability_score, inline: true },
+      { name: '🎮 IGN', value: character.ign, inline: true },
+      { name: '🆔 UID', value: character.uid, inline: true },
+      { name: '🏰 Guild', value: character.guild, inline: true }
     )
     .setTimestamp();
 
-  const classOptions = Object.entries(CLASSES).map(([name, data]) => ({
-    label: name,
-    value: name,
-    description: data.role,
-    emoji: data.iconId ? { id: data.iconId } : data.emoji
-  }));
+  const options = [
+    { label: 'Class & Subclass', value: 'class', emoji: '🎭' },
+    { label: 'Ability Score', value: 'score', emoji: '💪' },
+    { label: 'IGN', value: 'ign', emoji: '🎮' },
+    { label: 'UID', value: 'uid', emoji: '🆔' },
+    { label: 'Guild', value: 'guild', emoji: '🏰' },
+    { label: 'Battle Imagines', value: 'battle_imagines', emoji: '⚔️' }
+  ];
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`edit_select_class_${userId}`)
-    .setPlaceholder('🎭 Pick your class')
-    .addOptions(classOptions);
+    .setCustomId(`select_edit_field_${userId}`)
+    .setPlaceholder('✏️ Select field to edit')
+    .addOptions(options);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_edit_options_${userId}`)
+    .setCustomId(`back_to_edit_select_${userId}`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -377,11 +156,90 @@ export async function showEditClass(interaction, userId) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-export async function handleEditClassSelection(interaction, userId) {
+// ═══════════════════════════════════════════════════════════════════
+// EDIT FIELD HANDLERS
+// ═══════════════════════════════════════════════════════════════════
+
+export async function selectField(interaction, userId) {
+  const field = interaction.values[0];
+  const currentState = state.get(userId, 'edit');
+
+  console.log('[EDIT] Selected field:', field);
+  state.set(userId, 'edit', { ...currentState, field });
+
+  switch (field) {
+    case 'class':
+      await showClassSelection(interaction, userId);
+      break;
+    case 'score':
+      await showScoreSelection(interaction, userId);
+      break;
+    case 'ign':
+      await showIGNModal(interaction, userId);
+      break;
+    case 'uid':
+      await showUIDModal(interaction, userId);
+      break;
+    case 'guild':
+      await showGuildSelection(interaction, userId);
+      break;
+    case 'battle_imagines':
+      await showBattleImagineSelection(interaction, userId);
+      break;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CLASS EDITING
+// ═══════════════════════════════════════════════════════════════════
+
+async function showClassSelection(interaction, userId) {
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
+
+  const embed = new EmbedBuilder()
+    .setColor(COLORS.PRIMARY)
+    .setDescription(
+      `# 🎭 **Edit Class**\n` +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+      `**Current:** ${character.class} - ${character.subclass}\n\n` +
+      'Select a new class.'
+    )
+    .setTimestamp();
+
+  const classOptions = Object.entries(CLASSES).map(([name, data]) => {
+    const iconId = data.iconId || null;
+    return {
+      label: name,
+      value: name,
+      description: data.role,
+      emoji: iconId ? { id: iconId } : data.emoji
+    };
+  });
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`edit_select_class_${userId}`)
+    .setPlaceholder('🎭 Pick your class')
+    .addOptions(classOptions);
+
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_edit_field_${userId}`)
+    .setLabel('◀️ Back')
+    .setStyle(ButtonStyle.Secondary);
+
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton);
+
+  await interaction.update({ embeds: [embed], components: [row1, row2] });
+}
+
+export async function handleClassEdit(interaction, userId) {
   const className = interaction.values[0];
-  const characterId = state.get(userId, 'characterId');
-  
-  state.set(userId, 'newClass', className);
+  const currentState = state.get(userId, 'edit');
+  const oldClass = currentState.character.class;
+
+  console.log('[EDIT] Class selected:', className);
+  state.set(userId, 'edit', { ...currentState, newClass: className });
 
   const subclasses = CLASSES[className].subclasses;
   const classRole = CLASSES[className].role;
@@ -389,17 +247,17 @@ export async function handleEditClassSelection(interaction, userId) {
   const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setDescription(
-      '# ✨ **Edit Subclass**\n' +
+      `# ✨ **Edit Subclass**\n` +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      `**New Class:** ${className}\n\n` +
-      'Select new subclass:'
+      `**Class:** ${className}\n\n` +
+      'Select a new subclass.'
     )
     .setTimestamp();
 
   const subclassOptions = subclasses.map(subclassName => {
     const roleEmoji = classRole === 'Tank' ? '🛡️' : classRole === 'DPS' ? '⚔️' : '💚';
-    const iconId = getClassIconId(className);
-    
+    const iconId = CLASSES[className]?.iconId || null;
+
     return {
       label: subclassName,
       value: subclassName,
@@ -414,7 +272,7 @@ export async function handleEditClassSelection(interaction, userId) {
     .addOptions(subclassOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`edit_class_${userId}`)
+    .setCustomId(`back_to_edit_class_${userId}`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -424,74 +282,75 @@ export async function handleEditClassSelection(interaction, userId) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-export async function handleEditSubclassSelection(interaction, userId) {
+export async function handleSubclassEdit(interaction, userId) {
   const subclassName = interaction.values[0];
-  const characterId = state.get(userId, 'characterId');
-  const newClass = state.get(userId, 'newClass');
-  const characterType = state.get(userId, 'characterType');
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
+  const newClass = currentState.newClass;
 
   try {
-    const oldCharacter = await CharacterRepo.findById(characterId);
-    const oldClass = oldCharacter.class;
+    const oldClass = character.class;
 
-    // Update the character
-    await CharacterRepo.update(characterId, { 
-      class: newClass, 
-      subclass: subclassName 
+    // Update character
+    await CharacterRepo.update(character.id, {
+      class: newClass,
+      subclass: subclassName
     });
-    console.log('[EDITING] Updated class:', characterId, newClass, subclassName);
+
+    console.log('[EDIT] Updated class/subclass for character:', character.id);
 
     // Update class roles
-    await classRoleService.addClassRole(userId, newClass);
-    
-    // Check if old class is still used by other characters
-    const hasOtherWithOldClass = await CharacterRepo.hasAnyCharacterWithClass(userId, oldClass);
-    if (!hasOtherWithOldClass) {
-      await classRoleService.removeClassRole(userId, oldClass);
+    if (oldClass !== newClass) {
+      // Check if old class is still used
+      const stillUsesOldClass = await classRoleService.checkClassUsage(userId, oldClass);
+      if (!stillUsesOldClass) {
+        await classRoleService.removeClassRole(userId, oldClass);
+      }
+
+      // Add new class role
+      await classRoleService.addClassRole(userId, newClass);
     }
 
-    logger.register(interaction.user.username, `edited_${characterType}_class`, `${newClass} - ${subclassName}`, `from ${oldClass}`);
-
-    state.clear(userId);
-
+    // Show success and return to profile
     const characters = await CharacterRepo.findAllByUser(userId);
     const main = characters.find(c => c.character_type === 'main');
 
     const embed = await profileEmbed(interaction.user, characters, interaction);
     const buttons = ui.profileButtons(userId, !!main);
 
-    await interaction.update({ 
-      embeds: [embed], 
+    await interaction.update({
+      embeds: [embed],
       components: buttons
     });
 
+    logger.edit(interaction.user.username, character.ign, 'class', `${oldClass} → ${newClass} - ${subclassName}`);
+    state.clear(userId, 'edit');
   } catch (error) {
-    console.error('[EDITING ERROR]', error);
-    logger.error('Editing', `Edit class error: ${error.message}`, error);
-    
+    console.error('[EDIT ERROR]', error);
+    logger.error('Edit', `Class edit error: ${error.message}`, error);
+
     await interaction.update({
       content: '❌ Something went wrong. Please try again!',
-      embeds: [],
       components: []
     });
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// EDIT SCORE
+// SCORE EDITING
 // ═══════════════════════════════════════════════════════════════════
 
-export async function showEditScore(interaction, userId) {
-  const characterId = state.get(userId, 'characterId');
-  const character = await CharacterRepo.findById(characterId);
+async function showScoreSelection(interaction, userId) {
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
 
   const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setDescription(
-      '# 💪 **Edit Ability Score**\n' +
+      `# 💪 **Edit Ability Score**\n` +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
       `**Current:** ${character.ability_score}\n\n` +
-      'Select new score:'
+      'Select a new score range.'
     )
     .setTimestamp();
 
@@ -508,7 +367,7 @@ export async function showEditScore(interaction, userId) {
     .addOptions(scoreOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_edit_options_${userId}`)
+    .setCustomId(`back_to_edit_field_${userId}`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -518,18 +377,17 @@ export async function showEditScore(interaction, userId) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-export async function handleEditScoreSelection(interaction, userId) {
+export async function handleScoreEdit(interaction, userId) {
   const newScore = interaction.values[0];
-  const characterId = state.get(userId, 'characterId');
-  const characterType = state.get(userId, 'characterType');
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
 
   try {
-    await CharacterRepo.update(characterId, { ability_score: newScore });
-    console.log('[EDITING] Updated score:', characterId, newScore);
+    await CharacterRepo.update(character.id, {
+      ability_score: newScore
+    });
 
-    logger.register(interaction.user.username, `edited_${characterType}_score`, newScore, 'Score changed');
-
-    state.clear(userId);
+    console.log('[EDIT] Updated score for character:', character.id);
 
     const characters = await CharacterRepo.findAllByUser(userId);
     const main = characters.find(c => c.character_type === 'main');
@@ -537,46 +395,191 @@ export async function handleEditScoreSelection(interaction, userId) {
     const embed = await profileEmbed(interaction.user, characters, interaction);
     const buttons = ui.profileButtons(userId, !!main);
 
-    await interaction.update({ 
-      embeds: [embed], 
+    await interaction.update({
+      embeds: [embed],
       components: buttons
     });
 
+    logger.edit(interaction.user.username, character.ign, 'score', `${character.ability_score} → ${newScore}`);
+    state.clear(userId, 'edit');
   } catch (error) {
-    console.error('[EDITING ERROR]', error);
-    logger.error('Editing', `Edit score error: ${error.message}`, error);
-    
+    console.error('[EDIT ERROR]', error);
+    logger.error('Edit', `Score edit error: ${error.message}`, error);
+
     await interaction.update({
       content: '❌ Something went wrong. Please try again!',
-      embeds: [],
       components: []
     });
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// EDIT GUILD
+// IGN/UID EDITING
 // ═══════════════════════════════════════════════════════════════════
 
-export async function showEditGuild(interaction, userId) {
-  const characterId = state.get(userId, 'characterId');
-  const character = await CharacterRepo.findById(characterId);
+async function showIGNModal(interaction, userId) {
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
+
+  const modal = new ModalBuilder()
+    .setCustomId(`edit_ign_modal_${userId}`)
+    .setTitle('Edit IGN');
+
+  const ignInput = new TextInputBuilder()
+    .setCustomId('ign')
+    .setLabel('In-Game Name (IGN)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Enter new IGN')
+    .setValue(character.ign)
+    .setRequired(true);
+
+  const row = new ActionRowBuilder().addComponents(ignInput);
+  modal.addComponents(row);
+
+  await interaction.showModal(modal);
+}
+
+export async function handleIGNEdit(interaction, userId) {
+  const newIGN = interaction.fields.getTextInputValue('ign');
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
+
+  try {
+    await CharacterRepo.update(character.id, { ign: newIGN });
+    console.log('[EDIT] Updated IGN for character:', character.id);
+
+    const characters = await CharacterRepo.findAllByUser(userId);
+    const main = characters.find(c => c.character_type === 'main');
+
+    const embed = await profileEmbed(interaction.user, characters, interaction);
+    const buttons = ui.profileButtons(userId, !!main);
+
+    await interaction.update({
+      embeds: [embed],
+      components: buttons
+    });
+
+    logger.edit(interaction.user.username, character.ign, 'ign', `${character.ign} → ${newIGN}`);
+    state.clear(userId, 'edit');
+  } catch (error) {
+    console.error('[EDIT ERROR]', error);
+    logger.error('Edit', `IGN edit error: ${error.message}`, error);
+
+    await interaction.update({
+      content: '❌ Something went wrong. Please try again!',
+      components: []
+    });
+  }
+}
+
+async function showUIDModal(interaction, userId) {
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
+
+  const modal = new ModalBuilder()
+    .setCustomId(`edit_uid_modal_${userId}`)
+    .setTitle('Edit UID');
+
+  const uidInput = new TextInputBuilder()
+    .setCustomId('uid')
+    .setLabel('User ID (UID)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Enter new UID')
+    .setValue(character.uid)
+    .setRequired(true);
+
+  const row = new ActionRowBuilder().addComponents(uidInput);
+  modal.addComponents(row);
+
+  await interaction.showModal(modal);
+}
+
+export async function handleUIDEdit(interaction, userId) {
+  const newUID = interaction.fields.getTextInputValue('uid').trim();
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
+
+  if (!/^\d+$/.test(newUID)) {
+    const errorEmbed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setDescription(
+        '# ❌ **Invalid UID**\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+        '**UID must contain only numbers.**\n\n' +
+        `You entered: \`${newUID}\`\n\n` +
+        'Please try again.'
+      );
+
+    const retryButton = new ButtonBuilder()
+      .setCustomId(`retry_edit_uid_${userId}`)
+      .setLabel('✏️ Retry')
+      .setStyle(ButtonStyle.Danger);
+
+    const row = new ActionRowBuilder().addComponents(retryButton);
+
+    await interaction.update({
+      embeds: [errorEmbed],
+      components: [row]
+    });
+    return;
+  }
+
+  try {
+    await CharacterRepo.update(character.id, { uid: newUID });
+    console.log('[EDIT] Updated UID for character:', character.id);
+
+    const characters = await CharacterRepo.findAllByUser(userId);
+    const main = characters.find(c => c.character_type === 'main');
+
+    const embed = await profileEmbed(interaction.user, characters, interaction);
+    const buttons = ui.profileButtons(userId, !!main);
+
+    await interaction.update({
+      embeds: [embed],
+      components: buttons
+    });
+
+    logger.edit(interaction.user.username, character.ign, 'uid', `${character.uid} → ${newUID}`);
+    state.clear(userId, 'edit');
+  } catch (error) {
+    console.error('[EDIT ERROR]', error);
+    logger.error('Edit', `UID edit error: ${error.message}`, error);
+
+    await interaction.update({
+      content: '❌ Something went wrong. Please try again!',
+      components: []
+    });
+  }
+}
+
+export async function retryUIDEdit(interaction, userId) {
+  await showUIDModal(interaction, userId);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GUILD EDITING
+// ═══════════════════════════════════════════════════════════════════
+
+async function showGuildSelection(interaction, userId) {
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
 
   const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setDescription(
-      '# 🏰 **Edit Guild**\n' +
+      `# 🏰 **Edit Guild**\n` +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
       `**Current:** ${character.guild}\n\n` +
-      'Select new guild:'
+      'Select a new guild.'
     )
     .setTimestamp();
 
-  const guildOptions = [
-    { label: 'iDolls', value: 'iDolls', emoji: '💖', description: 'Apply to iDolls' },
-    { label: 'Visitor', value: 'Visitor', emoji: '👋', description: 'Guest/Visitor status' },
-    { label: 'Allied', value: 'Allied', emoji: '🤝', description: 'Allied guild member' }
-  ];
+  const config = await import('../config/index.js').then(m => m.default);
+  const guildOptions = config.guilds.map(guild => ({
+    label: guild.name,
+    value: guild.name,
+    emoji: guild.name === 'iDolls' ? '💖' : guild.name === 'Visitor' ? '👋' : '🤝'
+  }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId(`edit_select_guild_${userId}`)
@@ -584,7 +587,7 @@ export async function showEditGuild(interaction, userId) {
     .addOptions(guildOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_edit_options_${userId}`)
+    .setCustomId(`back_to_edit_field_${userId}`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -594,26 +597,14 @@ export async function showEditGuild(interaction, userId) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-export async function handleEditGuildSelection(interaction, userId) {
+export async function handleGuildEdit(interaction, userId) {
   const newGuild = interaction.values[0];
-  const characterId = state.get(userId, 'characterId');
-  const characterType = state.get(userId, 'characterType');
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
 
   try {
-    const character = await CharacterRepo.findById(characterId);
-    const oldGuild = character.guild;
-
-    await CharacterRepo.update(characterId, { guild: newGuild });
-    console.log('[EDITING] Updated guild:', characterId, newGuild);
-
-    // Handle iDolls application if switching to iDolls
-    if (newGuild === 'iDolls' && oldGuild !== 'iDolls') {
-      await applicationService.createApplication(userId, characterId, newGuild);
-    }
-
-    logger.register(interaction.user.username, `edited_${characterType}_guild`, newGuild, `from ${oldGuild}`);
-
-    state.clear(userId);
+    await CharacterRepo.update(character.id, { guild: newGuild });
+    console.log('[EDIT] Updated guild for character:', character.id);
 
     const characters = await CharacterRepo.findAllByUser(userId);
     const main = characters.find(c => c.character_type === 'main');
@@ -621,64 +612,60 @@ export async function handleEditGuildSelection(interaction, userId) {
     const embed = await profileEmbed(interaction.user, characters, interaction);
     const buttons = ui.profileButtons(userId, !!main);
 
-    await interaction.update({ 
-      embeds: [embed], 
+    await interaction.update({
+      embeds: [embed],
       components: buttons
     });
 
+    logger.edit(interaction.user.username, character.ign, 'guild', `${character.guild} → ${newGuild}`);
+    state.clear(userId, 'edit');
   } catch (error) {
-    console.error('[EDITING ERROR]', error);
-    logger.error('Editing', `Edit guild error: ${error.message}`, error);
-    
+    console.error('[EDIT ERROR]', error);
+    logger.error('Edit', `Guild edit error: ${error.message}`, error);
+
     await interaction.update({
       content: '❌ Something went wrong. Please try again!',
-      embeds: [],
       components: []
     });
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// EDIT BATTLE IMAGINES
+// BATTLE IMAGINE EDITING
 // ═══════════════════════════════════════════════════════════════════
 
-export async function showEditBattleImagines(interaction, userId) {
-  const characterId = state.get(userId, 'characterId');
-  const character = await CharacterRepo.findById(characterId);
-  const battleImagines = await BattleImagineRepo.findByCharacterId(characterId);
+async function showBattleImagineSelection(interaction, userId) {
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
 
-  const biMap = {};
-  battleImagines.forEach(bi => {
-    biMap[bi.name] = bi.tier;
-  });
+  const battleImagines = await BattleImagineRepo.findByCharacter(character.id);
 
   const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setDescription(
-      '# ⚔️ **Edit Battle Imagines**\n' +
+      `# ⚔️ **Edit Battle Imagines**\n` +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      `**Current Battle Imagines:**\n` +
-      (battleImagines.length > 0 
-        ? battleImagines.map(bi => `  • ${bi.name}: ${bi.tier}`).join('\n')
-        : '  None') +
-      '\n\nSelect a Battle Imagine to edit:'
+      (battleImagines.length > 0
+        ? '**Current Battle Imagines:**\n' + battleImagines.map(bi => `• ${bi.name}: ${bi.tier}`).join('\n') + '\n\n'
+        : '**No Battle Imagines set.**\n\n') +
+      'Select a Battle Imagine to edit.'
     )
     .setTimestamp();
 
-  const biOptions = config.battleImagines.map(biName => ({
-    label: biName,
-    value: biName,
-    description: biMap[biName] ? `Current: ${biMap[biName]}` : 'Not set',
+  const config = await import('../config/index.js').then(m => m.default);
+  const biOptions = config.battleImagines.map(bi => ({
+    label: bi.name,
+    value: bi.name,
     emoji: '⚔️'
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`edit_select_battle_imagine_${userId}`)
-    .setPlaceholder('⚔️ Select Battle Imagine to edit')
+    .setCustomId(`edit_select_bi_${userId}`)
+    .setPlaceholder('⚔️ Select Battle Imagine')
     .addOptions(biOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_edit_options_${userId}`)
+    .setCustomId(`back_to_edit_field_${userId}`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -688,32 +675,34 @@ export async function showEditBattleImagines(interaction, userId) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-export async function handleEditBattleImagineSelection(interaction, userId) {
-  const imagineName = interaction.values[0];
-  const characterId = state.get(userId, 'characterId');
-  
-  state.set(userId, 'editingImagine', imagineName);
+export async function selectBattleImagine(interaction, userId) {
+  const biName = interaction.values[0];
+  const currentState = state.get(userId, 'edit');
 
-  const battleImagines = await BattleImagineRepo.findByCharacterId(characterId);
-  const currentBI = battleImagines.find(bi => bi.name === imagineName);
+  console.log('[EDIT] Selected BI:', biName);
+  state.set(userId, 'edit', { ...currentState, selectedBI: biName });
+
+  const character = currentState.character;
+  const existing = await BattleImagineRepo.findByName(character.id, biName);
 
   const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setDescription(
-      `# ⚔️ **Edit ${imagineName}**\n` +
+      `# ⚔️ **Edit ${biName}**\n` +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      (currentBI ? `**Current Tier:** ${currentBI.tier}\n\n` : '**Not set**\n\n') +
-      'Select new tier or remove:'
+      (existing ? `**Current Tier:** ${existing.tier}\n\n` : `**Not set**\n\n`) +
+      'Select a new tier (or None to remove).'
     )
     .setTimestamp();
 
   const tierOptions = [
-    { label: 'Remove', value: 'remove', emoji: '❌', description: `Remove ${imagineName}` },
-    { label: 'Tier 1', value: 'T1', emoji: '1️⃣', description: 'Tier 1' },
-    { label: 'Tier 2', value: 'T2', emoji: '2️⃣', description: 'Tier 2' },
-    { label: 'Tier 3', value: 'T3', emoji: '3️⃣', description: 'Tier 3' },
-    { label: 'Tier 4', value: 'T4', emoji: '4️⃣', description: 'Tier 4' },
-    { label: 'Tier 5', value: 'T5', emoji: '5️⃣', description: 'Tier 5' }
+    { label: 'None', value: 'none', emoji: '❌', description: `Remove ${biName}` },
+    { label: 'Tier 0', value: 'T0', emoji: '0️⃣' },
+    { label: 'Tier 1', value: 'T1', emoji: '1️⃣' },
+    { label: 'Tier 2', value: 'T2', emoji: '2️⃣' },
+    { label: 'Tier 3', value: 'T3', emoji: '3️⃣' },
+    { label: 'Tier 4', value: 'T4', emoji: '4️⃣' },
+    { label: 'Tier 5', value: 'T5', emoji: '5️⃣' }
   ];
 
   const selectMenu = new StringSelectMenuBuilder()
@@ -722,7 +711,7 @@ export async function handleEditBattleImagineSelection(interaction, userId) {
     .addOptions(tierOptions);
 
   const backButton = new ButtonBuilder()
-    .setCustomId(`edit_battle_imagines_${userId}`)
+    .setCustomId(`back_to_edit_bi_list_${userId}`)
     .setLabel('◀️ Back')
     .setStyle(ButtonStyle.Secondary);
 
@@ -732,24 +721,22 @@ export async function handleEditBattleImagineSelection(interaction, userId) {
   await interaction.update({ embeds: [embed], components: [row1, row2] });
 }
 
-export async function handleEditBattleImagineTierSelection(interaction, userId) {
+export async function handleBattleImagineTierEdit(interaction, userId) {
   const tier = interaction.values[0];
-  const characterId = state.get(userId, 'characterId');
-  const imagineName = state.get(userId, 'editingImagine');
-  const characterType = state.get(userId, 'characterType');
+  const currentState = state.get(userId, 'edit');
+  const character = currentState.character;
+  const biName = currentState.selectedBI;
 
   try {
-    if (tier === 'remove') {
-      await BattleImagineRepo.delete(characterId, imagineName);
-      console.log('[EDITING] Removed Battle Imagine:', characterId, imagineName);
-      logger.register(interaction.user.username, `edited_${characterType}_bi`, imagineName, 'removed');
+    if (tier === 'none') {
+      await BattleImagineRepo.remove(character.id, biName);
+      console.log('[EDIT] Removed BI:', biName);
+      logger.edit(interaction.user.username, character.ign, 'battle_imagine', `Removed ${biName}`);
     } else {
-      await BattleImagineRepo.add(characterId, imagineName, tier);
-      console.log('[EDITING] Updated Battle Imagine:', characterId, imagineName, tier);
-      logger.register(interaction.user.username, `edited_${characterType}_bi`, `${imagineName} ${tier}`, 'updated');
+      await BattleImagineRepo.set(character.id, biName, tier);
+      console.log('[EDIT] Updated BI:', biName, tier);
+      logger.edit(interaction.user.username, character.ign, 'battle_imagine', `${biName}: ${tier}`);
     }
-
-    state.clear(userId);
 
     const characters = await CharacterRepo.findAllByUser(userId);
     const main = characters.find(c => c.character_type === 'main');
@@ -757,31 +744,41 @@ export async function handleEditBattleImagineTierSelection(interaction, userId) 
     const embed = await profileEmbed(interaction.user, characters, interaction);
     const buttons = ui.profileButtons(userId, !!main);
 
-    await interaction.update({ 
-      embeds: [embed], 
+    await interaction.update({
+      embeds: [embed],
       components: buttons
     });
 
+    state.clear(userId, 'edit');
   } catch (error) {
-    console.error('[EDITING ERROR]', error);
-    logger.error('Editing', `Edit Battle Imagine error: ${error.message}`, error);
-    
+    console.error('[EDIT ERROR]', error);
+    logger.error('Edit', `BI edit error: ${error.message}`, error);
+
     await interaction.update({
       content: '❌ Something went wrong. Please try again!',
-      embeds: [],
       components: []
     });
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// BACK TO EDIT OPTIONS
+// BACK NAVIGATION
 // ═══════════════════════════════════════════════════════════════════
 
-export async function backToEditOptions(interaction, userId) {
-  const characterId = state.get(userId, 'characterId');
-  const characterType = state.get(userId, 'characterType');
-  await showEditOptions(interaction, userId, characterId, characterType);
+export async function backToEditSelect(interaction, userId) {
+  await start(interaction, userId);
+}
+
+export async function backToEditField(interaction, userId) {
+  await selectCharacter(interaction, userId);
+}
+
+export async function backToEditClass(interaction, userId) {
+  await showClassSelection(interaction, userId);
+}
+
+export async function backToBIList(interaction, userId) {
+  await showBattleImagineSelection(interaction, userId);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -789,21 +786,20 @@ export async function backToEditOptions(interaction, userId) {
 // ═══════════════════════════════════════════════════════════════════
 
 export default {
-  showEditCharacterChoice,
-  handleCharacterToEditSelection,
-  showEditIGNModal,
-  handleEditIGN,
-  showEditUIDModal,
-  handleEditUID,
-  showEditClass,
-  handleEditClassSelection,
-  handleEditSubclassSelection,
-  showEditScore,
-  handleEditScoreSelection,
-  showEditGuild,
-  handleEditGuildSelection,
-  showEditBattleImagines,
-  handleEditBattleImagineSelection,
-  handleEditBattleImagineTierSelection,
-  backToEditOptions
+  start,
+  selectCharacter,
+  selectField,
+  handleClassEdit,
+  handleSubclassEdit,
+  handleScoreEdit,
+  handleIGNEdit,
+  handleUIDEdit,
+  retryUIDEdit,
+  handleGuildEdit,
+  selectBattleImagine,
+  handleBattleImagineTierEdit,
+  backToEditSelect,
+  backToEditField,
+  backToEditClass,
+  backToBIList
 };
