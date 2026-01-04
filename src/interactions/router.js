@@ -1,6 +1,7 @@
 import * as registration from './registration.js';
 import * as editing from './editing.js';
 import * as deletion from './deletion.js';
+import { MessageFlags } from 'discord.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // BUTTON INTERACTION ROUTER
@@ -13,8 +14,12 @@ export async function route(interaction) {
   console.log('[ROUTER] Button interaction:', customId);
 
   try {
+    // Verification Register Button (welcome channel)
+    if (customId === 'verification_register') {
+      await registration.start(interaction, userId);
+    }
     // Registration - Main Character
-    if (customId === `register_${userId}`) {
+    else if (customId === `register_${userId}`) {
       await registration.start(interaction, userId);
     }
     else if (customId === `confirm_replace_main_${userId}`) {
@@ -113,7 +118,7 @@ export async function route(interaction) {
       console.log('[ROUTER] Unknown button interaction:', customId);
       await interaction.reply({
         content: '❌ Unknown interaction. Please try again.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -124,12 +129,12 @@ export async function route(interaction) {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp({
           content: '❌ An error occurred. Please try again.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       } else {
         await interaction.reply({
           content: '❌ An error occurred. Please try again.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
     } catch (replyError) {
@@ -224,7 +229,7 @@ export async function routeSelectMenu(interaction) {
       console.log('[ROUTER] Unknown select menu interaction:', customId);
       await interaction.reply({
         content: '❌ Unknown interaction. Please try again.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -235,12 +240,12 @@ export async function routeSelectMenu(interaction) {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp({
           content: '❌ An error occurred. Please try again.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       } else {
         await interaction.reply({
           content: '❌ An error occurred. Please try again.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
     } catch (replyError) {
@@ -279,7 +284,7 @@ export async function routeModal(interaction) {
       console.log('[ROUTER] Unknown modal interaction:', customId);
       await interaction.reply({
         content: '❌ Unknown interaction. Please try again.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -290,22 +295,13 @@ export async function routeModal(interaction) {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp({
           content: '❌ An error occurred. Please try again.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       } else {
         await interaction.reply({
           content: '❌ An error occurred. Please try again.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
     } catch (replyError) {
-      console.error('[ROUTER] Failed to send error message:', replyError);
-    }
-  }
-}
-
-export default {
-  route,
-  routeSelectMenu,
-  routeModal
-};
+      console.error('[ROUTER] Failed to send error me
