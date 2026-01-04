@@ -295,6 +295,21 @@ export async function executeRemoveMain(interaction, userId) {
     await CharacterRepo.delete(main.id);
     console.log('[REMOVE] Deleted main character:', main.id);
 
+    // 🆕 Clear nickname preferences and update Discord nickname
+    const { NicknamePrefsRepo, updateNickname } = await import('../services/nickname.js');
+    const config = await import('../config/index.js').then(m => m.default);
+    
+    // Get remaining characters to check if there's a new main
+    const remainingChars = await CharacterRepo.findAllByUser(userId);
+    const newMain = remainingChars.find(c => c.character_type === 'main');
+    
+    if (newMain) {
+      // User still has a main, update nickname preferences to empty (just main name)
+      await NicknamePrefsRepo.set(userId, []);
+      await updateNickname(interaction.client, config.discord.guildId, userId);
+      console.log('[REMOVE] Updated Discord nickname for new main');
+    }
+
     // Update class roles - check if class is still used
     const remainingCharacters = await CharacterRepo.findAllByUser(userId);
     const stillUsesClass = remainingCharacters.some(c => c.class === mainClass);
@@ -373,12 +388,17 @@ export async function executeRemoveSubclass(interaction, userId, subclassId) {
     console.log('[REMOVE] Deleted subclass:', subclassId);
 
     // 🆕 Clean up nickname preferences
-    const { NicknamePrefsRepo } = await import('../services/nickname.js');
+    const { NicknamePrefsRepo, updateNickname } = await import('../services/nickname.js');
     const prefs = await NicknamePrefsRepo.get(userId);
     if (prefs && prefs.includes(subclassId)) {
       const updatedPrefs = prefs.filter(id => id !== subclassId);
       await NicknamePrefsRepo.set(userId, updatedPrefs);
       console.log('[REMOVE] Cleaned up nickname preferences for subclass:', subclassId);
+      
+      // Update Discord nickname to reflect the change
+      const config = await import('../config/index.js').then(m => m.default);
+      await updateNickname(interaction.client, config.discord.guildId, userId);
+      console.log('[REMOVE] Updated Discord nickname');
     }
 
     // Update class roles - check if class is still used
@@ -435,12 +455,17 @@ export async function executeRemoveAlt(interaction, userId, altId) {
     console.log('[REMOVE] Deleted alt:', altId);
 
     // 🆕 Clean up nickname preferences
-    const { NicknamePrefsRepo } = await import('../services/nickname.js');
+    const { NicknamePrefsRepo, updateNickname } = await import('../services/nickname.js');
     const prefs = await NicknamePrefsRepo.get(userId);
     if (prefs && prefs.includes(altId)) {
       const updatedPrefs = prefs.filter(id => id !== altId);
       await NicknamePrefsRepo.set(userId, updatedPrefs);
       console.log('[REMOVE] Cleaned up nickname preferences for alt:', altId);
+      
+      // Update Discord nickname to reflect the change
+      const config = await import('../config/index.js').then(m => m.default);
+      await updateNickname(interaction.client, config.discord.guildId, userId);
+      console.log('[REMOVE] Updated Discord nickname');
     }
 
     // Update class roles - check if class is still used
@@ -492,9 +517,18 @@ export async function executeRemoveAll(interaction, userId) {
 
     console.log('[REMOVE] Deleted all characters for user:', userId);
 
-    // 🆕 Clear all nickname preferences
-    const { NicknamePrefsRepo } = await import('../services/nickname.js');
+    // 🆕 Clear all nickname preferences and reset Discord nickname
+    const { NicknamePrefsRepo, updateNickname } = await import('../services/nickname.js');
+    const config = await import('../config/index.js').then(m => m.default);
     await NicknamePrefsRepo.set(userId, []);
+    
+    // Reset Discord nickname to username (since no characters left)
+    const guild = await interaction.client.guilds.fetch(config.discord.guildId);
+    const member = await guild.members.fetch(userId);
+    if (member && member.nickname) {
+      await member.setNickname(null, 'All characters removed');
+      console.log('[REMOVE] Reset Discord nickname to username');
+    }
     console.log('[REMOVE] Cleared nickname preferences');
 
     // Remove all class roles
