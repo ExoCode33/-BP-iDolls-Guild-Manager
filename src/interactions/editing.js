@@ -1,43 +1,11 @@
-import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from 'discord.js';
 import { CharacterRepo, BattleImagineRepo } from '../database/repositories.js';
 import { CLASSES, ABILITY_SCORES, COLORS } from '../config/game.js';
 import * as ui from '../ui/components.js';
 import { profileEmbed } from '../ui/embeds.js';
 import logger from '../services/logger.js';
 import * as classRoleService from '../services/classRoles.js';
-
-// ═══════════════════════════════════════════════════════════════════
-// STATE MANAGEMENT
-// ═══════════════════════════════════════════════════════════════════
-
-const editState = new Map();
-
-const state = {
-  set(userId, key, value) {
-    const userState = editState.get(userId) || {};
-    userState[key] = value;
-    editState.set(userId, userState);
-    console.log(`[EDIT STATE] Set ${key} for user ${userId}:`, value);
-  },
-
-  get(userId, key) {
-    const userState = editState.get(userId);
-    return userState ? userState[key] : null;
-  },
-
-  clear(userId, key) {
-    if (key) {
-      const userState = editState.get(userId);
-      if (userState) {
-        delete userState[key];
-        console.log(`[EDIT STATE] Cleared ${key} for user ${userId}`);
-      }
-    } else {
-      editState.delete(userId);
-      console.log(`[EDIT STATE] Cleared all state for user ${userId}`);
-    }
-  }
-};
+import state from '../services/state.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // EDIT CHARACTER - SELECT CHARACTER
@@ -119,15 +87,13 @@ export async function selectCharacter(interaction, userId) {
     .setDescription(
       `# ✏️ **Edit ${character.ign}**\n` +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      'What would you like to edit?'
-    )
-    .addFields(
-      { name: '🎭 Class', value: character.class, inline: true },
-      { name: '✨ Subclass', value: character.subclass, inline: true },
-      { name: '💪 Score', value: character.ability_score, inline: true },
-      { name: '🎮 IGN', value: character.ign, inline: true },
-      { name: '🆔 UID', value: character.uid, inline: true },
-      { name: '🏰 Guild', value: character.guild, inline: true }
+      'What would you like to edit?\n\n' +
+      `**🎭 Class:** ${character.class}\n` +
+      `**✨ Subclass:** ${character.subclass}\n` +
+      `**💪 Score:** ${character.ability_score}\n` +
+      `**🎮 IGN:** ${character.ign}\n` +
+      `**🆔 UID:** ${character.uid}\n` +
+      `**🏰 Guild:** ${character.guild}`
     )
     .setTimestamp();
 
@@ -236,7 +202,6 @@ async function showClassSelection(interaction, userId) {
 export async function handleClassEdit(interaction, userId) {
   const className = interaction.values[0];
   const currentState = state.get(userId, 'edit');
-  const oldClass = currentState.character.class;
 
   console.log('[EDIT] Class selected:', className);
   state.set(userId, 'edit', { ...currentState, newClass: className });
@@ -770,6 +735,14 @@ export async function backToEditSelect(interaction, userId) {
 }
 
 export async function backToEditField(interaction, userId) {
+  const currentState = state.get(userId, 'edit');
+  if (!currentState || !currentState.character) {
+    await start(interaction, userId);
+    return;
+  }
+  
+  // Recreate the interaction.values array
+  interaction.values = [String(currentState.character.id)];
   await selectCharacter(interaction, userId);
 }
 
