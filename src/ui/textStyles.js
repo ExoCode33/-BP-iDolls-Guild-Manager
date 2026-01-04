@@ -46,11 +46,11 @@ const STYLES = {
     number: '7️⃣',
     convert: (text) => convertToUnicode(text, 0x1D4D0, 0x1D4EA)
   },
-  cursive: {
-    name: 'Cursive',
+  fraktur: {
+    name: 'Fraktur',
     emoji: '🌟',
     number: '8️⃣',
-    convert: (text) => convertToUnicode(text, 0x1D49C, 0x1D4B6)
+    convert: (text) => convertToUnicode(text, 0x1D504, 0x1D51E)
   },
   monospace: {
     name: 'Monospace',
@@ -131,14 +131,15 @@ export function applyStyle(text, styleKey = 'normal') {
 
 /**
  * Get all available styles for dropdown
+ * @param {string} previewNickname - Nickname to show as example
  * @returns {Array} Array of style options
  */
-export function getStyleOptions() {
+export function getStyleOptions(previewNickname = 'Example') {
   return Object.entries(STYLES).map(([key, style]) => ({
     label: style.name,
     value: key,
-    emoji: style.emoji,
-    description: `${style.number} ${style.convert('Example')}`
+    emoji: style.number,
+    description: styleNickname(previewNickname, key)
   }));
 }
 
