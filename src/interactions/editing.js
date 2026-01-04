@@ -7,6 +7,7 @@ import { profileEmbed } from '../ui/embeds.js';
 import logger from '../services/logger.js';
 import * as classRoleService from '../services/classRoles.js';
 import { NicknamePrefsRepo, updateNickname, buildNickname } from '../services/nickname.js';
+import { getStyleOptions } from '../ui/textStyles.js';
 import config from '../config/index.js';
 import state from '../services/state.js';
 
@@ -770,8 +771,9 @@ export async function showNicknameSelection(interaction, userId) {
     return;
   }
 
-  // Get current nickname preferences
+  // Get current nickname preferences and style
   const prefs = await NicknamePrefsRepo.get(userId);
+  const { characterIds, style } = prefs;
   const currentNickname = await buildNickname(userId);
 
   const embed = new EmbedBuilder()
@@ -784,15 +786,17 @@ export async function showNicknameSelection(interaction, userId) {
       '• Main character is always shown first\n' +
       '• Select "All" to include all characters\n' +
       '• Characters are joined with middle dot (·)\n' +
-      '• Maximum Discord nickname length: 32 characters'
+      '• Maximum Discord nickname length: 32 characters\n\n' +
+      '**Choose a text style:**\n' +
+      '• Styles only affect character names, not separators'
     )
     .setTimestamp();
 
-  // Build options
+  // Build character options
   const options = [];
   
   // Add "All" option - only selected if user explicitly chose all alts
-  const allSelected = prefs !== null && prefs.length === alts.length && alts.length > 0;
+  const allSelected = characterIds !== null && characterIds.length === alts.length && alts.length > 0;
   const allOption = {
     label: 'All Characters',
     value: 'all',
@@ -820,28 +824,39 @@ export async function showNicknameSelection(interaction, userId) {
       emoji: '🎭'
     };
     // Only add default if user explicitly selected this alt
-    if (prefs && prefs.includes(alt.id)) {
+    if (characterIds && characterIds.includes(alt.id)) {
       altOption.default = true;
     }
     options.push(altOption);
   }
 
-  const selectMenu = new StringSelectMenuBuilder()
+  const characterSelectMenu = new StringSelectMenuBuilder()
     .setCustomId(`edit_select_nickname_${userId}`)
     .setPlaceholder('🏷️ Select characters for nickname')
     .setMinValues(1)
     .setMaxValues(options.length)
     .addOptions(options);
 
+  // 🆕 Style selector dropdown
+  const styleOptions = getStyleOptions();
+  const styleSelectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`edit_select_nickname_style_${userId}`)
+    .setPlaceholder('🎨 Select text style')
+    .addOptions(styleOptions.map(opt => ({
+      ...opt,
+      default: opt.value === style
+    })));
+
   const backButton = new ButtonBuilder()
     .setCustomId(`back_to_profile_${userId}`)
     .setLabel('◀️ Back to Profile')
     .setStyle(ButtonStyle.Secondary);
 
-  const row1 = new ActionRowBuilder().addComponents(selectMenu);
-  const row2 = new ActionRowBuilder().addComponents(backButton);
+  const row1 = new ActionRowBuilder().addComponents(characterSelectMenu);
+  const row2 = new ActionRowBuilder().addComponents(styleSelectMenu);
+  const row3 = new ActionRowBuilder().addComponents(backButton);
 
-  await interaction.update({ embeds: [embed], components: [row1, row2] });
+  await interaction.update({ embeds: [embed], components: [row1, row2, row3] });
 }
 
 export async function handleNicknameEdit(interaction, userId) {
@@ -923,6 +938,56 @@ export async function handleNicknameEdit(interaction, userId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// DISCORD NICKNAME STYLE EDITING
+// ═══════════════════════════════════════════════════════════════════
+
+export async function handleNicknameStyleEdit(interaction, userId) {
+  const selectedStyle = interaction.values[0];
+  
+  try {
+    // Save the new style
+    await NicknamePrefsRepo.setStyle(userId, selectedStyle);
+    console.log('[EDIT] Updated nickname style:', selectedStyle);
+
+    // Update Discord nickname with new style
+    const result = await updateNickname(interaction.client, config.discord.guildId, userId);
+    
+    // Build preview with new style
+    const newNickname = await buildNickname(userId);
+
+    // Show updated profile
+    const characters = await CharacterRepo.findAllByUser(userId);
+    const mainChar = characters.find(c => c.character_type === 'main');
+
+    const embed = await profileEmbed(interaction.user, characters, interaction);
+    const buttons = ui.profileButtons(userId, !!mainChar);
+
+    // Add field to show the updated nickname
+    embed.addFields({
+      name: '🎨 Nickname Style Updated',
+      value: `**New Nickname:** ${newNickname}\n${result.success ? '✅ Synced to Discord' : '⚠️ ' + result.reason}`,
+      inline: false
+    });
+
+    await interaction.update({
+      embeds: [embed],
+      components: buttons
+    });
+
+    logger.edit(interaction.user.username, 'Discord Nickname', 'style', selectedStyle);
+    state.clear(userId, 'edit');
+  } catch (error) {
+    console.error('[EDIT ERROR]', error);
+    logger.error('Edit', `Nickname style edit error: ${error.message}`, error);
+
+    await interaction.update({
+      content: '❌ Something went wrong. Please try again!',
+      components: []
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // BACK NAVIGATION
 // ═══════════════════════════════════════════════════════════════════
 
@@ -968,7 +1033,9 @@ export default {
   handleGuildEdit,
   selectBattleImagine,
   handleBattleImagineTierEdit,
+  showNicknameSelection,
   handleNicknameEdit,
+  handleNicknameStyleEdit,
   backToEditSelect,
   backToEditField,
   backToEditClass,
