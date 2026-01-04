@@ -1189,11 +1189,54 @@ export async function startSubclassRegistration(interaction, userId, parentId) {
   
   setActiveInteraction(userId, interaction.id);
   
-  console.log('[REGISTRATION] Starting subclass registration for user:', userId, 'parent:', parentId);
+  console.log(`[REG] Starting subclass registration for user ${userId}, parentId: ${parentId}`);
   
-  // Initialize subclass registration state
-  state.set(userId, 'reg', { type: 'subclass', parentId: parentId });
+  // ✅ FIX: If parentId is a huge number (user ID), look up the actual main character ID
+  let actualParentId = parentId;
   
+  // Check if parentId looks like a Discord snowflake (user ID) - typically 17-19 digits
+  if (parentId > 2147483647) {  // Max value for PostgreSQL INTEGER
+    console.log(`[REG] parentId ${parentId} is too large (likely user ID), looking up main character...`);
+    const mainChar = await CharacterRepo.findMain(userId);
+    if (!mainChar) {
+      clearActiveInteraction(userId);
+      return interaction.reply({ 
+        content: '❌ You need a main character before adding a subclass!', 
+        ephemeral: true 
+      });
+    }
+    actualParentId = mainChar.id;
+    console.log(`[REG] Found main character ID: ${actualParentId}`);
+  }
+
+  // Rest of the function continues with actualParentId
+  const main = await CharacterRepo.findById(actualParentId);
+  if (!main) {
+    clearActiveInteraction(userId);
+    return interaction.reply({ 
+      content: '❌ Main character not found!', 
+      ephemeral: true 
+    });
+  }
+
+  // Check if they already have a subclass with this parent
+  const existingSubs = await CharacterRepo.findSubclasses(userId);
+  const hasSubForThisParent = existingSubs.some(sub => sub.parent_character_id === actualParentId);
+  
+  if (hasSubForThisParent) {
+    clearActiveInteraction(userId);
+    return interaction.update({
+      content: '❌ You already have a subclass for your main character! You can only have one subclass per main character.',
+      components: []
+    });
+  }
+
+  // Set initial state with the correct parent ID
+  state.set(userId, 'reg', { 
+    type: 'subclass', 
+    parentId: actualParentId  // Use the actual character ID, not user ID
+  });
+
   const totalSteps = getTotalSteps('subclass');
   const embed = createRegEmbed(1, totalSteps, '🎭 Which class speaks to you?', 'Choose your subclass');
 
