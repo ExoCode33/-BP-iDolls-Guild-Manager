@@ -1,6 +1,7 @@
 import logger from './logger.js';
 import { CharacterRepo } from '../database/repositories.js';
 import db from '../database/index.js';
+import { styleNickname } from '../ui/textStyles.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // NICKNAME PREFERENCES REPOSITORY
@@ -9,17 +10,34 @@ import db from '../database/index.js';
 export const NicknamePrefsRepo = {
   async get(userId) {
     const result = await db.query(
-      'SELECT nickname_preferences FROM users WHERE user_id = $1',
+      'SELECT nickname_preferences, style_preference FROM users WHERE user_id = $1',
       [userId]
     );
-    return result.rows[0]?.nickname_preferences || null;
+    return {
+      characterIds: result.rows[0]?.nickname_preferences || null,
+      style: result.rows[0]?.style_preference || 'normal'
+    };
   },
 
-  async set(userId, characterIds) {
-    // Ensure user exists first
+  async set(userId, characterIds, style = null) {
+    // If style is not provided, keep the existing style
+    if (style === null) {
+      await db.query(
+        'INSERT INTO users (user_id, nickname_preferences) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET nickname_preferences = $2',
+        [userId, characterIds]
+      );
+    } else {
+      await db.query(
+        'INSERT INTO users (user_id, nickname_preferences, style_preference) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET nickname_preferences = $2, style_preference = $3',
+        [userId, characterIds, style]
+      );
+    }
+  },
+
+  async setStyle(userId, style) {
     await db.query(
-      'INSERT INTO users (user_id, nickname_preferences) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET nickname_preferences = $2',
-      [userId, characterIds]
+      'INSERT INTO users (user_id, style_preference) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET style_preference = $2',
+      [userId, style]
     );
   },
 
@@ -29,19 +47,21 @@ export const NicknamePrefsRepo = {
    */
   async cleanup(userId) {
     const prefs = await this.get(userId);
-    if (!prefs || prefs.length === 0) return;
+    const { characterIds } = prefs;
+    
+    if (!characterIds || characterIds.length === 0) return;
 
     // Get all valid character IDs for this user
     const characters = await CharacterRepo.findAllByUser(userId);
     const validIds = characters.map(c => c.id);
 
     // Filter out orphaned IDs
-    const cleanedPrefs = prefs.filter(id => validIds.includes(id));
+    const cleanedIds = characterIds.filter(id => validIds.includes(id));
 
     // Update if anything changed
-    if (cleanedPrefs.length !== prefs.length) {
-      await this.set(userId, cleanedPrefs);
-      console.log(`[NICKNAME] Cleaned up ${prefs.length - cleanedPrefs.length} orphaned preference(s)`);
+    if (cleanedIds.length !== characterIds.length) {
+      await this.set(userId, cleanedIds);
+      console.log(`[NICKNAME] Cleaned up ${characterIds.length - cleanedIds.length} orphaned preference(s)`);
     }
   }
 };
@@ -54,8 +74,9 @@ export async function buildNickname(userId) {
   // Clean up orphaned IDs first
   await NicknamePrefsRepo.cleanup(userId);
   
-  // Get user's nickname preferences
+  // Get user's nickname preferences and style
   const prefs = await NicknamePrefsRepo.get(userId);
+  const { characterIds, style } = prefs;
   
   // Get all characters
   const characters = await CharacterRepo.findAllByUser(userId);
@@ -64,8 +85,9 @@ export async function buildNickname(userId) {
   if (!main) return null; // No main character, no nickname
   
   // Default: Just main character if no preferences set
-  if (!prefs || prefs.length === 0) {
-    return main.ign;
+  if (!characterIds || characterIds.length === 0) {
+    const nickname = main.ign;
+    return styleNickname(nickname, style);
   }
   
   // Build nickname from preferences
@@ -77,13 +99,16 @@ export async function buildNickname(userId) {
   
   // Add other selected characters (alts/subclasses) in registration order
   for (const char of characters) {
-    if (char.character_type !== 'main' && prefs.includes(char.id)) {
+    if (char.character_type !== 'main' && characterIds.includes(char.id)) {
       selectedChars.push(char.ign);
     }
   }
   
   // Join with middle dot separator
   let nickname = selectedChars.join(' · ');
+  
+  // Apply style BEFORE truncation
+  nickname = styleNickname(nickname, style);
   
   // Truncate if too long (max 32 chars)
   if (nickname.length > 32) {
