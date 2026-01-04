@@ -7,67 +7,33 @@ const cache = new Map();
  * @param {string} guildId - Discord guild ID
  * @param {string} type - Interaction type to check
  * @returns {Promise<boolean>} True if should be ephemeral
+ * 
+ * SIMPLE RULE:
+ * - Everything is ephemeral (private) by default
+ * - EXCEPT /view-character which can be toggled in admin settings
  */
 export async function isEphemeral(guildId, type) {
   if (!guildId) return true;
 
-  let settings = cache.get(guildId);
-  if (!settings) {
-    settings = await EphemeralRepo.get(guildId);
-    cache.set(guildId, settings);
-    setTimeout(() => cache.delete(guildId), 60000);
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // COMMAND EPHEMERAL CHECKS
-  // ═══════════════════════════════════════════════════════════
-  
-  // /edit-character command
-  if (type === 'edit_character') {
-    return settings.includes('edit_character');
-  }
-  
-  // /view-character command
+  // Only /view-character can be toggled
   if (type === 'view_character') {
+    let settings = cache.get(guildId);
+    if (!settings) {
+      settings = await EphemeralRepo.get(guildId);
+      cache.set(guildId, settings);
+      setTimeout(() => cache.delete(guildId), 60000);
+    }
+    
+    // Return true if 'view_character' is in the settings array
     return settings.includes('view_character');
   }
-  
-  // /admin command
-  if (type === 'admin') {
-    return settings.includes('admin');
-  }
 
-  // ═══════════════════════════════════════════════════════════
-  // FLOW EPHEMERAL CHECKS
-  // ═══════════════════════════════════════════════════════════
-  
-  // Registration flow
-  if (type === 'registration' || type === 'register') {
-    return settings.includes('registration');
-  }
-  
-  // Edit actions (buttons)
-  if (type === 'edit' || type === 'editing') {
-    return settings.includes('edit_actions');
-  }
-  
-  // Add character/subclass
-  if (type === 'add' || type === 'adding') {
-    return settings.includes('add_character');
-  }
-  
-  // Delete character
-  if (type === 'delete' || type === 'deletion' || type === 'remove') {
-    return settings.includes('delete_character');
-  }
-  
-  // Error messages
-  if (type === 'error' || type === 'errors') {
-    return settings.includes('errors');
-  }
-
-  // Default: not ephemeral
-  return false;
+  // Everything else is always ephemeral (private)
+  // - /edit-character → always private
+  // - /admin → always private  
+  // - Registration flows → always private
+  // - Edit/Add/Delete flows → always private
+  return true;
 }
 
 /**
