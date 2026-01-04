@@ -7,7 +7,7 @@ import { profileEmbed } from '../ui/embeds.js';
 import logger from '../services/logger.js';
 import * as classRoleService from '../services/classRoles.js';
 import { NicknamePrefsRepo, updateNickname, buildNickname } from '../services/nickname.js';
-import { getStyleOptions } from '../ui/textStyles.js';
+import { getStyleOptions, getStylePreviews } from '../ui/textStyles.js';
 import config from '../config/index.js';
 import state from '../services/state.js';
 
@@ -776,6 +776,21 @@ export async function showNicknameSelection(interaction, userId) {
   const { characterIds, style } = prefs;
   const currentNickname = await buildNickname(userId);
 
+  // Build preview nickname from selected characters (without style)
+  let previewNickname = main.ign;
+  if (characterIds && characterIds.length > 0) {
+    const previewChars = [main.ign];
+    for (const char of characters) {
+      if (char.character_type !== 'main' && characterIds.includes(char.id)) {
+        previewChars.push(char.ign);
+      }
+    }
+    previewNickname = previewChars.join(' · ');
+  }
+  
+  // Get style previews with the user's actual nickname
+  const stylePreviews = getStylePreviews(previewNickname);
+
   const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setDescription(
@@ -788,7 +803,9 @@ export async function showNicknameSelection(interaction, userId) {
       '• Characters are joined with middle dot (·)\n' +
       '• Maximum Discord nickname length: 32 characters\n\n' +
       '**Choose a text style:**\n' +
-      '• Styles only affect character names, not separators'
+      '• Styles only affect character names, not separators\n\n' +
+      '**Style Previews:**\n' +
+      stylePreviews
     )
     .setTimestamp();
 
