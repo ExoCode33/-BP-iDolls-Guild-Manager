@@ -400,7 +400,9 @@ export async function routeSelectMenu(interaction) {
     // ✅ NEW: Editing - Discord Nickname Style
     else if (customId.startsWith('edit_select_nickname_style_')) {
       const targetUserId = customId.replace('edit_select_nickname_style_', '');
+      console.log('[ROUTER] Calling handleNicknameStyleEdit for user:', targetUserId);
       await editing.handleNicknameStyleEdit(interaction, targetUserId);
+      console.log('[ROUTER] handleNicknameStyleEdit completed');
     }
 
     // Deletion - Remove Type Selection
