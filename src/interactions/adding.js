@@ -31,10 +31,10 @@ export async function showAddCharacterMenu(interaction, userId) {
     });
   }
 
-  // Add Subclass option (max 1 per main)
-  if (main && subclasses.length < 1) {
+  // ✅ FIXED: Add Subclass option (max 3 per main)
+  if (main && subclasses.length < 3) {
     options.push({
-      label: 'Subclass',
+      label: `Subclass (${subclasses.length}/3)`,
       value: 'add_subclass',
       description: 'Add a subclass to your main character',
       emoji: '📊'
@@ -61,7 +61,7 @@ export async function showAddCharacterMenu(interaction, userId) {
         '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
         '**You have reached the maximum number of characters:**\n\n' +
         '✅ Main Character: 1/1\n' +
-        '✅ Subclass: 1/1\n' +
+        '✅ Subclasses: 3/3\n' +
         '✅ Alt Characters: 3/3\n\n' +
         'Use **Remove Character** to delete a character before adding a new one.'
       )
