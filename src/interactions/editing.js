@@ -6,6 +6,8 @@ import * as ui from '../ui/components.js';
 import { profileEmbed } from '../ui/embeds.js';
 import logger from '../services/logger.js';
 import * as classRoleService from '../services/classRoles.js';
+import { NicknamePrefsRepo, updateNickname, buildNickname } from '../services/nickname.js';
+import config from '../config/index.js';
 import state from '../services/state.js';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -126,7 +128,8 @@ export async function selectCharacter(interaction, userId) {
     { label: 'IGN', value: 'ign', emoji: '🎮' },
     { label: 'UID', value: 'uid', emoji: '🆔' },
     { label: 'Guild', value: 'guild', emoji: '🏰' },
-    { label: 'Battle Imagines', value: 'battle_imagines', emoji: '⚔️' }
+    { label: 'Battle Imagines', value: 'battle_imagines', emoji: '⚔️' },
+    { label: 'Discord Nickname', value: 'discord_nickname', emoji: '🏷️' }
   ];
 
   const selectMenu = new StringSelectMenuBuilder()
@@ -174,6 +177,9 @@ export async function selectField(interaction, userId) {
       break;
     case 'battle_imagines':
       await showBattleImagineSelection(interaction, userId);
+      break;
+    case 'discord_nickname':
+      await showNicknameSelection(interaction, userId);
       break;
   }
 }
@@ -752,6 +758,169 @@ export async function handleBattleImagineTierEdit(interaction, userId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// DISCORD NICKNAME EDITING
+// ═══════════════════════════════════════════════════════════════════
+
+async function showNicknameSelection(interaction, userId) {
+  const characters = await CharacterRepo.findAllByUser(userId);
+  const main = characters.find(c => c.character_type === 'main');
+  const alts = characters.filter(c => c.character_type === 'alt');
+  
+  if (!main) {
+    await interaction.update({
+      content: '❌ No main character found.',
+      components: []
+    });
+    return;
+  }
+
+  // Get current nickname preferences
+  const prefs = await NicknamePrefsRepo.get(userId);
+  const currentNickname = await buildNickname(userId);
+
+  const embed = new EmbedBuilder()
+    .setColor(COLORS.PRIMARY)
+    .setDescription(
+      `# 🏷️ **Edit Discord Nickname**\n` +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+      `**Current Nickname:** ${currentNickname}\n\n` +
+      '**Select which characters to include:**\n' +
+      '• Main character is always shown first\n' +
+      '• Select "All" to include all characters\n' +
+      '• Characters are joined with middle dot (·)\n' +
+      '• Maximum Discord nickname length: 32 characters'
+    )
+    .setTimestamp();
+
+  // Build options
+  const options = [];
+  
+  // Add "All" option
+  options.push({
+    label: 'All Characters',
+    value: 'all',
+    description: `${main.ign}${alts.length > 0 ? ' + ' + alts.length + ' alt(s)' : ''}`,
+    emoji: '✨',
+    default: prefs === null || (prefs && prefs.length === alts.length)
+  });
+  
+  // Add main (always included, but shown for clarity)
+  options.push({
+    label: `${main.ign} (Main)`,
+    value: `main_${main.id}`,
+    description: 'Always included',
+    emoji: '👑',
+    default: true // Always selected
+  });
+  
+  // Add alts
+  for (const alt of alts) {
+    options.push({
+      label: alt.ign,
+      value: `alt_${alt.id}`,
+      description: `${alt.class} - Alt`,
+      emoji: '🎭',
+      default: prefs && prefs.includes(alt.id)
+    });
+  }
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`edit_select_nickname_${userId}`)
+    .setPlaceholder('🏷️ Select characters for nickname')
+    .setMinValues(1)
+    .setMaxValues(options.length)
+    .addOptions(options);
+
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_edit_field_${userId}`)
+    .setLabel('◀️ Back')
+    .setStyle(ButtonStyle.Secondary);
+
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton);
+
+  await interaction.update({ embeds: [embed], components: [row1, row2] });
+}
+
+export async function handleNicknameEdit(interaction, userId) {
+  const selections = interaction.values;
+  
+  try {
+    const characters = await CharacterRepo.findAllByUser(userId);
+    const main = characters.find(c => c.character_type === 'main');
+    const alts = characters.filter(c => c.character_type === 'alt');
+    
+    if (!main) {
+      await interaction.update({
+        content: '❌ No main character found.',
+        components: []
+      });
+      return;
+    }
+
+    let selectedCharIds = [];
+
+    // Check if "All" was selected
+    if (selections.includes('all')) {
+      // Include all alt character IDs
+      selectedCharIds = alts.map(alt => alt.id);
+    } else {
+      // Extract selected alt IDs (main is always included, don't store it)
+      for (const selection of selections) {
+        if (selection.startsWith('alt_')) {
+          const altId = parseInt(selection.split('_')[1]);
+          selectedCharIds.push(altId);
+        }
+      }
+    }
+
+    // Save preferences
+    await NicknamePrefsRepo.set(userId, selectedCharIds);
+    console.log('[EDIT] Updated nickname preferences:', selectedCharIds);
+
+    // Update Discord nickname
+    const result = await updateNickname(interaction.client, config.discord.guildId, userId);
+    
+    if (!result.success) {
+      console.error('[EDIT] Failed to update Discord nickname:', result.reason);
+    }
+
+    // Build preview of new nickname
+    const newNickname = await buildNickname(userId);
+
+    // Show success and return to profile
+    const allCharacters = await CharacterRepo.findAllByUser(userId);
+    const mainChar = allCharacters.find(c => c.character_type === 'main');
+
+    const embed = await profileEmbed(interaction.user, allCharacters, interaction);
+    const buttons = ui.profileButtons(userId, !!mainChar);
+
+    // Add a field to show the updated nickname
+    embed.addFields({
+      name: '🏷️ Discord Nickname Updated',
+      value: `**New Nickname:** ${newNickname}\n${result.success ? '✅ Synced to Discord' : '⚠️ ' + result.reason}`,
+      inline: false
+    });
+
+    await interaction.update({
+      embeds: [embed],
+      components: buttons
+    });
+
+    logger.edit(interaction.user.username, 'Discord Nickname', 'nickname', newNickname);
+    state.clear(userId, 'edit');
+  } catch (error) {
+    console.error('[EDIT ERROR]', error);
+    logger.error('Edit', `Nickname edit error: ${error.message}`, error);
+
+    await interaction.update({
+      content: '❌ Something went wrong. Please try again!',
+      components: []
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // BACK NAVIGATION
 // ═══════════════════════════════════════════════════════════════════
 
@@ -797,6 +966,7 @@ export default {
   handleGuildEdit,
   selectBattleImagine,
   handleBattleImagineTierEdit,
+  handleNicknameEdit,
   backToEditSelect,
   backToEditField,
   backToEditClass,
