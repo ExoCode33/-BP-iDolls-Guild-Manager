@@ -264,7 +264,7 @@ export async function route(interaction) {
       // Use admin buttons if viewing someone else's profile, otherwise use regular buttons
       const buttons = targetUserId === interaction.user.id 
         ? profileButtons(targetUserId, !!main)
-        : adminProfileButtons(targetUserId);
+        : adminProfileButtons(targetUserId, !!main);
 
       await interaction.update({ embeds: [embed], components: buttons });
     }
