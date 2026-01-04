@@ -81,7 +81,7 @@ export const CharacterRepo = {
   async findById(id) {
     const result = await db.query(
       'SELECT * FROM characters WHERE id = $1',
-      [id]
+      [parseInt(id)]  // ✅ Convert to int
     );
     return result.rows[0];
   },
@@ -154,7 +154,7 @@ export const CharacterRepo = {
        (user_id, ign, uid, class, subclass, ability_score, guild, character_type, parent_character_id, created_at, updated_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) 
        RETURNING *`,
-      [userId, ign, uid, className, subclass, abilityScore, guild, characterType, parentId]
+      [userId, ign, uid, className, subclass, abilityScore, guild, characterType, parentId ? parseInt(parentId) : null]  // ✅ Convert parentId to int
     );
     return result.rows[0];
   },
@@ -171,7 +171,7 @@ export const CharacterRepo = {
     });
 
     fields.push(`updated_at = NOW()`);
-    values.push(id);
+    values.push(parseInt(id));  // ✅ Convert to int
 
     const query = `UPDATE characters SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
     const result = await db.query(query, values);
@@ -179,11 +179,11 @@ export const CharacterRepo = {
   },
 
   async delete(id) {
-    await db.query('DELETE FROM characters WHERE id = $1', [id]);
+    await db.query('DELETE FROM characters WHERE id = $1', [parseInt(id)]);  // ✅ Convert to int
   },
 
   async deleteSubclasses(parentId) {
-    await db.query('DELETE FROM characters WHERE parent_character_id = $1', [parentId]);
+    await db.query('DELETE FROM characters WHERE parent_character_id = $1', [parseInt(parentId)]);  // ✅ Convert to int
   },
 
   async deleteAllByUser(userId) {
@@ -200,7 +200,7 @@ export const CharacterRepo = {
   async promoteAltToMain(altId) {
     const result = await db.query(
       `UPDATE characters SET character_type = 'main', updated_at = NOW() WHERE id = $1 RETURNING *`,
-      [altId]
+      [parseInt(altId)]  // ✅ Convert to int
     );
     return result.rows[0];
   },
@@ -230,7 +230,7 @@ export const BattleImagineRepo = {
   async findByCharacterId(characterId) {
     const result = await db.query(
       `SELECT * FROM battle_imagines WHERE character_id = $1 ORDER BY imagine_name`,
-      [characterId]
+      [parseInt(characterId)]  // ✅ Convert to int
     );
     return result.rows;
   },
@@ -245,7 +245,7 @@ export const BattleImagineRepo = {
        VALUES ($1, $2, $3, NOW()) 
        ON CONFLICT (character_id, imagine_name) DO UPDATE SET tier = $3 
        RETURNING *`,
-      [characterId, imagineName, tier]
+      [parseInt(characterId), imagineName, tier]  // ✅ Convert to int
     );
     return result.rows[0];
   },
@@ -255,7 +255,7 @@ export const BattleImagineRepo = {
       `UPDATE battle_imagines SET tier = $3 
        WHERE character_id = $1 AND imagine_name = $2 
        RETURNING *`,
-      [characterId, imagineName, tier]
+      [parseInt(characterId), imagineName, tier]  // ✅ Convert to int
     );
     return result.rows[0];
   },
@@ -263,12 +263,12 @@ export const BattleImagineRepo = {
   async delete(characterId, imagineName) {
     await db.query(
       `DELETE FROM battle_imagines WHERE character_id = $1 AND imagine_name = $2`,
-      [characterId, imagineName]
+      [parseInt(characterId), imagineName]  // ✅ Convert to int
     );
   },
 
   async deleteAllByCharacter(characterId) {
-    await db.query('DELETE FROM battle_imagines WHERE character_id = $1', [characterId]);
+    await db.query('DELETE FROM battle_imagines WHERE character_id = $1', [parseInt(characterId)]);  // ✅ Convert to int
   }
 };
 
@@ -285,7 +285,7 @@ export const ApplicationRepo = {
        (user_id, character_id, guild_name, message_id, channel_id, status, accept_votes, deny_votes, created_at, updated_at) 
        VALUES ($1, $2, $3, $4, $5, 'pending', '{}', '{}', NOW(), NOW()) 
        RETURNING *`,
-      [user_id, parseInt(character_id), guild_name, message_id, channel_id]  // ✅ Convert character_id to int
+      [user_id, parseInt(character_id), guild_name, message_id, channel_id]
     );
     
     console.log('[APP REPO] Created application:', result.rows[0]);
@@ -295,7 +295,7 @@ export const ApplicationRepo = {
   async findById(id) {
     const result = await db.query(
       `SELECT * FROM guild_applications WHERE id = $1`,
-      [parseInt(id)]  // ✅ Convert to int
+      [parseInt(id)]
     );
     return result.rows[0];
   },
@@ -303,7 +303,7 @@ export const ApplicationRepo = {
   async findByCharacterId(characterId) {
     const result = await db.query(
       `SELECT * FROM guild_applications WHERE character_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [parseInt(characterId)]  // ✅ Convert to int
+      [parseInt(characterId)]
     );
     return result.rows[0];
   },
@@ -311,7 +311,7 @@ export const ApplicationRepo = {
   async findAllByUserAndCharacter(userId, characterId) {
     const result = await db.query(
       `SELECT * FROM guild_applications WHERE user_id = $1 AND character_id = $2 ORDER BY created_at DESC LIMIT 1`,
-      [userId, parseInt(characterId)]  // ✅ Convert to int
+      [userId, parseInt(characterId)]
     );
     return result.rows[0];
   },
@@ -335,7 +335,7 @@ export const ApplicationRepo = {
     });
 
     fields.push(`updated_at = NOW()`);
-    values.push(parseInt(id));  // ✅ Convert to int
+    values.push(parseInt(id));
 
     const query = `UPDATE guild_applications SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
     
@@ -351,7 +351,7 @@ export const ApplicationRepo = {
   async updateStatus(id, status) {
     const result = await db.query(
       `UPDATE guild_applications SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *`,
-      [parseInt(id), status]  // ✅ Convert to int
+      [parseInt(id), status]
     );
     return result.rows[0];
   },
@@ -367,13 +367,13 @@ export const ApplicationRepo = {
            updated_at = NOW()
        WHERE id = $1 
        RETURNING *`,
-      [parseInt(id), userId]  // ✅ Convert to int
+      [parseInt(id), userId]
     );
     return result.rows[0];
   },
 
   async delete(id) {
-    await db.query('DELETE FROM guild_applications WHERE id = $1', [parseInt(id)]);  // ✅ Convert to int
+    await db.query('DELETE FROM guild_applications WHERE id = $1', [parseInt(id)]);
   }
 };
 
