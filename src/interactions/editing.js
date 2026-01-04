@@ -8,6 +8,26 @@ import * as classRoleService from '../services/classRoles.js';
 import state from '../services/state.js';
 
 // ═══════════════════════════════════════════════════════════════════
+// SHOW EDIT MENU - NEW FUNCTION FOR STATIC REGISTRATION
+// ═══════════════════════════════════════════════════════════════════
+
+export async function showEditMenu(interaction, userId) {
+  console.log('[EDIT] Showing edit menu for user with existing main:', userId);
+
+  const characters = await CharacterRepo.findAllByUser(userId);
+  const main = characters.find(c => c.character_type === 'main');
+
+  const embed = await profileEmbed(interaction.user, characters, interaction);
+  const buttons = ui.profileButtons(userId, !!main);
+
+  await interaction.reply({
+    embeds: [embed],
+    components: buttons,
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // EDIT CHARACTER - SELECT CHARACTER
 // ═══════════════════════════════════════════════════════════════════
 
@@ -611,7 +631,7 @@ async function showBattleImagineSelection(interaction, userId) {
       `# ⚔️ **Edit Battle Imagines**\n` +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
       (battleImagines.length > 0
-        ? '**Current Battle Imagines:**\n' + battleImagines.map(bi => `• ${bi.name}: ${bi.tier}`).join('\n') + '\n\n'
+        ? '**Current Battle Imagines:**\n' + battleImagines.map(bi => `• ${bi.imagine_name}: ${bi.tier}`).join('\n') + '\n\n'
         : '**No Battle Imagines set.**\n\n') +
       'Select a Battle Imagine to edit.'
     )
@@ -648,14 +668,15 @@ export async function selectBattleImagine(interaction, userId) {
   state.set(userId, 'edit', { ...currentState, selectedBI: biName });
 
   const character = currentState.character;
-  const existing = await BattleImagineRepo.findByName(character.id, biName);
+  const existing = await BattleImagineRepo.findByCharacter(character.id);
+  const biData = existing.find(bi => bi.imagine_name === biName);
 
   const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setDescription(
       `# ⚔️ **Edit ${biName}**\n` +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      (existing ? `**Current Tier:** ${existing.tier}\n\n` : `**Not set**\n\n`) +
+      (biData ? `**Current Tier:** ${biData.tier}\n\n` : `**Not set**\n\n`) +
       'Select a new tier (or None to remove).'
     )
     .setTimestamp();
@@ -694,11 +715,11 @@ export async function handleBattleImagineTierEdit(interaction, userId) {
 
   try {
     if (tier === 'none') {
-      await BattleImagineRepo.remove(character.id, biName);
+      await BattleImagineRepo.delete(character.id, biName);
       console.log('[EDIT] Removed BI:', biName);
       logger.edit(interaction.user.username, character.ign, 'battle_imagine', `Removed ${biName}`);
     } else {
-      await BattleImagineRepo.set(character.id, biName, tier);
+      await BattleImagineRepo.add(character.id, biName, tier);
       console.log('[EDIT] Updated BI:', biName, tier);
       logger.edit(interaction.user.username, character.ign, 'battle_imagine', `${biName}: ${tier}`);
     }
@@ -759,6 +780,7 @@ export async function backToBIList(interaction, userId) {
 // ═══════════════════════════════════════════════════════════════════
 
 export default {
+  showEditMenu,
   start,
   selectCharacter,
   selectField,
