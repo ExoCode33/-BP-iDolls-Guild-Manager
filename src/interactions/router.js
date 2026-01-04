@@ -1,6 +1,7 @@
 import * as registration from './registration.js';
 import * as editing from './editing.js';
 import * as deletion from './deletion.js';
+import applicationService from '../services/applications.js';
 import { MessageFlags } from 'discord.js';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -14,6 +15,56 @@ export async function route(interaction) {
   console.log('[ROUTER] Button interaction:', customId);
 
   try {
+    // ═══════════════════════════════════════════════════════════════
+    // APPLICATION HANDLERS - Handle FIRST, before ownership checks
+    // ═══════════════════════════════════════════════════════════════
+    
+    if (customId.startsWith('app_vote_accept_')) {
+      const appId = parseInt(customId.split('_')[3]);
+      console.log(`[ROUTER] Accept vote button clicked, appId: ${appId}`);
+      await applicationService.handleVote(interaction, appId, 'accept');
+      return;
+    }
+    
+    if (customId.startsWith('app_vote_deny_')) {
+      const appId = parseInt(customId.split('_')[3]);
+      console.log(`[ROUTER] Deny vote button clicked, appId: ${appId}`);
+      await applicationService.handleVote(interaction, appId, 'deny');
+      return;
+    }
+    
+    if (customId.startsWith('app_override_') && !customId.includes('accept') && !customId.includes('deny') && !customId.includes('cancel')) {
+      const appId = parseInt(customId.split('_')[2]);
+      console.log(`[ROUTER] Override menu button clicked, appId: ${appId}`);
+      await applicationService.showOverrideMenu(interaction, appId);
+      return;
+    }
+    
+    if (customId.startsWith('app_override_accept_')) {
+      const appId = parseInt(customId.split('_')[3]);
+      console.log(`[ROUTER] Override accept button clicked, appId: ${appId}`);
+      await applicationService.handleOverride(interaction, appId, 'accept');
+      return;
+    }
+    
+    if (customId.startsWith('app_override_deny_')) {
+      const appId = parseInt(customId.split('_')[3]);
+      console.log(`[ROUTER] Override deny button clicked, appId: ${appId}`);
+      await applicationService.handleOverride(interaction, appId, 'deny');
+      return;
+    }
+    
+    if (customId.startsWith('app_override_cancel_')) {
+      const appId = parseInt(customId.split('_')[3]);
+      console.log(`[ROUTER] Override cancel button clicked, appId: ${appId}`);
+      await applicationService.cancelOverride(interaction, appId);
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // VERIFICATION & REGISTRATION
+    // ═══════════════════════════════════════════════════════════════
+    
     // Verification Register Button (welcome channel)
     if (customId === 'verification_register') {
       await registration.start(interaction, userId);
