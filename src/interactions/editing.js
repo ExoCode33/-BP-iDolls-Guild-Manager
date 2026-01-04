@@ -765,8 +765,9 @@ export async function showNicknameSelection(interaction, userId) {
   
   if (!main) {
     await interaction.update({
-      content: '❌ No main character found.',
-      components: []
+      content: '❌ **No main character found.**\n\nYou need to register a main character first before customizing your Discord nickname.\n\nUse `/character` to view your profile and add a main character.',
+      components: [],
+      embeds: []
     });
     return;
   }
