@@ -1055,6 +1055,7 @@ export async function handleIGN(interaction, userId) {
         )
         .setTimestamp();
       
+      // Show success message first
       await interaction.update({
         content: '',
         embeds: [successEmbed],
@@ -1063,6 +1064,25 @@ export async function handleIGN(interaction, userId) {
       
       logger.register(interaction.user.username, characterType, ign, currentState.class);
       state.clear(userId, 'reg');
+      
+      // ✅ FIXED: Wait 3 seconds, then show profile
+      setTimeout(async () => {
+        try {
+          const characters = await CharacterRepo.findAllByUser(userId);
+          const main = characters.find(c => c.character_type === 'main');
+          
+          const embed = await profileEmbed(interaction.user, characters, interaction);
+          const buttons = ui.profileButtons(userId, !!main);
+          
+          await interaction.editReply({ 
+            embeds: [embed], 
+            components: buttons
+          });
+        } catch (error) {
+          console.error('[REGISTRATION] Error showing profile after application:', error);
+        }
+      }, 3000);
+      
       return;
     }
     
