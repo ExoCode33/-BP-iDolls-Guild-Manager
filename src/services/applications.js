@@ -21,11 +21,11 @@ class ApplicationService {
     }
 
     try {
-      // ✅ Step 1: Create DB entry FIRST to get real ID
+      // ✅ Step 1: Create DB entry FIRST to get real ID (ALL SNAKE_CASE)
       const application = await ApplicationRepo.create({
-        userId,
-        characterId,
-        guildName,
+        user_id: userId,
+        character_id: characterId,
+        guild_name: guildName,
         message_id: null, // Will update after message is created
         channel_id: config.channels.admin
       });
@@ -47,7 +47,7 @@ class ApplicationService {
         components: buttons
       });
 
-      // ✅ Step 3: Update DB with message ID (FIXED: snake_case)
+      // ✅ Step 3: Update DB with message ID (snake_case)
       console.log(`[APP] Updating application ${application.id} with message_id: ${message.id}`);
       await ApplicationRepo.update(application.id, { message_id: message.id });
 
@@ -61,7 +61,7 @@ class ApplicationService {
 
   async handleVote(interaction, applicationId, voteType) {
     try {
-      console.log(`[APP] handleVote called - appId: ${applicationId}, voteType: ${voteType}`);
+      console.log(`[APP] handleVote called - appId: ${applicationId}, voteType: ${voteType}, voter: ${interaction.user.id}`);
       
       const application = await ApplicationRepo.findById(applicationId);
       if (!application) {
@@ -72,6 +72,19 @@ class ApplicationService {
       if (application.status !== 'pending') {
         console.log('[APP] Application already processed');
         return interaction.reply({ content: '❌ This application is already processed.', ephemeral: true });
+      }
+
+      // ✅ CHECK FOR DUPLICATE VOTE - Prevent same user from voting twice
+      const acceptVotes = application.accept_votes || [];
+      const denyVotes = application.deny_votes || [];
+      const hasAlreadyVoted = acceptVotes.includes(interaction.user.id) || denyVotes.includes(interaction.user.id);
+      
+      if (hasAlreadyVoted) {
+        console.log(`[APP] User ${interaction.user.id} has already voted on this application`);
+        return interaction.reply({ 
+          content: '❌ You have already voted on this application!', 
+          ephemeral: true 
+        });
       }
 
       // Add the vote
@@ -378,7 +391,7 @@ class ApplicationService {
             components: buttons
           });
 
-          // UPDATE the existing application with new message ID (FIXED: snake_case)
+          // UPDATE the existing application with new message ID (snake_case)
           console.log(`[APP] Updating application ${fullApp.id} with new message_id: ${newMessage.id}`);
           await ApplicationRepo.update(fullApp.id, { message_id: newMessage.id });
 
