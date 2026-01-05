@@ -42,19 +42,28 @@ async function performCleanup(client) {
         const member = await guild.members.fetch(userId).catch(() => null);
         
         if (!member) {
-          // User is not in the server anymore
+          // User is not in the server anymore - DELETE their data
           const userCharacters = await CharacterRepo.findAllByUser(userId);
           
           if (userCharacters.length > 0) {
-            // Delete all their characters
+            // Delete all their characters (this cascades to battle_imagines)
             for (const character of userCharacters) {
               await CharacterRepo.delete(character.id);
               cleanedCharacters++;
             }
             
-            // Clean up nickname preferences
-            const { NicknamePrefsRepo } = await import('../services/nickname.js');
-            await NicknamePrefsRepo.set(userId, []);
+            // Delete nickname preferences directly from database (no Discord sync)
+            try {
+              const db = await import('../database/index.js').then(m => m.default);
+              await db.run(
+                'DELETE FROM nickname_preferences WHERE user_id = ?',
+                [userId]
+              );
+              console.log(`[AUTO-CLEANUP] Cleared nickname prefs for ${userId}`);
+            } catch (error) {
+              // Table might not exist yet, ignore
+              console.log(`[AUTO-CLEANUP] Note: Could not clear nickname prefs for ${userId} (${error.message})`);
+            }
             
             cleanedUsers++;
             console.log(`[AUTO-CLEANUP] Removed ${userCharacters.length} character(s) for user ${userId} (not in server)`);
