@@ -1,3 +1,8 @@
+// Key changes at the end of this file:
+// 1. handleNicknameEdit() - NOW stays on the nickname screen with updated preview
+// 2. handleNicknameStyleEdit() - NOW stays on the nickname screen with updated preview  
+// 3. Back button changed to "Return to Profile" instead of "Back to Profile"
+
 import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from 'discord.js';
 import { CharacterRepo, BattleImagineRepo } from '../database/repositories.js';
 import { CLASSES, ABILITY_SCORES, COLORS } from '../config/game.js';
@@ -891,8 +896,8 @@ export async function showNicknameSelection(interaction, userId) {
 
   const backButton = new ButtonBuilder()
     .setCustomId(`back_to_profile_${userId}`)
-    .setLabel('◀️ Back to Profile')
-    .setStyle(ButtonStyle.Secondary);
+    .setLabel('✅ Return to Profile')
+    .setStyle(ButtonStyle.Success);
 
   const row1 = new ActionRowBuilder().addComponents(characterSelectMenu);
   const row2 = new ActionRowBuilder().addComponents(styleSelectMenu);
@@ -901,6 +906,7 @@ export async function showNicknameSelection(interaction, userId) {
   await interaction.update({ embeds: [embed], components: [row1, row2, row3] });
 }
 
+// ✅ IMPROVED: handleNicknameEdit - STAYS on nickname screen with updated preview
 export async function handleNicknameEdit(interaction, userId) {
   const selections = interaction.values;
   
@@ -944,30 +950,10 @@ export async function handleNicknameEdit(interaction, userId) {
       console.error('[EDIT] Failed to update Discord nickname:', result.reason);
     }
 
-    // Build preview of new nickname
-    const newNickname = await buildNickname(userId);
+    // ✅ STAY on the nickname selection screen with updated preview
+    await showNicknameSelection(interaction, userId);
 
-    // Show success and return to profile
-    const allCharacters = await CharacterRepo.findAllByUser(userId);
-    const mainChar = allCharacters.find(c => c.character_type === 'main');
-
-    const embed = await profileEmbed(interaction.user, allCharacters, interaction);
-    const buttons = ui.profileButtons(userId, !!mainChar);
-
-    // Add a field to show the updated nickname
-    embed.addFields({
-      name: '🏷️ Discord Nickname Updated',
-      value: `**New Nickname:** ${newNickname}\n${result.success ? '✅ Synced to Discord' : '⚠️ ' + result.reason}`,
-      inline: false
-    });
-
-    await interaction.update({
-      embeds: [embed],
-      components: buttons
-    });
-
-    logger.edit(interaction.user.username, 'Discord Nickname', 'nickname', newNickname);
-    state.clear(userId, 'edit');
+    logger.edit(interaction.user.username, 'Discord Nickname', 'characters', selectedCharIds.join(','));
   } catch (error) {
     console.error('[EDIT ERROR]', error);
     logger.error('Edit', `Nickname edit error: ${error.message}`, error);
@@ -983,6 +969,7 @@ export async function handleNicknameEdit(interaction, userId) {
 // DISCORD NICKNAME STYLE EDITING
 // ═══════════════════════════════════════════════════════════════════
 
+// ✅ IMPROVED: handleNicknameStyleEdit - STAYS on nickname screen with updated preview
 export async function handleNicknameStyleEdit(interaction, userId) {
   const selectedStyle = interaction.values[0];
   
@@ -999,33 +986,11 @@ export async function handleNicknameStyleEdit(interaction, userId) {
     const result = await updateNickname(interaction.client, config.discord.guildId, userId);
     console.log('[NICKNAME STYLE] Update result:', result);
     
-    // Build preview with new style
-    const newNickname = await buildNickname(userId);
-    console.log('[NICKNAME STYLE] New nickname:', newNickname);
-
-    // Show updated profile
-    const characters = await CharacterRepo.findAllByUser(userId);
-    const mainChar = characters.find(c => c.character_type === 'main');
-
-    const embed = await profileEmbed(interaction.user, characters, interaction);
-    const buttons = ui.profileButtons(userId, !!mainChar);
-
-    // Add field to show the updated nickname
-    embed.addFields({
-      name: '🎨 Nickname Style Updated',
-      value: `**New Nickname:** ${newNickname}\n${result.success ? '✅ Synced to Discord' : '⚠️ ' + result.reason}`,
-      inline: false
-    });
-
-    console.log('[NICKNAME STYLE] Sending update to Discord...');
-    await interaction.update({
-      embeds: [embed],
-      components: buttons
-    });
-    console.log('[NICKNAME STYLE] ✅ Success!');
+    // ✅ STAY on the nickname selection screen with updated preview
+    await showNicknameSelection(interaction, userId);
+    console.log('[NICKNAME STYLE] ✅ Success - staying on nickname screen!');
 
     logger.edit(interaction.user.username, 'Discord Nickname', 'style', selectedStyle);
-    state.clear(userId, 'edit');
   } catch (error) {
     console.error('[NICKNAME STYLE ERROR]', error);
     logger.error('Edit', `Nickname style edit error: ${error.message}`, error);
