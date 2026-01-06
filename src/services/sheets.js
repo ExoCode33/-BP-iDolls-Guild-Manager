@@ -224,6 +224,10 @@ class GoogleSheetsService {
     this.syncPending = false;
     this.syncTimeout = null;
     
+    // ✅ SYNC LOCK - Prevent concurrent syncs
+    this.isSyncing = false;
+    this.syncQueue = [];
+    
     // ✅ Cache for current sheet state (for diff comparison)
     this.cachedSheetData = null;
     this.cachedMetadata = null;
@@ -579,11 +583,21 @@ class GoogleSheetsService {
   // ═══════════════════════════════════════════════════════════════════
 
   async syncMemberList(allCharactersWithSubclasses) {
+    // ✅ SYNC LOCK - Prevent concurrent syncs
+    if (this.isSyncing) {
+      console.log('⏸️  [SHEETS] Sync already in progress - skipping duplicate call');
+      return;
+    }
+    
+    this.isSyncing = true;
+    const syncStartTime = Date.now();
+    
     console.log('🚀 [SHEETS] syncMemberList called');
     console.log(`📊 [SHEETS] Characters to sync: ${allCharactersWithSubclasses.length}`);
     
     if (!this.sheets) {
       console.error('❌ [SHEETS] Google Sheets API not initialized!');
+      this.isSyncing = false;
       return;
     }
 
@@ -634,9 +648,13 @@ class GoogleSheetsService {
         }
       }
 
-      console.log('\n✅ [SHEETS] All sheets synced successfully!');
+      const syncDuration = ((Date.now() - syncStartTime) / 1000).toFixed(1);
+      console.log(`\n✅ [SHEETS] All sheets synced successfully! (took ${syncDuration}s)`);
     } catch (error) {
       console.error('❌ [SHEETS] Error in syncMemberList:', error.message);
+    } finally {
+      // ✅ Always release lock
+      this.isSyncing = false;
     }
   }
 
@@ -1692,6 +1710,12 @@ class GoogleSheetsService {
   }
 
   async fullSync(allCharactersWithSubclasses) {
+    // ✅ SYNC LOCK - Prevent concurrent syncs at this level too
+    if (this.isSyncing) {
+      console.log('⏸️  [SHEETS] Sync already in progress - skipping');
+      return;
+    }
+    
     const now = Date.now();
     const timeSinceLastSync = now - this.lastSyncTime;
     
