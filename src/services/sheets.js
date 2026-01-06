@@ -291,14 +291,14 @@ class GoogleSheetsService {
     
     const numScore = parseInt(score);
     
-    // Soft progressive gradient chip backgrounds: Green → Lime → Yellow → Orange → Red → Purple
-    if (numScore >= 36000) return { red: 0.90, green: 0.80, blue: 0.94 }; // Soft purple chip (36k+)
-    if (numScore >= 32000) return { red: 0.98, green: 0.80, blue: 0.80 }; // Soft red chip (32-36k)
-    if (numScore >= 28000) return { red: 0.98, green: 0.88, blue: 0.72 }; // Soft orange chip (28-32k)
-    if (numScore >= 24000) return { red: 0.98, green: 0.95, blue: 0.72 }; // Soft yellow chip (24-28k)
-    if (numScore >= 20000) return { red: 0.88, green: 0.94, blue: 0.78 }; // Soft lime chip (20-24k)
-    if (numScore >= 10000) return { red: 0.82, green: 0.92, blue: 0.82 }; // Soft green chip (10-20k)
-    return { red: 0.90, green: 0.90, blue: 0.92 }; // Soft gray chip (<10k)
+    // Vibrant progressive gradient: Green → Lime → Yellow → Orange → Red → Purple
+    if (numScore >= 36000) return { red: 0.70, green: 0.25, blue: 0.85 }; // Vibrant purple (36k+)
+    if (numScore >= 32000) return { red: 0.95, green: 0.25, blue: 0.30 }; // Vibrant red (32-36k)
+    if (numScore >= 28000) return { red: 0.95, green: 0.50, blue: 0.15 }; // Vibrant orange (28-32k)
+    if (numScore >= 24000) return { red: 0.95, green: 0.85, blue: 0.15 }; // Vibrant yellow (24-28k)
+    if (numScore >= 20000) return { red: 0.65, green: 0.85, blue: 0.20 }; // Vibrant lime (20-24k)
+    if (numScore >= 10000) return { red: 0.25, green: 0.75, blue: 0.30 }; // Vibrant green (10-20k)
+    return { red: 0.55, green: 0.55, blue: 0.60 }; // Gray (<10k)
   }
 
   formatAbilityScore(score) {
@@ -339,25 +339,25 @@ class GoogleSheetsService {
 
   getClassColor(className) {
     const classColors = {
-      'Beat Performer': { red: 0.88, green: 0.78, blue: 0.92 }, // Soft purple chip
-      'Frost Mage': { red: 0.78, green: 0.88, blue: 0.95 }, // Soft cyan chip
-      'Heavy Guardian': { red: 0.82, green: 0.88, blue: 0.72 }, // Soft olive chip
-      'Marksman': { red: 0.95, green: 0.82, blue: 0.70 }, // Soft orange chip
-      'Shield Knight': { red: 0.78, green: 0.88, blue: 0.98 }, // Soft blue chip
-      'Stormblade': { red: 0.92, green: 0.78, blue: 0.88 }, // Soft magenta chip
-      'Verdant Oracle': { red: 0.98, green: 0.92, blue: 0.72 }, // Soft gold chip
-      'Wind Knight': { red: 0.78, green: 0.92, blue: 0.98 } // Soft sky blue chip
+      'Beat Performer': { red: 0.65, green: 0.30, blue: 0.80 }, // Vibrant purple
+      'Frost Mage': { red: 0.30, green: 0.65, blue: 0.90 }, // Vibrant cyan
+      'Heavy Guardian': { red: 0.50, green: 0.65, blue: 0.25 }, // Vibrant olive
+      'Marksman': { red: 0.85, green: 0.50, blue: 0.20 }, // Vibrant orange
+      'Shield Knight': { red: 0.25, green: 0.60, blue: 0.90 }, // Vibrant blue
+      'Stormblade': { red: 0.75, green: 0.25, blue: 0.70 }, // Vibrant magenta
+      'Verdant Oracle': { red: 0.90, green: 0.70, blue: 0.20 }, // Vibrant gold
+      'Wind Knight': { red: 0.30, green: 0.80, blue: 0.95 } // Vibrant sky blue
     };
-    return classColors[className] || { red: 0.88, green: 0.88, blue: 0.88 };
+    return classColors[className] || { red: 0.50, green: 0.50, blue: 0.55 };
   }
 
   getRoleColor(role) {
     const roleColors = {
-      'Tank': { red: 0.82, green: 0.90, blue: 0.98 }, // Soft blue chip for Tank
-      'Support': { red: 0.82, green: 0.94, blue: 0.86 }, // Soft green chip for Support
-      'DPS': { red: 0.98, green: 0.82, blue: 0.82 } // Soft red chip for DPS
+      'Tank': { red: 0.25, green: 0.60, blue: 0.95 }, // Vibrant blue
+      'Support': { red: 0.25, green: 0.75, blue: 0.40 }, // Vibrant green
+      'DPS': { red: 0.95, green: 0.30, blue: 0.35 } // Vibrant red
     };
-    return roleColors[role] || { red: 0.88, green: 0.88, blue: 0.88 };
+    return roleColors[role] || { red: 0.50, green: 0.50, blue: 0.55 };
   }
 
   formatDate(dateString) {
@@ -1171,45 +1171,44 @@ class GoogleSheetsService {
             },
             fields: 'userEnteredFormat.backgroundColor'
           }
-        });
         
         // Get type text
         const typeText = meta.isMain ? 'Main' : (meta.isAlt ? 'Alt' : 'Subclass');
         
-        // Discord name styling - light pastel background
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 0, { red: 0.30, green: 0.30, blue: 0.30 }, 'Discord', false, meta.discordName);
+        // Discord name - dark text
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 0, { red: 0.25, green: 0.25, blue: 0.25 }, 'Discord', false, meta.discordName);
 
-        // IGN styling - light pastel background
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 1, { red: 0.30, green: 0.30, blue: 0.30 }, 'IGN', false, member.ign);
+        // IGN - dark text
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 1, { red: 0.25, green: 0.25, blue: 0.25 }, 'IGN', false, member.ign);
 
-        // UID styling - light pastel background
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 2, { red: 0.30, green: 0.30, blue: 0.30 }, 'UID', false, member.uid);
+        // UID - dark text
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 2, { red: 0.25, green: 0.25, blue: 0.25 }, 'UID', false, member.uid);
 
-        // Type badge - Soft chip colors with black text
-        let typeChipColor = { red: 0.88, green: 0.88, blue: 0.90 }; // Soft gray chip for Subclass
+        // Type badge - Colored text
+        let typeTextColor = { red: 0.55, green: 0.55, blue: 0.60 }; // Gray for Subclass
         if (meta.isMain) {
-          typeChipColor = { red: 0.78, green: 0.88, blue: 0.98 }; // Soft blue chip for Main
+          typeTextColor = { red: 0.25, green: 0.60, blue: 0.95 }; // Blue for Main
         } else if (meta.isAlt) {
-          typeChipColor = { red: 0.98, green: 0.85, blue: 0.72 }; // Soft orange chip for Alt
+          typeTextColor = { red: 0.95, green: 0.50, blue: 0.15 }; // Orange for Alt
         }
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 3, typeChipColor, 'Type', true, typeText);
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 3, typeTextColor, 'Type', true, typeText);
         
-        // Icon cell - light pastel background
+        // Icon cell - dark text
         this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 4, { red: 0.50, green: 0.50, blue: 0.50 }, 'Icon', false, '');
         
-        // Class/Subclass styling - BOTH get colored bullets
+        // Class - Colored text
         const classColor = this.getClassColor(member.class);
         this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 5, classColor, 'Class', true, member.class);
         
-        // Subclass - also gets colored bullet based on subclass or class
+        // Subclass - Colored text
         const subclassColor = this.getClassColor(member.subclass || member.class);
         this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 6, subclassColor, 'Subclass', true, member.subclass);
         
-        // Role badge - use INFERRED role for correct colors
+        // Role - Colored text
         const roleColor = this.getRoleColor(meta.inferredRole);
         this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 7, roleColor, 'Role', true, meta.inferredRole);
         
-        // Ability score - progressive gradient colors
+        // Ability score - Colored text
         if (member.ability_score && member.ability_score !== '') {
           const abilityColor = this.getAbilityScoreColor(member.ability_score);
           this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 8, abilityColor, 'AS', true, this.formatAbilityScore(member.ability_score));
@@ -1217,26 +1216,26 @@ class GoogleSheetsService {
           this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 8, { red: 0.50, green: 0.50, blue: 0.55 }, 'AS', false, '');
         }
         
-        // Battle Imagines - NO colored bullet, just dark text
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 9, { red: 0.30, green: 0.30, blue: 0.30 }, 'BI', false, member.battle_imagines);
+        // Battle Imagines - dark text
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 9, { red: 0.25, green: 0.25, blue: 0.25 }, 'BI', false, member.battle_imagines);
         
-        // Guild - Soft pink chip for iDolls, Soft gray chip for Visitor
-        let guildChipColor = { red: 0.30, green: 0.30, blue: 0.30 }; // Default (no chip)
-        let hasGuildChip = false;
+        // Guild - Colored text for iDolls/Visitor
+        let guildTextColor = { red: 0.25, green: 0.25, blue: 0.25 }; // Default dark
+        let isGuildColored = false;
         if (member.guild && member.guild.toLowerCase().includes('idoll')) {
-          guildChipColor = { red: 0.98, green: 0.82, blue: 0.90 }; // Soft pink chip for iDolls
-          hasGuildChip = true;
+          guildTextColor = { red: 0.95, green: 0.50, blue: 0.75 }; // Pink for iDolls
+          isGuildColored = true;
         } else if (member.guild && member.guild.toLowerCase().includes('visitor')) {
-          guildChipColor = { red: 0.88, green: 0.88, blue: 0.90 }; // Soft gray chip for Visitor
-          hasGuildChip = true;
+          guildTextColor = { red: 0.60, green: 0.60, blue: 0.65 }; // Gray for Visitor
+          isGuildColored = true;
         }
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 10, guildChipColor, 'Guild', hasGuildChip, member.guild);
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 10, guildTextColor, 'Guild', isGuildColored, member.guild);
         
-        // Timezone - neutral dark text
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 11, { red: 0.30, green: 0.30, blue: 0.30 }, 'TZ', false, meta.timezone);
+        // Timezone - dark text
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 11, { red: 0.25, green: 0.25, blue: 0.25 }, 'TZ', false, meta.timezone);
         
-        // Registered Date - normal text, NO chip, NO dropdown
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 12, { red: 0.30, green: 0.30, blue: 0.30 }, 'Date', false, member.registered);
+        // Registered Date - dark text
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 12, { red: 0.25, green: 0.25, blue: 0.25 }, 'Date', false, member.registered);
 
         // Borders - standard borders for all rows
         requests.push({
@@ -1354,102 +1353,42 @@ class GoogleSheetsService {
   }
 
 
-  addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, colIndex, chipBgColor, label, hasChip = false, cellValue = '') {
-    if (hasChip) {
-      // CHIP WITH DROPDOWN: Colored background + black text + dropdown arrow
-      const cellFormat = {
-        repeatCell: {
-          range: {
-            sheetId: sheetId,
-            startRowIndex: rowIndex,
-            endRowIndex: rowIndex + 1,
-            startColumnIndex: colIndex,
-            endColumnIndex: colIndex + 1
-          },
-          cell: {
-            userEnteredFormat: {
-              backgroundColor: chipBgColor, // COLORED background
-              textFormat: {
-                bold: true,
-                fontSize: 10,
-                foregroundColor: { red: 0.1, green: 0.1, blue: 0.1 }, // BLACK text
-                fontFamily: 'Google Sans'
-              },
-              horizontalAlignment: 'CENTER',
-              verticalAlignment: 'MIDDLE',
-              padding: {
-                top: 6,
-                bottom: 6,
-                left: 12,
-                right: 12
-              },
-              wrapStrategy: 'OVERFLOW_CELL'
-            }
-          },
-          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding,wrapStrategy)'
-        }
-      };
-      requests.push(cellFormat);
-      
-      // Add dropdown validation
-      if (cellValue && cellValue !== '') {
-        dropdownRequests.push({
-          setDataValidation: {
-            range: {
-              sheetId: sheetId,
-              startRowIndex: rowIndex,
-              endRowIndex: rowIndex + 1,
-              startColumnIndex: colIndex,
-              endColumnIndex: colIndex + 1
+  addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, colIndex, textColor, label, isColored = false, cellValue = '') {
+    // Simple: White background always, colored text if isColored=true, NO dropdowns
+    const cellFormat = {
+      repeatCell: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: rowIndex,
+          endRowIndex: rowIndex + 1,
+          startColumnIndex: colIndex,
+          endColumnIndex: colIndex + 1
+        },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: { red: 1, green: 1, blue: 1 }, // WHITE background always
+            textFormat: {
+              bold: true,
+              fontSize: 10,
+              foregroundColor: isColored ? textColor : { red: 0.25, green: 0.25, blue: 0.25 }, // Colored or dark text
+              fontFamily: 'Google Sans'
             },
-            rule: {
-              condition: {
-                type: 'ONE_OF_LIST',
-                values: [{ userEnteredValue: cellValue }]
-              },
-              showCustomUi: true,
-              strict: false
-            }
+            horizontalAlignment: 'CENTER',
+            verticalAlignment: 'MIDDLE',
+            padding: {
+              top: 7,
+              bottom: 7,
+              left: 12,
+              right: 12
+            },
+            wrapStrategy: 'OVERFLOW_CELL'
           }
-        });
+        },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding,wrapStrategy)'
       }
-    } else {
-      // NO CHIP, NO DROPDOWN: White background + dark text + NO dropdown
-      const cellFormat = {
-        repeatCell: {
-          range: {
-            sheetId: sheetId,
-            startRowIndex: rowIndex,
-            endRowIndex: rowIndex + 1,
-            startColumnIndex: colIndex,
-            endColumnIndex: colIndex + 1
-          },
-          cell: {
-            userEnteredFormat: {
-              backgroundColor: { red: 1, green: 1, blue: 1 }, // WHITE background
-              textFormat: {
-                bold: true,
-                fontSize: 10,
-                foregroundColor: { red: 0.25, green: 0.25, blue: 0.25 }, // Dark text
-                fontFamily: 'Google Sans'
-              },
-              horizontalAlignment: 'CENTER',
-              verticalAlignment: 'MIDDLE',
-              padding: {
-                top: 7,
-                bottom: 7,
-                left: 12,
-                right: 12
-              },
-              wrapStrategy: 'OVERFLOW_CELL'
-            }
-          },
-          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding,wrapStrategy)'
-        }
-      };
-      requests.push(cellFormat);
-      // NO dropdown validation added
-    }
+    };
+    requests.push(cellFormat);
+    // NO dropdown validation ever
   }
 
   addPillBadge(requests, sheetId, rowIndex, colIndex, bgColor, isNumber = false) {
