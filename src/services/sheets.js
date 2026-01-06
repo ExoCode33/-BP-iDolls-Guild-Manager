@@ -640,51 +640,48 @@ class GoogleSheetsService {
       const rows = [];
       const rowMetadata = [];
 
-      // ✅ Group characters by user first
-      const userGroups = {};
-      allCharactersWithSubclasses.forEach(char => {
-        if (!userGroups[char.user_id]) {
-          userGroups[char.user_id] = [];
-        }
-        userGroups[char.user_id].push(char);
-      });
+      // ✅ Helper: Infer role from class if role is missing
+      const inferRole = (char) => {
+        if (char.role) return char.role;
+        
+        // Infer role from class
+        const supportClasses = ['Beat Performer', 'Verdant Oracle'];
+        const tankClasses = ['Heavy Guardian', 'Shield Knight'];
+        const dpsClasses = ['Frost Mage', 'Marksman', 'Stormblade', 'Wind Knight'];
+        
+        if (supportClasses.includes(char.class)) return 'Support';
+        if (tankClasses.includes(char.class)) return 'Tank';
+        if (dpsClasses.includes(char.class)) return 'DPS';
+        
+        return 'DPS'; // Default
+      };
 
-      // ✅ Create user group objects with main character info for sorting
-      const userGroupsArray = [];
-      for (const [userId, userChars] of Object.entries(userGroups)) {
-        const mainChar = userChars.find(c => c.character_type === 'main');
-        if (mainChar) {
-          userGroupsArray.push({
-            userId,
-            mainChar,
-            allChars: userChars
-          });
-        }
-      }
-
-      // ✅ SORT USER GROUPS: By main character's Role (Support -> Tank -> DPS), then by Ability Score
+      // ✅ SORT ALL CHARACTERS INDEPENDENTLY: Role -> Ability Score -> IGN
+      // This separates subclasses from mains if they have different roles
       const roleOrder = { 'Support': 1, 'Tank': 2, 'DPS': 3 };
       
-      userGroupsArray.sort((a, b) => {
-        // First sort by main character's role
-        const roleA = roleOrder[a.mainChar.role] || 999;
-        const roleB = roleOrder[b.mainChar.role] || 999;
+      allCharactersWithSubclasses.sort((a, b) => {
+        // 1. First sort by role (infer if missing)
+        const roleA = roleOrder[inferRole(a)] || 999;
+        const roleB = roleOrder[inferRole(b)] || 999;
         if (roleA !== roleB) return roleA - roleB;
         
-        // Then sort by main character's ability score (descending - highest first)
-        const scoreA = this.parseAbilityScore(a.mainChar.ability_score);
-        const scoreB = this.parseAbilityScore(b.mainChar.ability_score);
-        return scoreB - scoreA;
+        // 2. Then sort by ability score (descending - highest first)
+        const scoreA = this.parseAbilityScore(a.ability_score);
+        const scoreB = this.parseAbilityScore(b.ability_score);
+        if (scoreA !== scoreB) return scoreB - scoreA;
+        
+        // 3. Finally sort by IGN alphabetically
+        const ignA = (a.ign || '').toLowerCase();
+        const ignB = (b.ign || '').toLowerCase();
+        return ignA.localeCompare(ignB);
       });
 
-      // ✅ Build rows in sorted order, keeping each user's characters together
-      for (const userGroup of userGroupsArray) {
-        const userId = userGroup.userId;
-        const userChars = userGroup.allChars;
-        const mainChar = userChars.find(c => c.character_type === 'main');
-        const mainSubclasses = userChars.filter(c => c.character_type === 'main_subclass');
-        const alts = userChars.filter(c => c.character_type === 'alt');
+      // ✅ Build rows in sorted order - each character is independent
+      for (const char of allCharactersWithSubclasses) {
+        const userId = char.user_id;
         
+        // Get user info
         let userTimezone = '';
         try {
           userTimezone = await TimezoneRepo.get(userId) || '';
@@ -693,7 +690,6 @@ class GoogleSheetsService {
         }
         
         let discordName = userId;
-        
         if (this.client) {
           try {
             const user = await this.client.users.fetch(userId);
@@ -703,104 +699,54 @@ class GoogleSheetsService {
           }
         }
         
-        if (mainChar) {
-          const mainBattleImagines = await BattleImagineRepo.findByCharacter(mainChar.id);
-          const mainBattleImaginesText = mainBattleImagines
+        // Determine character type
+        const isMain = char.character_type === 'main';
+        const isSubclass = char.character_type === 'main_subclass';
+        const isAlt = char.character_type === 'alt';
+        
+        let typeLabel = 'Main';
+        if (isSubclass) typeLabel = 'Subclass';
+        if (isAlt) typeLabel = 'Alt';
+        
+        // ✅ Ensure role is set (infer from class if missing)
+        const characterRole = inferRole(char);
+        
+        // Get battle imagines (only for mains and alts, not subclasses)
+        let battleImaginesText = '';
+        if (isMain || isAlt) {
+          const battleImagines = await BattleImagineRepo.findByCharacter(char.id);
+          battleImaginesText = battleImagines
             .map(img => `${img.imagine_name} ${img.tier}`)
             .join(', ');
-          
-          rows.push([
-            discordName,
-            mainChar.ign,
-            mainChar.uid || '',
-            'Main',
-            '', // Icon column - will be filled with formula
-            mainChar.class,
-            mainChar.subclass,
-            mainChar.role,
-            this.formatAbilityScore(mainChar.ability_score),
-            mainBattleImaginesText,
-            mainChar.guild || '',
-            '', // Timezone column - will be filled with formula
-            `'${this.formatDate(mainChar.created_at)}`
-          ]);
-
-          rowMetadata.push({
-            character: mainChar,
-            discordName: discordName,
-            timezone: userTimezone,
-            registeredDate: this.formatDate(mainChar.created_at),
-            isSubclass: false,
-            isMain: true,
-            isAlt: false,
-            isFirstOfUser: true
-          });
-
-          mainSubclasses.forEach(subclass => {
-            rows.push([
-              discordName,
-              mainChar.ign,
-              mainChar.uid || '',
-              'Subclass',
-              '', // Icon column
-              subclass.class,
-              subclass.subclass,
-              subclass.role,
-              this.formatAbilityScore(subclass.ability_score),
-              '',
-              mainChar.guild || '',
-              '', // Timezone column
-              `'${this.formatDate(mainChar.created_at)}`
-            ]);
-
-            rowMetadata.push({
-              character: subclass,
-              discordName: discordName,
-              timezone: userTimezone,
-              registeredDate: this.formatDate(mainChar.created_at),
-              parentIGN: mainChar.ign,
-              parentClass: mainChar.class,
-              isSubclass: true,
-              isMain: false,
-              isAlt: false,
-              isFirstOfUser: false
-            });
-          });
         }
+        
+        // Add row
+        rows.push([
+          discordName,
+          char.ign,
+          char.uid || '',
+          typeLabel,
+          '', // Icon column - will be filled with formula
+          char.class,
+          char.subclass,
+          characterRole, // ✅ Use inferred role
+          this.formatAbilityScore(char.ability_score),
+          battleImaginesText,
+          char.guild || '',
+          '', // Timezone column - will be filled with formula
+          `'${this.formatDate(char.created_at)}`
+        ]);
 
-        for (const alt of alts) {
-          const altBattleImagines = await BattleImagineRepo.findByCharacter(alt.id);
-          const altBattleImaginesText = altBattleImagines
-            .map(img => `${img.imagine_name} ${img.tier}`)
-            .join(', ');
-          
-          rows.push([
-            discordName,
-            alt.ign,
-            alt.uid || '',
-            'Alt',
-            '', // Icon column
-            alt.class,
-            alt.subclass,
-            alt.role,
-            this.formatAbilityScore(alt.ability_score),
-            altBattleImaginesText,
-            alt.guild || '',
-            '', // Timezone column
-            `'${this.formatDate(alt.created_at)}`
-          ]);
-
-          rowMetadata.push({
-            character: alt,
-            discordName: discordName,
-            timezone: userTimezone,
-            registeredDate: this.formatDate(alt.created_at),
-            isSubclass: false,
-            isMain: false,
-            isAlt: true,
-            isFirstOfUser: false
-          });
-        }
+        rowMetadata.push({
+          character: char,
+          discordName: discordName,
+          timezone: userTimezone,
+          registeredDate: this.formatDate(char.created_at),
+          isSubclass: isSubclass,
+          isMain: isMain,
+          isAlt: isAlt,
+          isFirstOfUser: false // We'll calculate this later if needed for borders
+        });
       }
 
       // ✅ DIFF-BASED UPDATE
@@ -1344,10 +1290,7 @@ class GoogleSheetsService {
         this.addTimezoneCell(requests, sheetId, rowIndex, 11, meta.timezone, rowBg);
         this.addBoldTextCell(requests, sheetId, rowIndex, 12, rowBg);
 
-        // Borders - only for data rows, not extending beyond
-        const isLastOfGroup = (i === rowMetadata.length - 1) || 
-                              (i + 1 < rowMetadata.length && rowMetadata[i + 1].isFirstOfUser);
-        
+        // Borders - standard borders for all rows
         requests.push({
           updateBorders: {
             range: {
@@ -1380,8 +1323,11 @@ class GoogleSheetsService {
           }
         });
         
-        // Thicker bottom border for last row of user group
-        if (isLastOfGroup) {
+        // Thick purple border when role changes (last row of each role section)
+        const isLastOfRole = (i === rowMetadata.length - 1) || 
+                             (i + 1 < rowMetadata.length && meta.character.role !== rowMetadata[i + 1].character.role);
+        
+        if (isLastOfRole) {
           requests.push({
             updateBorders: {
               range: {
