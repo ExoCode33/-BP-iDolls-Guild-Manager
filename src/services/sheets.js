@@ -291,14 +291,14 @@ class GoogleSheetsService {
     
     const numScore = parseInt(score);
     
-    // Progressive gradient: Green → Yellow → Orange → Red → Purple
-    if (numScore >= 36000) return { red: 0.70, green: 0.30, blue: 0.85 }; // Purple (highest)
-    if (numScore >= 32000) return { red: 0.95, green: 0.30, blue: 0.35 }; // Red
-    if (numScore >= 28000) return { red: 0.95, green: 0.55, blue: 0.25 }; // Orange
-    if (numScore >= 24000) return { red: 0.95, green: 0.80, blue: 0.25 }; // Yellow
-    if (numScore >= 20000) return { red: 0.70, green: 0.85, blue: 0.30 }; // Yellow-Green
-    if (numScore >= 10000) return { red: 0.35, green: 0.80, blue: 0.40 }; // Green (lowest)
-    return { red: 0.50, green: 0.50, blue: 0.55 }; // Gray for very low scores
+    // Clear progressive gradient: Green → Lime → Yellow → Orange → Red → Purple
+    if (numScore >= 36000) return { red: 0.75, green: 0.25, blue: 0.90 }; // 💜 Purple (36k+)
+    if (numScore >= 32000) return { red: 0.95, green: 0.25, blue: 0.30 }; // ❤️ Red (32-36k)
+    if (numScore >= 28000) return { red: 1.0, green: 0.50, blue: 0.15 }; // 🧡 Orange (28-32k)
+    if (numScore >= 24000) return { red: 1.0, green: 0.85, blue: 0.15 }; // 💛 Yellow (24-28k)
+    if (numScore >= 20000) return { red: 0.70, green: 0.90, blue: 0.25 }; // 💚 Lime (20-24k)
+    if (numScore >= 10000) return { red: 0.25, green: 0.80, blue: 0.35 }; // 💚 Green (10-20k)
+    return { red: 0.60, green: 0.60, blue: 0.65 }; // ⚪ Gray (<10k)
   }
 
   formatAbilityScore(score) {
@@ -1076,8 +1076,8 @@ class GoogleSheetsService {
     try {
       const requests = [];
 
-      // Column widths - WIDE to prevent any line breaks in dropdowns
-      const columnWidths = [150, 140, 120, 125, 65, 180, 165, 120, 130, 210, 120, 170, 130];
+      // Column widths - EXTRA WIDE for Registered to prevent cutoff
+      const columnWidths = [150, 140, 120, 125, 65, 180, 165, 120, 130, 210, 120, 170, 145];
       columnWidths.forEach((width, index) => {
         requests.push({
           updateDimensionProperties: {
@@ -1172,12 +1172,13 @@ class GoogleSheetsService {
         // Icon cell - light pastel background
         this.addDropdownBadge(requests, sheetId, rowIndex, 4, { red: 0.50, green: 0.50, blue: 0.50 }, 'Icon', false);
         
-        // Class/Subclass styling
+        // Class/Subclass styling - BOTH get colored bullets
         const classColor = this.getClassColor(member.class);
         this.addDropdownBadge(requests, sheetId, rowIndex, 5, classColor, 'Class', true);
         
-        // Subclass - ALWAYS dark text, no colored text
-        this.addDropdownBadge(requests, sheetId, rowIndex, 6, { red: 0.20, green: 0.20, blue: 0.20 }, 'Subclass', false);
+        // Subclass - also gets colored bullet based on subclass or class
+        const subclassColor = this.getClassColor(member.subclass || member.class);
+        this.addDropdownBadge(requests, sheetId, rowIndex, 6, subclassColor, 'Subclass', true);
         
         // Role badge - use INFERRED role for correct colors
         const roleColor = this.getRoleColor(meta.inferredRole);
@@ -1191,22 +1192,25 @@ class GoogleSheetsService {
           this.addDropdownBadge(requests, sheetId, rowIndex, 8, { red: 0.50, green: 0.50, blue: 0.55 }, 'AS', false);
         }
         
-        // Battle Imagines - NEUTRAL gray (no color)
-        this.addDropdownBadge(requests, sheetId, rowIndex, 9, { red: 0.35, green: 0.35, blue: 0.35 }, 'BI', false);
+        // Battle Imagines - NO colored bullet, just dark text
+        this.addDropdownBadge(requests, sheetId, rowIndex, 9, { red: 0.30, green: 0.30, blue: 0.30 }, 'BI', false);
         
         // Guild - Pink for iDolls, Gray for Visitor
-        let guildColor = { red: 0.35, green: 0.35, blue: 0.35 }; // Default gray
+        let guildColor = { red: 0.30, green: 0.30, blue: 0.30 }; // Default dark gray
+        let isGuildSpecial = false;
         if (member.guild && member.guild.toLowerCase().includes('idoll')) {
           guildColor = { red: 0.95, green: 0.50, blue: 0.75 }; // PINK for iDolls 💗
+          isGuildSpecial = true;
         } else if (member.guild && member.guild.toLowerCase().includes('visitor')) {
-          guildColor = { red: 0.50, green: 0.50, blue: 0.55 }; // GRAY for Visitor
+          guildColor = { red: 0.55, green: 0.55, blue: 0.60 }; // GRAY for Visitor
+          isGuildSpecial = true;
         }
-        this.addDropdownBadge(requests, sheetId, rowIndex, 10, guildColor, 'Guild', true);
+        this.addDropdownBadge(requests, sheetId, rowIndex, 10, guildColor, 'Guild', isGuildSpecial);
         
-        // Timezone - neutral
-        this.addDropdownBadge(requests, sheetId, rowIndex, 11, { red: 0.35, green: 0.35, blue: 0.35 }, 'TZ', false);
+        // Timezone - neutral dark text
+        this.addDropdownBadge(requests, sheetId, rowIndex, 11, { red: 0.30, green: 0.30, blue: 0.30 }, 'TZ', false);
         
-        // Registered Date - RED for dates
+        // Registered Date - RED bullet
         this.addDropdownBadge(requests, sheetId, rowIndex, 12, { red: 0.95, green: 0.35, blue: 0.40 }, 'Date', true);
 
         // Borders - standard borders for all rows
