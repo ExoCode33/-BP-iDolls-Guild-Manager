@@ -871,26 +871,18 @@ class GoogleSheetsService {
         });
       }
 
-      // ✅ SMART FORMATTING: Only when structure changes
-      const needsFullFormatting = diff.rowsToAdd.length > 0 || 
-                                   diff.rowsToDelete.length > 0 ||
-                                   currentData.length === 0;
-
-      if (needsFullFormatting) {
-        console.log(`🎨 [SHEETS] Applying full formatting (structure changed)...`);
-        await this.formatCleanSheet('Member List', headers.length, rows.length);
-        await this.applyCleanDesign('Member List', rowMetadata, sheetId);
-        
-        // ✅ Only add images/formulas for NEW rows
+      // ✅ ALWAYS APPLY FULL FORMATTING (needed because sorting changes row positions)
+      console.log(`🎨 [SHEETS] Applying full formatting...`);
+      await this.formatCleanSheet('Member List', headers.length, rows.length);
+      await this.applyCleanDesign('Member List', rowMetadata, sheetId);
+      
+      // ✅ Only add images/formulas for NEW rows
+      if (diff.rowsToAdd.length > 0) {
         const newMetadata = rowMetadata.slice(currentData.length);
-        if (newMetadata.length > 0) {
-          await this.addClassLogos('Member List', newMetadata, currentData.length + 2, sheetId);
-        }
-        
-        await this.enableAutoRecalculation();
-      } else {
-        console.log(`⏭️  [SHEETS] Skipping full format (only data changed, preserving all formatting & images)`);
+        await this.addClassLogos('Member List', newMetadata, currentData.length + 2, sheetId);
       }
+      
+      await this.enableAutoRecalculation();
 
       // ✅ ALWAYS CLEAN BOTTOM BORDERS (prevents stray formatting from persisting)
       // rows.length = number of data rows (e.g., 46)
