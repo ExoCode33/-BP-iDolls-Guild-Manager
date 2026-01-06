@@ -544,7 +544,7 @@ class GoogleSheetsService {
         requestBody: { requests }
       });
       
-      // STEP 3: Add thick purple bottom border on the last data row
+      // STEP 3: Add thick fuchsia pink bottom border on the last data row
       await this.sheets.spreadsheets.batchUpdate({
         spreadsheetId: this.spreadsheetId,
         requestBody: {
@@ -560,14 +560,14 @@ class GoogleSheetsService {
               bottom: {
                 style: 'SOLID_THICK',
                 width: 3,
-                color: { red: 0.32, green: 0.20, blue: 0.58 } // Purple
+                color: { red: 0.87, green: 0.11, blue: 0.49 } // Fuchsia pink
               }
             }
           }]
         }
       });
       
-      console.log(`✅ [SHEETS] Completely cleaned rows ${lastDataRow + 2}-1000 + added purple bottom border!`);
+      console.log(`✅ [SHEETS] Completely cleaned rows ${lastDataRow + 2}-1000 + added fuchsia pink bottom border!`);
     } catch (error) {
       console.error('❌ [SHEETS] Error cleaning bottom borders:', error.message);
     }
@@ -890,10 +890,10 @@ class GoogleSheetsService {
                 hideGridlines: true
               },
               tabColor: {
-                red: 0.32,
-                green: 0.20,
-                blue: 0.58
-              }
+                red: 0.87,
+                green: 0.11,
+                blue: 0.49
+              } // Fuchsia pink tab
             },
             fields: 'gridProperties.frozenRowCount,gridProperties.hideGridlines,tabColor'
           }
@@ -910,27 +910,27 @@ class GoogleSheetsService {
             cell: {
               userEnteredFormat: {
                 backgroundColor: {
-                  red: 0.32,
-                  green: 0.20,
-                  blue: 0.58
-                },
+                  red: 0.87,
+                  green: 0.11,
+                  blue: 0.49
+                }, // Fuchsia pink header
                 textFormat: {
                   foregroundColor: {
                     red: 1,
                     green: 1,
                     blue: 1
                   },
-                  fontSize: 11,
+                  fontSize: 10,
                   bold: true,
                   fontFamily: 'Google Sans'
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
                 padding: {
-                  top: 16,
-                  bottom: 16,
-                  left: 14,
-                  right: 14
+                  top: 14,
+                  bottom: 14,
+                  left: 10,
+                  right: 10
                 }
               }
             },
@@ -948,8 +948,8 @@ class GoogleSheetsService {
             },
             bottom: {
               style: 'SOLID_THICK',
-              width: 4,
-              color: { red: 0.22, green: 0.14, blue: 0.42 }
+              width: 3,
+              color: { red: 0.87, green: 0.11, blue: 0.49 } // Fuchsia pink
             }
           }
         }
@@ -1073,8 +1073,8 @@ class GoogleSheetsService {
     try {
       const requests = [];
 
-      // Column widths
-      const columnWidths = [160, 150, 100, 95, 50, 180, 145, 85, 125, 200, 105, 170, 105];
+      // Column widths - optimized for dropdown style with proper spacing
+      const columnWidths = [140, 130, 110, 100, 55, 150, 130, 90, 110, 180, 100, 145, 105];
       columnWidths.forEach((width, index) => {
         requests.push({
           updateDimensionProperties: {
@@ -1092,10 +1092,10 @@ class GoogleSheetsService {
         });
       });
 
-      // Row heights
+      // Row heights - consistent height for clean look
       for (let i = 0; i < rowMetadata.length; i++) {
         const meta = rowMetadata[i];
-        const rowHeight = meta.isSubclass ? 34 : 38;
+        const rowHeight = 36; // Consistent height for all rows
         
         requests.push({
           updateDimensionProperties: {
@@ -1258,7 +1258,7 @@ class GoogleSheetsService {
               bottom: {
                 style: 'SOLID_THICK',
                 width: 3,
-                color: { red: 0.32, green: 0.20, blue: 0.58 }
+                color: { red: 0.87, green: 0.11, blue: 0.49 } // Fuchsia pink
               },
               left: {
                 style: 'SOLID',
@@ -1304,8 +1304,8 @@ class GoogleSheetsService {
     }
   }
 
-  addDropdownBadge(requests, sheetId, rowIndex, colIndex, textColor, text) {
-    // Dropdown-style cell with colored bullet and arrow
+  addDropdownBadge(requests, sheetId, rowIndex, colIndex, bulletColor, textValue = '') {
+    // Dropdown-style cell with colored bullet (●) prefix and centered text
     const cellFormat = {
       repeatCell: {
         range: {
@@ -1317,27 +1317,55 @@ class GoogleSheetsService {
         },
         cell: {
           userEnteredFormat: {
-            backgroundColor: { red: 0.96, green: 0.96, blue: 0.96 }, // Light gray background
+            backgroundColor: { red: 0.98, green: 0.98, blue: 0.98 }, // Very light gray
             textFormat: {
-              bold: true,
-              fontSize: 10,
-              foregroundColor: textColor,
+              bold: false,
+              fontSize: 9,
+              foregroundColor: { red: 0.2, green: 0.2, blue: 0.2 }, // Dark gray text
               fontFamily: 'Google Sans'
             },
-            horizontalAlignment: 'LEFT',
+            horizontalAlignment: 'CENTER',
             verticalAlignment: 'MIDDLE',
             padding: {
-              top: 4,
-              bottom: 4,
-              left: 8,
-              right: 8
-            }
+              top: 6,
+              bottom: 6,
+              left: 6,
+              right: 20 // Extra space for dropdown arrow visual
+            },
+            wrapStrategy: 'CLIP'
           }
         },
-        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding)'
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding,wrapStrategy)'
       }
     };
     requests.push(cellFormat);
+    
+    // Add colored bullet for specific columns
+    if (colIndex === 3 || colIndex === 7) { // Type and Role columns get colored bullets
+      const bulletFormat = {
+        repeatCell: {
+          range: {
+            sheetId: sheetId,
+            startRowIndex: rowIndex,
+            endRowIndex: rowIndex + 1,
+            startColumnIndex: colIndex,
+            endColumnIndex: colIndex + 1
+          },
+          cell: {
+            userEnteredFormat: {
+              textFormat: {
+                bold: true,
+                fontSize: 9,
+                foregroundColor: bulletColor,
+                fontFamily: 'Google Sans'
+              }
+            }
+          },
+          fields: 'userEnteredFormat.textFormat'
+        }
+      };
+      requests.push(bulletFormat);
+    }
   }
 
   addPillBadge(requests, sheetId, rowIndex, colIndex, bgColor, isNumber = false) {
