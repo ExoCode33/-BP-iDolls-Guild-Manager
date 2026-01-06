@@ -1125,12 +1125,10 @@ class GoogleSheetsService {
           lastDiscordName = meta.discordName;
         }
         
-        // Row background
-        const rowBg = meta.isAlt
-          ? { red: 0.96, green: 0.96, blue: 0.96 }
-          : { red: 1, green: 1, blue: 1 };
+        // All rows have white background (no alternating)
+        const rowBg = { red: 1, green: 1, blue: 1 };
         
-        // Apply background to ENTIRE ROW
+        // Apply white background to ENTIRE ROW
         requests.push({
           repeatCell: {
             range: {
@@ -1149,147 +1147,61 @@ class GoogleSheetsService {
           }
         });
         
-        // Discord name styling
+        // Discord name styling - dropdown style
         const discordColor = meta.isSubclass 
           ? { red: 0.50, green: 0.52, blue: 0.55 }
           : { red: 0.10, green: 0.11, blue: 0.13 };
         
-        requests.push({
-          repeatCell: {
-            range: {
-              sheetId: sheetId,
-              startRowIndex: rowIndex,
-              endRowIndex: rowIndex + 1,
-              startColumnIndex: 0,
-              endColumnIndex: 1
-            },
-            cell: {
-              userEnteredFormat: {
-                backgroundColor: rowBg,
-                textFormat: {
-                  fontSize: 10,
-                  fontFamily: 'Google Sans',
-                  foregroundColor: discordColor,
-                  bold: true
-                },
-                horizontalAlignment: 'CENTER',
-                verticalAlignment: 'MIDDLE',
-                padding: {
-                  left: 14,
-                  right: 10
-                }
-              }
-            },
-            fields: 'userEnteredFormat'
-          }
-        });
+        this.addDropdownBadge(requests, sheetId, rowIndex, 0, discordColor, 'Discord');
 
-        // IGN styling
+        // IGN styling - dropdown style
         const ignColor = meta.isSubclass 
           ? { red: 0.50, green: 0.52, blue: 0.55 }
           : { red: 0.10, green: 0.11, blue: 0.13 };
         
-        requests.push({
-          repeatCell: {
-            range: {
-              sheetId: sheetId,
-              startRowIndex: rowIndex,
-              endRowIndex: rowIndex + 1,
-              startColumnIndex: 1,
-              endColumnIndex: 2
-            },
-            cell: {
-              userEnteredFormat: {
-                backgroundColor: rowBg,
-                textFormat: {
-                  fontSize: 10,
-                  fontFamily: 'Google Sans',
-                  foregroundColor: ignColor,
-                  bold: true,
-                  italic: meta.isSubclass
-                },
-                horizontalAlignment: 'CENTER',
-                verticalAlignment: 'MIDDLE',
-                padding: {
-                  left: 14,
-                  right: 10
-                }
-              }
-            },
-            fields: 'userEnteredFormat'
-          }
-        });
+        this.addDropdownBadge(requests, sheetId, rowIndex, 1, ignColor, 'IGN');
 
-        // UID styling
+        // UID styling - dropdown style  
         const uidColor = meta.isSubclass 
           ? { red: 0.50, green: 0.52, blue: 0.55 }
           : { red: 0.10, green: 0.11, blue: 0.13 };
         
-        requests.push({
-          repeatCell: {
-            range: {
-              sheetId: sheetId,
-              startRowIndex: rowIndex,
-              endRowIndex: rowIndex + 1,
-              startColumnIndex: 2,
-              endColumnIndex: 3
-            },
-            cell: {
-              userEnteredFormat: {
-                backgroundColor: rowBg,
-                textFormat: {
-                  fontSize: 10,
-                  fontFamily: 'Google Sans',
-                  foregroundColor: uidColor,
-                  bold: true,
-                  italic: meta.isSubclass
-                },
-                horizontalAlignment: 'CENTER',
-                verticalAlignment: 'MIDDLE',
-                padding: {
-                  left: 14,
-                  right: 10
-                }
-              }
-            },
-            fields: 'userEnteredFormat'
-          }
-        });
+        this.addDropdownBadge(requests, sheetId, rowIndex, 2, uidColor, 'UID');
 
-        // Type badge
+        // Type badge - dropdown style with colored text
+        let typeColor = { red: 0.62, green: 0.64, blue: 0.66 }; // Default gray
         if (meta.isMain) {
-          this.addPillBadge(requests, sheetId, rowIndex, 3, { red: 0.26, green: 0.59, blue: 0.98 });
+          typeColor = { red: 0.26, green: 0.59, blue: 0.98 }; // Blue
         } else if (meta.isAlt) {
-          this.addPillBadge(requests, sheetId, rowIndex, 3, { red: 0.96, green: 0.49, blue: 0.13 });
-        } else {
-          this.addPillBadge(requests, sheetId, rowIndex, 3, { red: 0.62, green: 0.64, blue: 0.66 });
+          typeColor = { red: 0.96, green: 0.49, blue: 0.13 }; // Orange
         }
+        this.addDropdownBadge(requests, sheetId, rowIndex, 3, typeColor, 'Type');
         
-        // Icon cell
-        this.addCleanTextCell(requests, sheetId, rowIndex, 4, '', rowBg);
+        // Icon cell - dropdown style
+        this.addDropdownBadge(requests, sheetId, rowIndex, 4, { red: 0.5, green: 0.5, blue: 0.5 }, 'Icon');
         
-        // Class/Subclass styling
+        // Class/Subclass styling - dropdown style with colored text
         const classColor = this.getClassColor(member.class);
-        this.addColoredTextCell(requests, sheetId, rowIndex, 5, classColor, rowBg);
-        this.addColoredTextCell(requests, sheetId, rowIndex, 6, classColor, rowBg);
+        this.addDropdownBadge(requests, sheetId, rowIndex, 5, classColor, 'Class');
+        this.addDropdownBadge(requests, sheetId, rowIndex, 6, classColor, 'Subclass');
         
-        // Role badge
+        // Role badge - dropdown style with colored text
         const roleColor = this.getRoleColor(member.role);
-        this.addPillBadge(requests, sheetId, rowIndex, 7, roleColor);
+        this.addDropdownBadge(requests, sheetId, rowIndex, 7, roleColor, 'Role');
         
-        // Ability score
+        // Ability score - dropdown style with colored text
         if (member.ability_score && member.ability_score !== '') {
           const abilityColor = this.getAbilityScoreColor(member.ability_score);
-          this.addColoredTextCell(requests, sheetId, rowIndex, 8, abilityColor, rowBg, true);
+          this.addDropdownBadge(requests, sheetId, rowIndex, 8, abilityColor, 'AS');
         } else {
-          this.addCleanTextCell(requests, sheetId, rowIndex, 8, '', rowBg);
+          this.addDropdownBadge(requests, sheetId, rowIndex, 8, { red: 0.5, green: 0.5, blue: 0.5 }, 'AS');
         }
         
-        // Battle Imagines, Guild, Timezone, Registered
-        this.addBoldTextCell(requests, sheetId, rowIndex, 9, rowBg);
-        this.addBoldTextCell(requests, sheetId, rowIndex, 10, rowBg);
-        this.addTimezoneCell(requests, sheetId, rowIndex, 11, meta.timezone, rowBg);
-        this.addBoldTextCell(requests, sheetId, rowIndex, 12, rowBg);
+        // Battle Imagines, Guild, Timezone, Registered - dropdown style
+        this.addDropdownBadge(requests, sheetId, rowIndex, 9, { red: 0.45, green: 0.45, blue: 0.45 }, 'BI');
+        this.addDropdownBadge(requests, sheetId, rowIndex, 10, { red: 0.40, green: 0.45, blue: 0.75 }, 'Guild');
+        this.addDropdownBadge(requests, sheetId, rowIndex, 11, { red: 0.5, green: 0.5, blue: 0.5 }, 'TZ');
+        this.addDropdownBadge(requests, sheetId, rowIndex, 12, { red: 0.7, green: 0.3, blue: 0.3 }, 'Date');
 
         // Borders - standard borders for all rows
         requests.push({
@@ -1390,6 +1302,42 @@ class GoogleSheetsService {
     } catch (error) {
       console.error('❌ [SHEETS] Design error:', error.message);
     }
+  }
+
+  addDropdownBadge(requests, sheetId, rowIndex, colIndex, textColor, text) {
+    // Dropdown-style cell with colored bullet and arrow
+    const cellFormat = {
+      repeatCell: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: rowIndex,
+          endRowIndex: rowIndex + 1,
+          startColumnIndex: colIndex,
+          endColumnIndex: colIndex + 1
+        },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: { red: 0.96, green: 0.96, blue: 0.96 }, // Light gray background
+            textFormat: {
+              bold: true,
+              fontSize: 10,
+              foregroundColor: textColor,
+              fontFamily: 'Google Sans'
+            },
+            horizontalAlignment: 'LEFT',
+            verticalAlignment: 'MIDDLE',
+            padding: {
+              top: 4,
+              bottom: 4,
+              left: 8,
+              right: 8
+            }
+          }
+        },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding)'
+      }
+    };
+    requests.push(cellFormat);
   }
 
   addPillBadge(requests, sheetId, rowIndex, colIndex, bgColor, isNumber = false) {
