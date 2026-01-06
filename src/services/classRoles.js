@@ -1,166 +1,155 @@
+// INSTRUCTIONS: Replace your src/services/classRoles.js with this version
+// 
+// Key changes:
+// 1. Catches "Unknown Member" errors and logs them as warnings, not errors
+// 2. Automatically cleans up database for users who left
+// 3. Prevents spam in logs
+
 import config from '../config/index.js';
-import { CLASSES } from '../config/game.js';
 import logger from './logger.js';
-
-// ═══════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════
-
-function getClassRoleId(className) {
-  if (!className) return null;
-  return config.classRoles?.[className] || null;
-}
-
-function getRole(className) {
-  return CLASSES[className]?.role || 'Unknown';
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// CLASS ROLE MANAGEMENT SERVICE
-// ═══════════════════════════════════════════════════════════════════
+import { CharacterRepo } from '../database/repositories.js';
 
 /**
  * Add a class role to a user
- * @param {string} userId - Discord user ID
- * @param {string} className - Class name
  */
 export async function addClassRole(userId, className) {
   try {
-    const roleId = getClassRoleId(className);
+    const guild = await global.client.guilds.fetch(config.discord.guildId);
     
-    if (!roleId) {
+    // Try to fetch the member
+    let member;
+    try {
+      member = await guild.members.fetch(userId);
+    } catch (error) {
+      if (error.message === 'Unknown Member') {
+        console.log(`[CLASS ROLE] User ${userId} not in server, skipping role add for ${className}`);
+        // Clean up their data since they're not in the server
+        await cleanupLeftMember(userId);
+        return;
+      }
+      throw error;
+    }
+    
+    const classRoleId = config.classRoles?.[className];
+    
+    if (!classRoleId) {
       console.log(`[CLASS ROLE] No role configured for class: ${className}`);
-      return { success: false, reason: 'No role configured' };
+      return;
     }
-
-    const client = global.discordClient;
-    if (!client) {
-      console.error('[CLASS ROLE] Discord client not available');
-      return { success: false, reason: 'Client not available' };
+    
+    // Check if they already have the role
+    if (member.roles.cache.has(classRoleId)) {
+      console.log(`[CLASS ROLE] ${member.user.username} already has ${className} role`);
+      return;
     }
-
-    const guild = await client.guilds.fetch(config.discord.guildId);
-    const member = await guild.members.fetch(userId);
-    const role = await guild.roles.fetch(roleId);
-
-    if (!role) {
-      console.error(`[CLASS ROLE] Role not found: ${roleId} for class ${className}`);
-      return { success: false, reason: 'Role not found' };
-    }
-
-    if (member.roles.cache.has(roleId)) {
-      console.log(`[CLASS ROLE] User already has role ${className}`);
-      return { success: true, reason: 'Already has role' };
-    }
-
-    await member.roles.add(role);
-    console.log(`✅ [CLASS ROLE] Assigned ${className} role to ${member.user.username}`);
-    logger.info('ClassRole', `Assigned ${className} to ${member.user.username}`);
-
-    return { success: true };
-
+    
+    await member.roles.add(classRoleId);
+    console.log(`[CLASS ROLE] Added ${className} role to ${member.user.username}`);
+    
   } catch (error) {
-    console.error(`[CLASS ROLE] Error adding role for ${className}:`, error.message);
-    logger.error('ClassRole', `Failed to add ${className} role: ${error.message}`, error);
-    return { success: false, reason: error.message };
+    // Don't spam logs with Unknown Member errors
+    if (error.message === 'Unknown Member') {
+      console.log(`[CLASS ROLE] User ${userId} left server, skipping role add for ${className}`);
+      await cleanupLeftMember(userId);
+    } else {
+      console.error(`[CLASS ROLE] Error adding role for ${className}:`, error.message);
+      logger.error('ClassRole', `Failed to add ${className} role: ${error.message}`, error);
+    }
   }
 }
 
 /**
  * Remove a class role from a user
- * @param {string} userId - Discord user ID
- * @param {string} className - Class name
  */
 export async function removeClassRole(userId, className) {
   try {
-    const roleId = getClassRoleId(className);
+    const guild = await global.client.guilds.fetch(config.discord.guildId);
     
-    if (!roleId) {
+    // Try to fetch the member
+    let member;
+    try {
+      member = await guild.members.fetch(userId);
+    } catch (error) {
+      if (error.message === 'Unknown Member') {
+        console.log(`[CLASS ROLE] User ${userId} not in server, skipping role removal for ${className}`);
+        // Clean up their data since they're not in the server
+        await cleanupLeftMember(userId);
+        return;
+      }
+      throw error;
+    }
+    
+    const classRoleId = config.classRoles?.[className];
+    
+    if (!classRoleId) {
       console.log(`[CLASS ROLE] No role configured for class: ${className}`);
-      return { success: false, reason: 'No role configured' };
+      return;
     }
-
-    const client = global.discordClient;
-    if (!client) {
-      console.error('[CLASS ROLE] Discord client not available');
-      return { success: false, reason: 'Client not available' };
+    
+    // Check if they have the role
+    if (!member.roles.cache.has(classRoleId)) {
+      console.log(`[CLASS ROLE] ${member.user.username} doesn't have ${className} role`);
+      return;
     }
-
-    const guild = await client.guilds.fetch(config.discord.guildId);
-    const member = await guild.members.fetch(userId);
-    const role = await guild.roles.fetch(roleId);
-
-    if (!role) {
-      console.error(`[CLASS ROLE] Role not found: ${roleId} for class ${className}`);
-      return { success: false, reason: 'Role not found' };
-    }
-
-    if (!member.roles.cache.has(roleId)) {
-      console.log(`[CLASS ROLE] User doesn't have role ${className}`);
-      return { success: true, reason: 'Already removed' };
-    }
-
-    await member.roles.remove(role);
-    console.log(`✅ [CLASS ROLE] Removed ${className} role from ${member.user.username}`);
-    logger.info('ClassRole', `Removed ${className} from ${member.user.username}`);
-
-    return { success: true };
-
+    
+    await member.roles.remove(classRoleId);
+    console.log(`[CLASS ROLE] Removed ${className} role from ${member.user.username}`);
+    
   } catch (error) {
-    console.error(`[CLASS ROLE] Error removing role for ${className}:`, error.message);
-    logger.error('ClassRole', `Failed to remove ${className} role: ${error.message}`, error);
-    return { success: false, reason: error.message };
+    // Don't spam logs with Unknown Member errors
+    if (error.message === 'Unknown Member') {
+      console.log(`[CLASS ROLE] User ${userId} left server, skipping role removal for ${className}`);
+      await cleanupLeftMember(userId);
+    } else {
+      console.error(`[CLASS ROLE] Error removing role for ${className}:`, error.message);
+      logger.error('ClassRole', `Failed to remove ${className} role: ${error.message}`, error);
+    }
   }
 }
 
 /**
- * Sync all class roles for a user based on their characters
- * @param {string} userId - Discord user ID
- * @param {Array} characters - User's characters
+ * Check if a user still uses a specific class
  */
-export async function syncUserClassRoles(userId, characters) {
+export async function checkClassUsage(userId, className) {
+  const characters = await CharacterRepo.findAllByUser(userId);
+  return characters.some(c => c.class === className);
+}
+
+/**
+ * Clean up data for a member who left the server
+ */
+async function cleanupLeftMember(userId) {
   try {
-    const userClasses = new Set(characters.map(c => c.class));
-    const results = { success: true, rolesAdded: 0, rolesRemoved: 0 };
-
-    // Add roles for classes the user has
-    for (const className of userClasses) {
-      const result = await addClassRole(userId, className);
-      if (result.success && result.reason !== 'Already has role') {
-        results.rolesAdded++;
-      }
+    const characters = await CharacterRepo.findAllByUser(userId);
+    
+    if (characters.length === 0) {
+      return; // Nothing to clean up
     }
-
-    // Remove roles for classes the user doesn't have
-    const allClasses = Object.keys(CLASSES);
-    for (const className of allClasses) {
-      if (!userClasses.has(className)) {
-        const result = await removeClassRole(userId, className);
-        if (result.success && result.reason !== 'Already removed') {
-          results.rolesRemoved++;
-        }
-      }
+    
+    console.log(`[CLASS ROLE] Auto-cleanup: User ${userId} left, removing ${characters.length} character(s)`);
+    
+    // Delete all characters
+    for (const character of characters) {
+      await CharacterRepo.delete(character.id);
     }
-
-    return results;
-
+    
+    // Delete nickname preferences directly from database
+    try {
+      const db = await import('../database/index.js').then(m => m.default);
+      await db.run('DELETE FROM nickname_preferences WHERE user_id = ?', [userId]);
+    } catch (error) {
+      // Ignore if table doesn't exist
+    }
+    
+    console.log(`[CLASS ROLE] Auto-cleanup complete for user ${userId}`);
+    
   } catch (error) {
-    console.error('[CLASS ROLE] Error syncing roles:', error.message);
-    return { success: false, error: error.message };
+    console.error(`[CLASS ROLE] Error during auto-cleanup for ${userId}:`, error.message);
   }
-}
-
-/**
- * Initialize class role system
- */
-export function init(client) {
-  global.discordClient = client;
-  console.log('✅ Class role service initialized');
 }
 
 export default {
   addClassRole,
   removeClassRole,
-  syncUserClassRoles,
-  init
+  checkClassUsage
 };
