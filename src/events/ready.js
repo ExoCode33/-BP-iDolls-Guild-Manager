@@ -101,11 +101,9 @@ export default {
   async execute(client) {
     console.log(`✅ Logged in as ${client.user.tag}`);
     
-    // Run cleanup on startup (wait 5 seconds for bot to fully initialize)
-    setTimeout(async () => {
-      console.log('[AUTO-CLEANUP] Running startup cleanup check...');
-      await performCleanup(client);
-    }, 5000);
+    // Run cleanup immediately on startup (before anything else can trigger role errors)
+    console.log('[AUTO-CLEANUP] Running startup cleanup check...');
+    await performCleanup(client);
     
     // Schedule daily cleanup (runs every 24 hours)
     const DAILY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
