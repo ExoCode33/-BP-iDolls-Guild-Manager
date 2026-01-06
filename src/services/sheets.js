@@ -828,7 +828,9 @@ class GoogleSheetsService {
       }
 
       // ✅ ALWAYS CLEAN BOTTOM BORDERS (prevents stray formatting from persisting)
-      await this.cleanBottomBorders(sheetId, rows.length + 1);
+      // rows.length = number of data rows (e.g., 46)
+      // cleanBottomBorders will clean from row (46 + 2) = 48 onwards
+      await this.cleanBottomBorders(sheetId, rows.length);
 
       console.log(`✅ [SHEETS] Sync complete (smooth & clean!)`);
 
