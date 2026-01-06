@@ -823,12 +823,12 @@ class GoogleSheetsService {
         }
         
         await this.enableAutoRecalculation();
-        
-        // ✅ CLEAN BOTTOM BORDERS (FIX FOR SCREENSHOT ISSUE)
-        await this.cleanBottomBorders(sheetId, rows.length + 1);
       } else {
         console.log(`⏭️  [SHEETS] Skipping full format (only data changed, preserving all formatting & images)`);
       }
+
+      // ✅ ALWAYS CLEAN BOTTOM BORDERS (prevents stray formatting from persisting)
+      await this.cleanBottomBorders(sheetId, rows.length + 1);
 
       console.log(`✅ [SHEETS] Sync complete (smooth & clean!)`);
 
