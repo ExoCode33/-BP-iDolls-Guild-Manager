@@ -592,10 +592,32 @@ class GoogleSheetsService {
         spreadsheetId: this.spreadsheetId,
       });
       
-      const memberListSheet = spreadsheet.data.sheets.find(s => s.properties.title === 'Member List');
+      let memberListSheet = spreadsheet.data.sheets.find(s => s.properties.title === 'Member List');
+      
+      // Create "Member List" sheet if it doesn't exist
       if (!memberListSheet) {
-        console.error('❌ [SHEETS] "Member List" tab not found!');
-        return;
+        console.log('📋 [SHEETS] "Member List" tab not found - creating it...');
+        const addSheetResponse = await this.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: this.spreadsheetId,
+          requestBody: {
+            requests: [{
+              addSheet: {
+                properties: {
+                  title: 'Member List',
+                  gridProperties: {
+                    rowCount: 1000,
+                    columnCount: 13
+                  }
+                }
+              }
+            }]
+          }
+        });
+        
+        const newSheetId = addSheetResponse.data.replies[0].addSheet.properties.sheetId;
+        console.log(`✅ [SHEETS] Created "Member List" tab with ID: ${newSheetId}`);
+        
+        memberListSheet = { properties: { sheetId: newSheetId, title: 'Member List' } };
       }
 
       const sheetId = memberListSheet.properties.sheetId;
