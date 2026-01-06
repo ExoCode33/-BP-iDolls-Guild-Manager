@@ -291,14 +291,14 @@ class GoogleSheetsService {
     
     const numScore = parseInt(score);
     
-    // Vibrant progressive gradient text: Green → Lime → Yellow → Orange → Red → Purple
-    if (numScore >= 36000) return { red: 0.70, green: 0.25, blue: 0.85 }; // Vibrant purple text (36k+)
-    if (numScore >= 32000) return { red: 0.95, green: 0.25, blue: 0.30 }; // Vibrant red text (32-36k)
-    if (numScore >= 28000) return { red: 0.95, green: 0.50, blue: 0.15 }; // Vibrant orange text (28-32k)
-    if (numScore >= 24000) return { red: 0.95, green: 0.85, blue: 0.15 }; // Vibrant yellow text (24-28k)
-    if (numScore >= 20000) return { red: 0.65, green: 0.85, blue: 0.20 }; // Vibrant lime text (20-24k)
-    if (numScore >= 10000) return { red: 0.25, green: 0.75, blue: 0.30 }; // Vibrant green text (10-20k)
-    return { red: 0.55, green: 0.55, blue: 0.60 }; // Gray text (<10k)
+    // Soft progressive gradient chip backgrounds: Green → Lime → Yellow → Orange → Red → Purple
+    if (numScore >= 36000) return { red: 0.90, green: 0.80, blue: 0.94 }; // Soft purple chip (36k+)
+    if (numScore >= 32000) return { red: 0.98, green: 0.80, blue: 0.80 }; // Soft red chip (32-36k)
+    if (numScore >= 28000) return { red: 0.98, green: 0.88, blue: 0.72 }; // Soft orange chip (28-32k)
+    if (numScore >= 24000) return { red: 0.98, green: 0.95, blue: 0.72 }; // Soft yellow chip (24-28k)
+    if (numScore >= 20000) return { red: 0.88, green: 0.94, blue: 0.78 }; // Soft lime chip (20-24k)
+    if (numScore >= 10000) return { red: 0.82, green: 0.92, blue: 0.82 }; // Soft green chip (10-20k)
+    return { red: 0.90, green: 0.90, blue: 0.92 }; // Soft gray chip (<10k)
   }
 
   formatAbilityScore(score) {
@@ -339,25 +339,25 @@ class GoogleSheetsService {
 
   getClassColor(className) {
     const classColors = {
-      'Beat Performer': { red: 0.65, green: 0.30, blue: 0.80 }, // Vibrant purple text
-      'Frost Mage': { red: 0.30, green: 0.65, blue: 0.90 }, // Vibrant cyan text
-      'Heavy Guardian': { red: 0.50, green: 0.65, blue: 0.25 }, // Vibrant olive text
-      'Marksman': { red: 0.85, green: 0.50, blue: 0.20 }, // Vibrant orange text
-      'Shield Knight': { red: 0.25, green: 0.60, blue: 0.90 }, // Vibrant blue text
-      'Stormblade': { red: 0.75, green: 0.25, blue: 0.70 }, // Vibrant magenta text
-      'Verdant Oracle': { red: 0.90, green: 0.70, blue: 0.20 }, // Vibrant gold text
-      'Wind Knight': { red: 0.30, green: 0.80, blue: 0.95 } // Vibrant sky blue text
+      'Beat Performer': { red: 0.88, green: 0.78, blue: 0.92 }, // Soft purple chip
+      'Frost Mage': { red: 0.78, green: 0.88, blue: 0.95 }, // Soft cyan chip
+      'Heavy Guardian': { red: 0.82, green: 0.88, blue: 0.72 }, // Soft olive chip
+      'Marksman': { red: 0.95, green: 0.82, blue: 0.70 }, // Soft orange chip
+      'Shield Knight': { red: 0.78, green: 0.88, blue: 0.98 }, // Soft blue chip
+      'Stormblade': { red: 0.92, green: 0.78, blue: 0.88 }, // Soft magenta chip
+      'Verdant Oracle': { red: 0.98, green: 0.92, blue: 0.72 }, // Soft gold chip
+      'Wind Knight': { red: 0.78, green: 0.92, blue: 0.98 } // Soft sky blue chip
     };
-    return classColors[className] || { red: 0.50, green: 0.50, blue: 0.55 };
+    return classColors[className] || { red: 0.88, green: 0.88, blue: 0.88 };
   }
 
   getRoleColor(role) {
     const roleColors = {
-      'Tank': { red: 0.25, green: 0.60, blue: 0.95 }, // Vibrant blue text for Tank
-      'Support': { red: 0.25, green: 0.75, blue: 0.40 }, // Vibrant green text for Support
-      'DPS': { red: 0.95, green: 0.30, blue: 0.35 } // Vibrant red text for DPS
+      'Tank': { red: 0.82, green: 0.90, blue: 0.98 }, // Soft blue chip for Tank
+      'Support': { red: 0.82, green: 0.94, blue: 0.86 }, // Soft green chip for Support
+      'DPS': { red: 0.98, green: 0.82, blue: 0.82 } // Soft red chip for DPS
     };
-    return roleColors[role] || { red: 0.50, green: 0.50, blue: 0.55 };
+    return roleColors[role] || { red: 0.88, green: 0.88, blue: 0.88 };
   }
 
   formatDate(dateString) {
@@ -1185,14 +1185,14 @@ class GoogleSheetsService {
         // UID styling - light pastel background
         this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 2, { red: 0.30, green: 0.30, blue: 0.30 }, 'UID', false, member.uid);
 
-        // Type badge - VIBRANT distinct colors
-        let typeBulletColor = { red: 0.50, green: 0.50, blue: 0.55 }; // Gray for Subclass
+        // Type badge - Soft chip colors with black text
+        let typeChipColor = { red: 0.88, green: 0.88, blue: 0.90 }; // Soft gray chip for Subclass
         if (meta.isMain) {
-          typeBulletColor = { red: 0.10, green: 0.50, blue: 1.0 }; // BRIGHT BLUE for Main 💙
+          typeChipColor = { red: 0.78, green: 0.88, blue: 0.98 }; // Soft blue chip for Main
         } else if (meta.isAlt) {
-          typeBulletColor = { red: 1.0, green: 0.45, blue: 0.0 }; // BRIGHT ORANGE for Alt 🧡
+          typeChipColor = { red: 0.98, green: 0.85, blue: 0.72 }; // Soft orange chip for Alt
         }
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 3, typeBulletColor, 'Type', true, typeText);
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 3, typeChipColor, 'Type', true, typeText);
         
         // Icon cell - light pastel background
         this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 4, { red: 0.50, green: 0.50, blue: 0.50 }, 'Icon', false, '');
@@ -1220,23 +1220,23 @@ class GoogleSheetsService {
         // Battle Imagines - NO colored bullet, just dark text
         this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 9, { red: 0.30, green: 0.30, blue: 0.30 }, 'BI', false, member.battle_imagines);
         
-        // Guild - Pink for iDolls, Gray for Visitor
-        let guildColor = { red: 0.30, green: 0.30, blue: 0.30 }; // Default dark gray
-        let isGuildSpecial = false;
+        // Guild - Soft pink chip for iDolls, Soft gray chip for Visitor
+        let guildChipColor = { red: 0.30, green: 0.30, blue: 0.30 }; // Default (no chip)
+        let hasGuildChip = false;
         if (member.guild && member.guild.toLowerCase().includes('idoll')) {
-          guildColor = { red: 0.95, green: 0.50, blue: 0.75 }; // PINK for iDolls 💗
-          isGuildSpecial = true;
+          guildChipColor = { red: 0.98, green: 0.82, blue: 0.90 }; // Soft pink chip for iDolls
+          hasGuildChip = true;
         } else if (member.guild && member.guild.toLowerCase().includes('visitor')) {
-          guildColor = { red: 0.55, green: 0.55, blue: 0.60 }; // GRAY for Visitor
-          isGuildSpecial = true;
+          guildChipColor = { red: 0.88, green: 0.88, blue: 0.90 }; // Soft gray chip for Visitor
+          hasGuildChip = true;
         }
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 10, guildColor, 'Guild', isGuildSpecial, member.guild);
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 10, guildChipColor, 'Guild', hasGuildChip, member.guild);
         
         // Timezone - neutral dark text
         this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 11, { red: 0.30, green: 0.30, blue: 0.30 }, 'TZ', false, meta.timezone);
         
-        // Registered Date - RED bullet
-        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 12, { red: 0.95, green: 0.35, blue: 0.40 }, 'Date', true, member.registered);
+        // Registered Date - normal text, NO chip, NO dropdown
+        this.addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, 12, { red: 0.30, green: 0.30, blue: 0.30 }, 'Date', false, member.registered);
 
         // Borders - standard borders for all rows
         requests.push({
@@ -1354,51 +1354,15 @@ class GoogleSheetsService {
   }
 
 
-  addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, colIndex, bulletColor, label, isSpecial = false, cellValue = '') {
-    // WHITE background for ALL cells - the "chip" is just colored text
-    const bgColor = { red: 1, green: 1, blue: 1 }; // WHITE background always!
+  addDropdownBadge(requests, dropdownRequests, sheetId, rowIndex, colIndex, chipBgColor, label, hasChip = false, cellValue = '') {
+    // Always white cell background
+    // If hasChip=true: add colored background to the text (chip effect) with dropdown
+    // If hasChip=false: just normal dark text, no dropdown
     
-    // Colored text for the chip effect when isSpecial=true
-    const textColor = isSpecial ? bulletColor : { red: 0.25, green: 0.25, blue: 0.25 };
-    
-    const cellFormat = {
-      repeatCell: {
-        range: {
-          sheetId: sheetId,
-          startRowIndex: rowIndex,
-          endRowIndex: rowIndex + 1,
-          startColumnIndex: colIndex,
-          endColumnIndex: colIndex + 1
-        },
-        cell: {
-          userEnteredFormat: {
-            backgroundColor: bgColor, // WHITE background - chip is just text!
-            textFormat: {
-              bold: true,
-              fontSize: 10,
-              foregroundColor: textColor, // COLORED TEXT for chip
-              fontFamily: 'Google Sans'
-            },
-            horizontalAlignment: 'CENTER',
-            verticalAlignment: 'MIDDLE',
-            padding: {
-              top: 7,
-              bottom: 7,
-              left: 12,
-              right: 12
-            },
-            wrapStrategy: 'OVERFLOW_CELL'
-          }
-        },
-        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding,wrapStrategy)'
-      }
-    };
-    requests.push(cellFormat);
-    
-    // Add data validation to show dropdown arrow (if cell has a value)
-    if (cellValue && cellValue !== '') {
-      dropdownRequests.push({
-        setDataValidation: {
+    if (hasChip) {
+      // CHIP STYLE: Colored background pill with black text
+      const cellFormat = {
+        repeatCell: {
           range: {
             sheetId: sheetId,
             startRowIndex: rowIndex,
@@ -1406,16 +1370,125 @@ class GoogleSheetsService {
             startColumnIndex: colIndex,
             endColumnIndex: colIndex + 1
           },
-          rule: {
-            condition: {
-              type: 'ONE_OF_LIST',
-              values: [{ userEnteredValue: cellValue }]
-            },
-            showCustomUi: true,
-            strict: false
-          }
+          cell: {
+            userEnteredFormat: {
+              backgroundColor: { red: 1, green: 1, blue: 1 }, // White cell background
+              textFormat: {
+                bold: true,
+                fontSize: 10,
+                foregroundColor: { red: 0.1, green: 0.1, blue: 0.1 }, // BLACK text
+                fontFamily: 'Google Sans'
+              },
+              horizontalAlignment: 'CENTER',
+              verticalAlignment: 'MIDDLE',
+              padding: {
+                top: 8,
+                bottom: 8,
+                left: 14,
+                right: 14
+              },
+              wrapStrategy: 'OVERFLOW_CELL'
+            }
+          },
+          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding,wrapStrategy)'
         }
-      });
+      };
+      requests.push(cellFormat);
+      
+      // Add colored background to just the text content (chip effect)
+      // We'll do this by setting backgroundColor in the cell's data validation styling
+      // Actually, we need to use a different approach - add background color to the cell itself
+      const chipFormat = {
+        repeatCell: {
+          range: {
+            sheetId: sheetId,
+            startRowIndex: rowIndex,
+            endRowIndex: rowIndex + 1,
+            startColumnIndex: colIndex,
+            endColumnIndex: colIndex + 1
+          },
+          cell: {
+            userEnteredFormat: {
+              backgroundColor: chipBgColor, // COLORED CHIP background
+              textFormat: {
+                bold: true,
+                fontSize: 10,
+                foregroundColor: { red: 0.1, green: 0.1, blue: 0.1 }, // BLACK text
+                fontFamily: 'Google Sans'
+              },
+              horizontalAlignment: 'CENTER',
+              verticalAlignment: 'MIDDLE',
+              padding: {
+                top: 6,
+                bottom: 6,
+                left: 12,
+                right: 12
+              },
+              wrapStrategy: 'OVERFLOW_CELL'
+            }
+          },
+          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding,wrapStrategy)'
+        }
+      };
+      requests.push(chipFormat);
+      
+      // Add dropdown validation
+      if (cellValue && cellValue !== '') {
+        dropdownRequests.push({
+          setDataValidation: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: colIndex,
+              endColumnIndex: colIndex + 1
+            },
+            rule: {
+              condition: {
+                type: 'ONE_OF_LIST',
+                values: [{ userEnteredValue: cellValue }]
+              },
+              showCustomUi: true,
+              strict: false
+            }
+          }
+        });
+      }
+    } else {
+      // NORMAL STYLE: White background with dark text, NO dropdown
+      const cellFormat = {
+        repeatCell: {
+          range: {
+            sheetId: sheetId,
+            startRowIndex: rowIndex,
+            endRowIndex: rowIndex + 1,
+            startColumnIndex: colIndex,
+            endColumnIndex: colIndex + 1
+          },
+          cell: {
+            userEnteredFormat: {
+              backgroundColor: { red: 1, green: 1, blue: 1 }, // White background
+              textFormat: {
+                bold: true,
+                fontSize: 10,
+                foregroundColor: { red: 0.25, green: 0.25, blue: 0.25 }, // Dark text
+                fontFamily: 'Google Sans'
+              },
+              horizontalAlignment: 'CENTER',
+              verticalAlignment: 'MIDDLE',
+              padding: {
+                top: 7,
+                bottom: 7,
+                left: 12,
+                right: 12
+              },
+              wrapStrategy: 'OVERFLOW_CELL'
+            }
+          },
+          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding,wrapStrategy)'
+        }
+      };
+      requests.push(cellFormat);
     }
   }
 
