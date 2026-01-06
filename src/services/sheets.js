@@ -677,7 +677,7 @@ class GoogleSheetsService {
         'Ability Score',
         'Battle Imagines',
         'Guild',
-        'Timezone',
+        'Timezone (Updates every 5 min)',
         'Registered'
       ];
 
@@ -835,6 +835,9 @@ class GoogleSheetsService {
         return;
       }
 
+      // Track if we need to reformat (only if data changed)
+      let needsFormatting = false;
+
       // ✅ Handle deleted rows
       if (diff.rowsToDelete.length > 0) {
         const maxDeleteRow = Math.max(...diff.rowsToDelete);
@@ -843,6 +846,7 @@ class GoogleSheetsService {
           spreadsheetId: this.spreadsheetId,
           range: `${sheetName}!A${maxDeleteRow + 2}:M${currentData.length + 1}`,
         });
+        needsFormatting = true;
       }
 
       // ✅ IMPROVED: Update rows WITHOUT touching icon/timezone columns
@@ -883,6 +887,7 @@ class GoogleSheetsService {
             }
           });
           console.log(`✅ [SHEETS] Batch updated ${diff.rowsToUpdate.length} rows (images preserved!)`);
+          needsFormatting = true; // Only updated rows need formatting
         } catch (error) {
           console.error(`❌ [SHEETS] Batch update error:`, error.message);
         }
@@ -901,23 +906,31 @@ class GoogleSheetsService {
             values: newRowsData,
           },
         });
+        needsFormatting = true; // New rows need formatting
       }
 
-      // ✅ ALWAYS APPLY FULL FORMATTING (needed because sorting changes row positions)
-      console.log(`🎨 [SHEETS] Applying full formatting...`);
-      await this.formatCleanSheet(sheetName, headers.length, rows.length);
-      await this.applyCleanDesign(sheetName, rowMetadata, sheetId);
-      
-      // ✅ Always add images/formulas for ALL rows (since sorting changes positions)
-      console.log(`🖼️  [SHEETS] Adding class icons and timezone formulas for all rows...`);
-      await this.addClassLogos(sheetName, rowMetadata, 2, sheetId);
-      
-      await this.enableAutoRecalculation();
+      // ✅ CONDITIONAL FORMATTING: Only apply if data actually changed
+      if (needsFormatting) {
+        console.log(`🎨 [SHEETS] Applying formatting (data changed)...`);
+      // ✅ CONDITIONAL FORMATTING: Only apply if data actually changed
+      if (needsFormatting) {
+        console.log(`🎨 [SHEETS] Applying formatting (data changed)...`);
+        await this.formatCleanSheet(sheetName, headers.length, rows.length);
+        await this.applyCleanDesign(sheetName, rowMetadata, sheetId);
+        
+        // ✅ Always add images/formulas for ALL rows (since sorting changes positions)
+        console.log(`🖼️  [SHEETS] Adding class icons and timezone formulas for all rows...`);
+        await this.addClassLogos(sheetName, rowMetadata, 2, sheetId);
+        
+        await this.enableAutoRecalculation();
 
-      // ✅ ALWAYS CLEAN BOTTOM BORDERS (prevents stray formatting from persisting)
-      // rows.length = number of data rows (e.g., 46)
-      // cleanBottomBorders will clean from row (46 + 2) = 48 onwards
-      await this.cleanBottomBorders(sheetId, rows.length, sheetName);
+        // ✅ ALWAYS CLEAN BOTTOM BORDERS (prevents stray formatting from persisting)
+        // rows.length = number of data rows (e.g., 46)
+        // cleanBottomBorders will clean from row (46 + 2) = 48 onwards
+        await this.cleanBottomBorders(sheetId, rows.length, sheetName);
+      } else {
+        console.log(`⏭️  [SHEETS] No formatting needed - data unchanged`);
+      }
 
       console.log(`✅ [SHEETS] Sync complete (smooth & clean!)`);
 
@@ -1059,11 +1072,29 @@ class GoogleSheetsService {
   /**
    * ✅ IMPROVED: Add class logos only for NEW rows to avoid flickering
    */
+  // ═══════════════════════════════════════════════════════════════════
+  
+  /**
+   * Check if current time is at a 5-minute interval (XX:00, XX:05, XX:10, etc.)
+   */
+  shouldUpdateTimezones() {
+    const now = new Date();
+    const minutes = now.getMinutes();
+    return minutes % 5 === 0; // True at :00, :05, :10, :15, :20, etc.
+  }
+
   async addClassLogos(sheetName, rowMetadata, startRowIndex = 2, sheetId) {
     if (!this.sheets || rowMetadata.length === 0) return;
 
     try {
       const valueUpdates = [];
+      const shouldUpdateTZ = this.shouldUpdateTimezones(); // Check if we're at :00, :05, :10, etc.
+      
+      if (shouldUpdateTZ) {
+        console.log(`   ⏰ [SHEETS] At 5-minute interval - updating timezones`);
+      } else {
+        console.log(`   ⏭️  [SHEETS] Not at 5-minute interval - skipping timezone updates`);
+      }
       
       for (let i = 0; i < rowMetadata.length; i++) {
         const rowIndex = startRowIndex + i;
@@ -1079,7 +1110,8 @@ class GoogleSheetsService {
           });
         }
 
-        if (meta.timezone && meta.timezone !== '') {
+        // Only update timezone formulas at 5-minute intervals
+        if (shouldUpdateTZ && meta.timezone && meta.timezone !== '') {
           const abbrev = this.getTimezoneAbbreviation(meta.timezone);
           const offset = this.getTimezoneOffset(meta.timezone);
           
@@ -1143,7 +1175,7 @@ class GoogleSheetsService {
       const dropdownRequests = []; // Store dropdown validation requests separately
 
       // Column widths - EXTRA WIDE for Registered to prevent cutoff
-      const columnWidths = [150, 140, 120, 125, 65, 180, 165, 120, 130, 210, 120, 170, 145];
+      const columnWidths = [150, 140, 120, 125, 65, 180, 165, 120, 130, 210, 120, 240, 145]; // Timezone column increased to 240px
       columnWidths.forEach((width, index) => {
         requests.push({
           updateDimensionProperties: {
