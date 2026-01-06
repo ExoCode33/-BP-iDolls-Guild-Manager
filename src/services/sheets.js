@@ -600,7 +600,7 @@ class GoogleSheetsService {
         },
         {
           name: 'iDolls Alts',
-          filter: (char) => char.guild && char.guild.toLowerCase().includes('idoll') && char.isAlt // iDolls Alts only
+          filter: (char) => char.guild && char.guild.toLowerCase().includes('idoll') && char.character_type === 'alt' // ✅ FIXED: Use character_type instead of isAlt
         },
         {
           name: 'Honored Guests',
