@@ -336,25 +336,25 @@ class GoogleSheetsService {
 
   getClassColor(className) {
     const classColors = {
-      'Beat Performer': { red: 0.58, green: 0.29, blue: 0.82 },
-      'Frost Mage': { red: 0.26, green: 0.71, blue: 0.89 },
-      'Heavy Guardian': { red: 0.42, green: 0.56, blue: 0.14 },
-      'Marksman': { red: 0.80, green: 0.47, blue: 0.13 },
-      'Shield Knight': { red: 0.13, green: 0.59, blue: 0.95 },
-      'Stormblade': { red: 0.61, green: 0.15, blue: 0.69 },
-      'Verdant Oracle': { red: 0.98, green: 0.74, blue: 0.02 },
-      'Wind Knight': { red: 0.40, green: 0.85, blue: 0.92 }
+      'Beat Performer': { red: 0.70, green: 0.20, blue: 0.95 }, // Bright purple
+      'Frost Mage': { red: 0.20, green: 0.75, blue: 1.0 }, // Bright cyan
+      'Heavy Guardian': { red: 0.50, green: 0.70, blue: 0.10 }, // Bright lime
+      'Marksman': { red: 0.95, green: 0.55, blue: 0.10 }, // Bright orange
+      'Shield Knight': { red: 0.10, green: 0.65, blue: 1.0 }, // Bright blue
+      'Stormblade': { red: 0.75, green: 0.10, blue: 0.80 }, // Bright magenta
+      'Verdant Oracle': { red: 1.0, green: 0.80, blue: 0.0 }, // Bright gold
+      'Wind Knight': { red: 0.30, green: 0.90, blue: 1.0 } // Bright sky blue
     };
-    return classColors[className] || { red: 0.62, green: 0.64, blue: 0.66 };
+    return classColors[className] || { red: 0.70, green: 0.70, blue: 0.70 };
   }
 
   getRoleColor(role) {
     const roleColors = {
-      'Tank': { red: 0.25, green: 0.53, blue: 0.96 },
-      'DPS': { red: 0.96, green: 0.26, blue: 0.21 },
-      'Support': { red: 0.30, green: 0.69, blue: 0.31 }
+      'Tank': { red: 0.20, green: 0.55, blue: 1.0 }, // Bright blue
+      'DPS': { red: 1.0, green: 0.20, blue: 0.20 }, // Bright red
+      'Support': { red: 0.20, green: 0.80, blue: 0.30 } // Bright green
     };
-    return roleColors[role] || { red: 0.62, green: 0.64, blue: 0.66 };
+    return roleColors[role] || { red: 0.70, green: 0.70, blue: 0.70 };
   }
 
   formatDate(dateString) {
@@ -1073,8 +1073,8 @@ class GoogleSheetsService {
     try {
       const requests = [];
 
-      // Column widths - optimized for dropdown style with proper spacing
-      const columnWidths = [140, 130, 110, 100, 55, 150, 130, 90, 110, 180, 100, 145, 105];
+      // Column widths - generous sizing to prevent ANY text cutoff
+      const columnWidths = [145, 135, 115, 110, 60, 160, 145, 100, 115, 190, 105, 150, 110];
       columnWidths.forEach((width, index) => {
         requests.push({
           updateDimensionProperties: {
@@ -1147,33 +1147,33 @@ class GoogleSheetsService {
           }
         });
         
-        // Discord name styling - dropdown style
-        const discordColor = meta.isSubclass 
-          ? { red: 0.50, green: 0.52, blue: 0.55 }
-          : { red: 0.10, green: 0.11, blue: 0.13 };
+        // Discord name styling - soft purple background with dark text
+        const discordBg = meta.isSubclass 
+          ? { red: 0.92, green: 0.92, blue: 0.94 } // Very light gray for subclass
+          : { red: 0.88, green: 0.85, blue: 0.95 }; // Soft purple
         
-        this.addDropdownBadge(requests, sheetId, rowIndex, 0, discordColor, 'Discord');
+        this.addDropdownBadge(requests, sheetId, rowIndex, 0, discordBg, 'Discord', true);
 
-        // IGN styling - dropdown style
-        const ignColor = meta.isSubclass 
-          ? { red: 0.50, green: 0.52, blue: 0.55 }
-          : { red: 0.10, green: 0.11, blue: 0.13 };
+        // IGN styling - soft blue background with dark text
+        const ignBg = meta.isSubclass 
+          ? { red: 0.92, green: 0.92, blue: 0.94 } // Very light gray for subclass
+          : { red: 0.85, green: 0.92, blue: 0.98 }; // Soft blue
         
-        this.addDropdownBadge(requests, sheetId, rowIndex, 1, ignColor, 'IGN');
+        this.addDropdownBadge(requests, sheetId, rowIndex, 1, ignBg, 'IGN', true);
 
-        // UID styling - dropdown style  
-        const uidColor = meta.isSubclass 
-          ? { red: 0.50, green: 0.52, blue: 0.55 }
-          : { red: 0.10, green: 0.11, blue: 0.13 };
+        // UID styling - soft teal background with dark text
+        const uidBg = meta.isSubclass 
+          ? { red: 0.92, green: 0.92, blue: 0.94 } // Very light gray for subclass
+          : { red: 0.85, green: 0.95, blue: 0.93 }; // Soft teal
         
-        this.addDropdownBadge(requests, sheetId, rowIndex, 2, uidColor, 'UID');
+        this.addDropdownBadge(requests, sheetId, rowIndex, 2, uidBg, 'UID', true);
 
-        // Type badge - dropdown style with colored text
-        let typeColor = { red: 0.62, green: 0.64, blue: 0.66 }; // Default gray
+        // Type badge - VIBRANT colored backgrounds
+        let typeColor = { red: 0.70, green: 0.70, blue: 0.70 }; // Gray for Subclass
         if (meta.isMain) {
-          typeColor = { red: 0.26, green: 0.59, blue: 0.98 }; // Blue
+          typeColor = { red: 0.20, green: 0.60, blue: 1.0 }; // Bright blue for Main
         } else if (meta.isAlt) {
-          typeColor = { red: 0.96, green: 0.49, blue: 0.13 }; // Orange
+          typeColor = { red: 1.0, green: 0.50, blue: 0.10 }; // Bright orange for Alt
         }
         this.addDropdownBadge(requests, sheetId, rowIndex, 3, typeColor, 'Type');
         
@@ -1197,11 +1197,11 @@ class GoogleSheetsService {
           this.addDropdownBadge(requests, sheetId, rowIndex, 8, { red: 0.5, green: 0.5, blue: 0.5 }, 'AS');
         }
         
-        // Battle Imagines, Guild, Timezone, Registered - dropdown style
-        this.addDropdownBadge(requests, sheetId, rowIndex, 9, { red: 0.45, green: 0.45, blue: 0.45 }, 'BI');
-        this.addDropdownBadge(requests, sheetId, rowIndex, 10, { red: 0.40, green: 0.45, blue: 0.75 }, 'Guild');
-        this.addDropdownBadge(requests, sheetId, rowIndex, 11, { red: 0.5, green: 0.5, blue: 0.5 }, 'TZ');
-        this.addDropdownBadge(requests, sheetId, rowIndex, 12, { red: 0.7, green: 0.3, blue: 0.3 }, 'Date');
+        // Battle Imagines, Guild, Timezone, Registered - cute pastel colors with dark text
+        this.addDropdownBadge(requests, sheetId, rowIndex, 9, { red: 0.95, green: 0.90, blue: 0.85 }, 'BI', true); // Peach
+        this.addDropdownBadge(requests, sheetId, rowIndex, 10, { red: 0.88, green: 0.88, blue: 0.98 }, 'Guild', true); // Light lavender
+        this.addDropdownBadge(requests, sheetId, rowIndex, 11, { red: 0.85, green: 0.95, blue: 0.88 }, 'TZ', true); // Mint
+        this.addDropdownBadge(requests, sheetId, rowIndex, 12, { red: 0.98, green: 0.88, blue: 0.88 }, 'Date', true); // Light pink
 
         // Borders - standard borders for all rows
         requests.push({
@@ -1366,6 +1366,47 @@ class GoogleSheetsService {
       };
       requests.push(bulletFormat);
     }
+  }
+
+  addDropdownBadge(requests, sheetId, rowIndex, colIndex, bgColor, label, useDarkText = false) {
+    // Beautiful colored badge - white text for dark backgrounds, dark text for light backgrounds
+    const textColor = useDarkText 
+      ? { red: 0.15, green: 0.15, blue: 0.15 } // Dark text
+      : { red: 1, green: 1, blue: 1 }; // White text
+      
+    const cellFormat = {
+      repeatCell: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: rowIndex,
+          endRowIndex: rowIndex + 1,
+          startColumnIndex: colIndex,
+          endColumnIndex: colIndex + 1
+        },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: bgColor,
+            textFormat: {
+              bold: true,
+              fontSize: 10,
+              foregroundColor: textColor,
+              fontFamily: 'Google Sans'
+            },
+            horizontalAlignment: 'CENTER',
+            verticalAlignment: 'MIDDLE',
+            padding: {
+              top: 9,
+              bottom: 9,
+              left: 14,
+              right: 14
+            },
+            wrapStrategy: 'WRAP'
+          }
+        },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding,wrapStrategy)'
+      }
+    };
+    requests.push(cellFormat);
   }
 
   addPillBadge(requests, sheetId, rowIndex, colIndex, bgColor, isNumber = false) {
