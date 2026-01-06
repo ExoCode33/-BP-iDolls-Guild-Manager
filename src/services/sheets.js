@@ -226,6 +226,7 @@ class GoogleSheetsService {
     
     // ✅ Cache for current sheet state (for diff comparison)
     this.cachedSheetData = null;
+    this.cachedMetadata = null;
     
     const githubBaseUrl = 'https://raw.githubusercontent.com/ExoCode33/-BP-Heal-Guild-Helper/f0f9f7305c33cb299a202f115124248156acbf00/class-icons';
     
@@ -365,7 +366,7 @@ class GoogleSheetsService {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // ✅ NEW: DIFF-BASED UPDATE SYSTEM
+  // ✅ IMPROVED: SMART DIFF-BASED UPDATE SYSTEM
   // ═══════════════════════════════════════════════════════════════════
 
   /**
@@ -375,7 +376,7 @@ class GoogleSheetsService {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'Member List!A2:M1000', // Skip header row
+        range: 'Member List!A2:M1000',
       });
 
       return response.data.values || [];
@@ -387,14 +388,16 @@ class GoogleSheetsService {
 
   /**
    * Compare two rows and return if they're different
+   * ✅ IMPROVED: Smarter comparison that ignores formula columns
    */
   rowsAreDifferent(oldRow, newRow) {
     if (!oldRow || !newRow) return true;
     if (oldRow.length !== newRow.length) return true;
     
     // Compare all columns except timezone (column 11) which updates via formula
+    // and column 4 (Icon/Image) which we handle separately
     for (let i = 0; i < newRow.length; i++) {
-      if (i === 11) continue; // Skip timezone column (auto-updates)
+      if (i === 4 || i === 11) continue; // Skip icon and timezone columns
       
       const oldVal = String(oldRow[i] || '').trim();
       const newVal = String(newRow[i] || '').trim();
@@ -416,27 +419,83 @@ class GoogleSheetsService {
       unchanged: 0
     };
 
-    // Check which rows changed
     for (let i = 0; i < Math.max(oldData.length, newData.length); i++) {
       const oldRow = oldData[i];
       const newRow = newData[i];
 
       if (!oldRow && newRow) {
-        // New row added
         diff.rowsToAdd.push({ index: i, data: newRow });
       } else if (oldRow && !newRow) {
-        // Row deleted
         diff.rowsToDelete.push(i);
       } else if (this.rowsAreDifferent(oldRow, newRow)) {
-        // Row changed
         diff.rowsToUpdate.push({ index: i, data: newRow });
       } else {
-        // Row unchanged
         diff.unchanged++;
       }
     }
 
     return diff;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ✅ NEW: CLEAN BOTTOM BORDERS (FIX FOR SCREENSHOT ISSUE)
+  // ═══════════════════════════════════════════════════════════════════
+
+  async cleanBottomBorders(sheetId, lastDataRow) {
+    try {
+      // Clear all borders below the last data row (up to row 1000)
+      const requests = [];
+      
+      // Remove all borders from rows after the last data row
+      if (lastDataRow < 999) {
+        requests.push({
+          updateBorders: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: lastDataRow + 1,
+              endRowIndex: 1000,
+              startColumnIndex: 0,
+              endColumnIndex: 13
+            },
+            top: { style: 'NONE' },
+            bottom: { style: 'NONE' },
+            left: { style: 'NONE' },
+            right: { style: 'NONE' },
+            innerHorizontal: { style: 'NONE' },
+            innerVertical: { style: 'NONE' }
+          }
+        });
+
+        // Also clear background colors
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: lastDataRow + 1,
+              endRowIndex: 1000,
+              startColumnIndex: 0,
+              endColumnIndex: 13
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 1, green: 1, blue: 1 }
+              }
+            },
+            fields: 'userEnteredFormat.backgroundColor'
+          }
+        });
+      }
+
+      if (requests.length > 0) {
+        await this.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: this.spreadsheetId,
+          requestBody: { requests }
+        });
+        console.log(`✅ [SHEETS] Cleaned bottom borders after row ${lastDataRow + 1}`);
+      }
+    } catch (error) {
+      console.error('❌ [SHEETS] Error cleaning bottom borders:', error.message);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -461,6 +520,8 @@ class GoogleSheetsService {
         return;
       }
 
+      const sheetId = memberListSheet.properties.sheetId;
+
       const headers = [
         'Discord Name',
         'IGN',
@@ -477,7 +538,7 @@ class GoogleSheetsService {
         'Registered'
       ];
 
-      // ✅ FIX 1: Write headers if needed
+      // ✅ Write headers if needed
       try {
         const currentHeaders = await this.sheets.spreadsheets.values.get({
           spreadsheetId: this.spreadsheetId,
@@ -546,14 +607,14 @@ class GoogleSheetsService {
             mainChar.ign,
             mainChar.uid || '',
             'Main',
-            '',
+            '', // Icon column - will be filled with formula
             mainChar.class,
             mainChar.subclass,
             mainChar.role,
             this.formatAbilityScore(mainChar.ability_score),
             mainBattleImaginesText,
             mainChar.guild || '',
-            '',
+            '', // Timezone column - will be filled with formula
             `'${this.formatDate(mainChar.created_at)}`
           ]);
 
@@ -574,14 +635,14 @@ class GoogleSheetsService {
               mainChar.ign,
               mainChar.uid || '',
               'Subclass',
-              '',
+              '', // Icon column
               subclass.class,
               subclass.subclass,
               subclass.role,
               this.formatAbilityScore(subclass.ability_score),
               '',
               mainChar.guild || '',
-              '',
+              '', // Timezone column
               `'${this.formatDate(mainChar.created_at)}`
             ]);
 
@@ -611,14 +672,14 @@ class GoogleSheetsService {
             alt.ign,
             alt.uid || '',
             'Alt',
-            '',
+            '', // Icon column
             alt.class,
             alt.subclass,
             alt.role,
             this.formatAbilityScore(alt.ability_score),
             altBattleImaginesText,
             alt.guild || '',
-            '',
+            '', // Timezone column
             `'${this.formatDate(alt.created_at)}`
           ]);
 
@@ -632,46 +693,10 @@ class GoogleSheetsService {
             isAlt: true,
             isFirstOfUser: false
           });
-
-          const altSubclasses = userChars.filter(c => 
-            c.character_type === 'alt_subclass' && 
-            c.parent_character_id === alt.id
-          );
-
-          altSubclasses.forEach(subclass => {
-            rows.push([
-              discordName,
-              alt.ign,
-              alt.uid || '',
-              'Subclass',
-              '',
-              subclass.class,
-              subclass.subclass,
-              subclass.role,
-              this.formatAbilityScore(subclass.ability_score),
-              '',
-              alt.guild || '',
-              '',
-              `'${this.formatDate(alt.created_at)}`
-            ]);
-
-            rowMetadata.push({
-              character: subclass,
-              discordName: discordName,
-              timezone: userTimezone,
-              registeredDate: this.formatDate(alt.created_at),
-              parentIGN: alt.ign,
-              parentClass: alt.class,
-              isSubclass: true,
-              isMain: false,
-              isAlt: false,
-              isFirstOfUser: false
-            });
-          });
         }
       }
 
-      // ✅ DIFF-BASED UPDATE: Compare with existing data
+      // ✅ DIFF-BASED UPDATE
       console.log('🔍 [SHEETS] Fetching current sheet data for comparison...');
       const currentData = await this.getCurrentSheetData();
       const diff = this.calculateDiff(currentData, rows);
@@ -681,23 +706,14 @@ class GoogleSheetsService {
       console.log(`   🔄 To update: ${diff.rowsToUpdate.length} rows`);
       console.log(`   ➕ To add: ${diff.rowsToAdd.length} rows`);
       console.log(`   ➖ To delete: ${diff.rowsToDelete.length} rows`);
-      
-      // Calculate API calls saved
-      const totalChanges = diff.rowsToUpdate.length + diff.rowsToAdd.length + diff.rowsToDelete.length;
-      if (totalChanges > 0) {
-        console.log(`   📉 API efficiency: ${totalChanges} changes → ~3 API calls (saved ${totalChanges - 3} calls!)`);
-      }
 
-      // ✅ If nothing changed, skip update
+      // ✅ If nothing changed, skip update completely
       if (diff.rowsToUpdate.length === 0 && diff.rowsToAdd.length === 0 && diff.rowsToDelete.length === 0) {
-        console.log('⏭️  [SHEETS] No changes detected - skipping update (no flickering!)');
+        console.log('⏭️  [SHEETS] No changes detected - skipping update completely (no flickering!)');
         return;
       }
 
-      // ✅ Only update what changed
-      const updateRequests = [];
-
-      // Handle deleted rows (clear from end)
+      // ✅ Handle deleted rows
       if (diff.rowsToDelete.length > 0) {
         const maxDeleteRow = Math.max(...diff.rowsToDelete);
         console.log(`🗑️  [SHEETS] Clearing deleted rows starting from row ${maxDeleteRow + 2}...`);
@@ -707,34 +723,35 @@ class GoogleSheetsService {
         });
       }
 
-      // Handle updated rows (batch them to avoid quota)
+      // ✅ IMPROVED: Update rows WITHOUT touching icon/timezone columns
       if (diff.rowsToUpdate.length > 0) {
-        console.log(`🔄 [SHEETS] Updating ${diff.rowsToUpdate.length} changed rows...`);
+        console.log(`🔄 [SHEETS] Updating ${diff.rowsToUpdate.length} changed rows (preserving images)...`);
         
-        // ✅ CRITICAL FIX: Skip column L (timezone) to preserve formulas!
-        // Update columns A-K and M only, leaving L untouched
         const batchData = [];
         
         for (const update of diff.rowsToUpdate) {
           const rowNum = update.index + 2;
           
-          // Columns A-K (indices 0-10): Discord Name through Guild
-          const columnsAK = update.data.slice(0, 11);
+          // Update all columns EXCEPT E (icon) and L (timezone) - these stay untouched
+          // Columns A-D
           batchData.push({
-            range: `Member List!A${rowNum}:K${rowNum}`,
-            values: [columnsAK]
+            range: `Member List!A${rowNum}:D${rowNum}`,
+            values: [update.data.slice(0, 4)]
           });
           
-          // Column M (index 12): Registered date
-          // Skip index 11 (column L - timezone with formula)
-          const columnM = [update.data[12]];
+          // Columns F-K (skip E which is icon)
+          batchData.push({
+            range: `Member List!F${rowNum}:K${rowNum}`,
+            values: [update.data.slice(5, 11)]
+          });
+          
+          // Column M (skip L which is timezone)
           batchData.push({
             range: `Member List!M${rowNum}`,
-            values: [columnM]
+            values: [[update.data[12]]]
           });
         }
         
-        // Send all updates in one API call
         try {
           await this.sheets.spreadsheets.values.batchUpdate({
             spreadsheetId: this.spreadsheetId,
@@ -743,13 +760,13 @@ class GoogleSheetsService {
               data: batchData
             }
           });
-          console.log(`✅ [SHEETS] Batch updated ${diff.rowsToUpdate.length} rows (preserved timezone formulas)`);
+          console.log(`✅ [SHEETS] Batch updated ${diff.rowsToUpdate.length} rows (images preserved!)`);
         } catch (error) {
           console.error(`❌ [SHEETS] Batch update error:`, error.message);
         }
       }
 
-      // Handle new rows
+      // ✅ Handle new rows
       if (diff.rowsToAdd.length > 0) {
         console.log(`➕ [SHEETS] Adding ${diff.rowsToAdd.length} new rows...`);
         const newRowsData = diff.rowsToAdd.map(r => r.data);
@@ -764,24 +781,31 @@ class GoogleSheetsService {
         });
       }
 
-      // ✅ QUOTA FIX: Only apply full formatting when necessary
-      // (First sync, rows added/deleted, or major changes)
+      // ✅ SMART FORMATTING: Only when structure changes
       const needsFullFormatting = diff.rowsToAdd.length > 0 || 
                                    diff.rowsToDelete.length > 0 ||
-                                   currentData.length === 0 ||
-                                   diff.rowsToUpdate.length === currentData.length; // ✅ Force on mass update
+                                   currentData.length === 0;
 
       if (needsFullFormatting) {
-        console.log(`🎨 [SHEETS] Applying formatting (${diff.rowsToAdd.length} added, ${diff.rowsToDelete.length} deleted, ${diff.rowsToUpdate.length} updated)...`);
+        console.log(`🎨 [SHEETS] Applying full formatting (structure changed)...`);
         await this.formatCleanSheet('Member List', headers.length, rows.length);
-        await this.applyCleanDesign('Member List', rowMetadata);
-        await this.addClassLogos('Member List', rowMetadata);
+        await this.applyCleanDesign('Member List', rowMetadata, sheetId);
+        
+        // ✅ Only add images/formulas for NEW rows
+        const newMetadata = rowMetadata.slice(currentData.length);
+        if (newMetadata.length > 0) {
+          await this.addClassLogos('Member List', newMetadata, currentData.length + 2, sheetId);
+        }
+        
         await this.enableAutoRecalculation();
+        
+        // ✅ CLEAN BOTTOM BORDERS (FIX FOR SCREENSHOT ISSUE)
+        await this.cleanBottomBorders(sheetId, rows.length + 1);
       } else {
-        console.log(`⏭️  [SHEETS] Skipping formatting (only ${diff.rowsToUpdate.length} rows updated, formatting preserved)`);
+        console.log(`⏭️  [SHEETS] Skipping full format (only data changed, preserving all formatting & images)`);
       }
 
-      console.log(`✅ [SHEETS] Sync complete (smooth, no flickering!)`);
+      console.log(`✅ [SHEETS] Sync complete (smooth & clean!)`);
 
     } catch (error) {
       console.error('❌ [SHEETS] Sync error:', error.message);
@@ -918,22 +942,17 @@ class GoogleSheetsService {
     }
   }
 
-  async addClassLogos(sheetName, rowMetadata) {
+  /**
+   * ✅ IMPROVED: Add class logos only for NEW rows to avoid flickering
+   */
+  async addClassLogos(sheetName, rowMetadata, startRowIndex = 2, sheetId) {
     if (!this.sheets || rowMetadata.length === 0) return;
 
     try {
-      const spreadsheet = await this.sheets.spreadsheets.get({
-        spreadsheetId: this.spreadsheetId,
-      });
-
-      const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
-      if (!sheet) return;
-
-      const sheetId = sheet.properties.sheetId;
       const valueUpdates = [];
       
       for (let i = 0; i < rowMetadata.length; i++) {
-        const rowIndex = i + 2;
+        const rowIndex = startRowIndex + i;
         const meta = rowMetadata[i];
         const member = meta.character;
         
@@ -960,7 +979,7 @@ class GoogleSheetsService {
       }
 
       if (valueUpdates.length > 0) {
-        const batchSize = 10;
+        const batchSize = 20;
         for (let i = 0; i < valueUpdates.length; i += batchSize) {
           const batch = valueUpdates.slice(i, i + batchSize);
           
@@ -989,24 +1008,10 @@ class GoogleSheetsService {
             });
             
             if (i + batchSize < valueUpdates.length) {
-              await new Promise(resolve => setTimeout(resolve, 500));  // ✅ Increased from 300ms
+              await new Promise(resolve => setTimeout(resolve, 800));
             }
           } catch (error) {
-            if (error.message && error.message.includes('Quota exceeded')) {
-              console.log(`   ⚠️  Quota hit in addClassLogos, waiting 3 seconds...`);
-              await new Promise(resolve => setTimeout(resolve, 3000));
-              // Retry once
-              try {
-                await this.sheets.spreadsheets.batchUpdate({
-                  spreadsheetId: this.spreadsheetId,
-                  requestBody: { requests }
-                });
-              } catch (retryError) {
-                console.error(`   ❌ addClassLogos retry failed:`, retryError.message);
-                // Continue to next batch anyway
-              }
-            }
-            // Continue even if error (logos/formulas not critical)
+            console.error(`❌ [SHEETS] Error adding formulas:`, error.message);
           }
         }
       }
@@ -1016,22 +1021,13 @@ class GoogleSheetsService {
     }
   }
 
-  async applyCleanDesign(sheetName, rowMetadata) {
+  async applyCleanDesign(sheetName, rowMetadata, sheetId) {
     if (!this.sheets || rowMetadata.length === 0) return;
 
     try {
-      const spreadsheet = await this.sheets.spreadsheets.get({
-        spreadsheetId: this.spreadsheetId,
-      });
-
-      const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
-      if (!sheet) return;
-
-      const sheetId = sheet.properties.sheetId;
       const requests = [];
 
-      // ✅ FIX 2: Removed header merge - Type and Icon should be separate columns
-      
+      // Column widths
       const columnWidths = [160, 150, 100, 95, 50, 180, 145, 85, 125, 200, 105, 170, 105];
       columnWidths.forEach((width, index) => {
         requests.push({
@@ -1050,6 +1046,7 @@ class GoogleSheetsService {
         });
       });
 
+      // Row heights
       for (let i = 0; i < rowMetadata.length; i++) {
         const meta = rowMetadata[i];
         const rowHeight = meta.isSubclass ? 34 : 38;
@@ -1082,12 +1079,12 @@ class GoogleSheetsService {
           lastDiscordName = meta.discordName;
         }
         
-        // ✅ Row backgrounds: Alt = light grey, Main/Subclass = white
+        // Row background
         const rowBg = meta.isAlt
-          ? { red: 0.96, green: 0.96, blue: 0.96 }  // Alt: light grey
-          : { red: 1, green: 1, blue: 1 };           // Main/Subclass: white
+          ? { red: 0.96, green: 0.96, blue: 0.96 }
+          : { red: 1, green: 1, blue: 1 };
         
-        // ✅ FIX 3: Apply background to ENTIRE ROW first (ensures grey shows)
+        // Apply background to ENTIRE ROW
         requests.push({
           repeatCell: {
             range: {
@@ -1095,7 +1092,7 @@ class GoogleSheetsService {
               startRowIndex: rowIndex,
               endRowIndex: rowIndex + 1,
               startColumnIndex: 0,
-              endColumnIndex: 13  // All columns A-M
+              endColumnIndex: 13
             },
             cell: {
               userEnteredFormat: {
@@ -1106,6 +1103,7 @@ class GoogleSheetsService {
           }
         });
         
+        // Discord name styling
         const discordColor = meta.isSubclass 
           ? { red: 0.50, green: 0.52, blue: 0.55 }
           : { red: 0.10, green: 0.11, blue: 0.13 };
@@ -1140,6 +1138,7 @@ class GoogleSheetsService {
           }
         });
 
+        // IGN styling
         const ignColor = meta.isSubclass 
           ? { red: 0.50, green: 0.52, blue: 0.55 }
           : { red: 0.10, green: 0.11, blue: 0.13 };
@@ -1175,6 +1174,7 @@ class GoogleSheetsService {
           }
         });
 
+        // UID styling
         const uidColor = meta.isSubclass 
           ? { red: 0.50, green: 0.52, blue: 0.55 }
           : { red: 0.10, green: 0.11, blue: 0.13 };
@@ -1210,24 +1210,28 @@ class GoogleSheetsService {
           }
         });
 
+        // Type badge
         if (meta.isMain) {
           this.addPillBadge(requests, sheetId, rowIndex, 3, { red: 0.26, green: 0.59, blue: 0.98 });
         } else if (meta.isAlt) {
           this.addPillBadge(requests, sheetId, rowIndex, 3, { red: 0.96, green: 0.49, blue: 0.13 });
         } else {
-          // ✅ Subclass: Grey pill badge (same style as Main/Alt)
           this.addPillBadge(requests, sheetId, rowIndex, 3, { red: 0.62, green: 0.64, blue: 0.66 });
         }
         
+        // Icon cell
         this.addCleanTextCell(requests, sheetId, rowIndex, 4, '', rowBg);
         
+        // Class/Subclass styling
         const classColor = this.getClassColor(member.class);
         this.addColoredTextCell(requests, sheetId, rowIndex, 5, classColor, rowBg);
         this.addColoredTextCell(requests, sheetId, rowIndex, 6, classColor, rowBg);
         
+        // Role badge
         const roleColor = this.getRoleColor(member.role);
         this.addPillBadge(requests, sheetId, rowIndex, 7, roleColor);
         
+        // Ability score
         if (member.ability_score && member.ability_score !== '') {
           const abilityColor = this.getAbilityScoreColor(member.ability_score);
           this.addColoredTextCell(requests, sheetId, rowIndex, 8, abilityColor, rowBg, true);
@@ -1235,11 +1239,13 @@ class GoogleSheetsService {
           this.addCleanTextCell(requests, sheetId, rowIndex, 8, '', rowBg);
         }
         
+        // Battle Imagines, Guild, Timezone, Registered
         this.addBoldTextCell(requests, sheetId, rowIndex, 9, rowBg);
         this.addBoldTextCell(requests, sheetId, rowIndex, 10, rowBg);
         this.addTimezoneCell(requests, sheetId, rowIndex, 11, meta.timezone, rowBg);
         this.addBoldTextCell(requests, sheetId, rowIndex, 12, rowBg);
 
+        // Borders - only for data rows, not extending beyond
         const isLastOfGroup = (i === rowMetadata.length - 1) || 
                               (i + 1 < rowMetadata.length && rowMetadata[i + 1].isFirstOfUser);
         
@@ -1271,20 +1277,11 @@ class GoogleSheetsService {
               style: 'SOLID',
               width: 1,
               color: { red: 0.85, green: 0.85, blue: 0.87 }
-            },
-            innerHorizontal: {
-              style: 'SOLID',
-              width: 1,
-              color: { red: 0.85, green: 0.85, blue: 0.87 }
-            },
-            innerVertical: {
-              style: 'SOLID',
-              width: 1,
-              color: { red: 0.85, green: 0.85, blue: 0.87 }
             }
           }
         });
         
+        // Thicker bottom border for last row of user group
         if (isLastOfGroup) {
           requests.push({
             updateBorders: {
@@ -1306,7 +1303,7 @@ class GoogleSheetsService {
       }
 
       if (requests.length > 0) {
-        const batchSize = 50;  // ✅ Reduced from 100 to 50 (more conservative)
+        const batchSize = 50;
         console.log(`   📦 Sending ${requests.length} formatting requests in ${Math.ceil(requests.length / batchSize)} batches...`);
         
         for (let i = 0; i < requests.length; i += batchSize) {
@@ -1319,28 +1316,11 @@ class GoogleSheetsService {
               spreadsheetId: this.spreadsheetId,
               requestBody: { requests: batch }
             });
-            console.log(`   ✅ Batch ${batchNum}/${totalBatches} complete (${batch.length} requests)`);
+            console.log(`   ✅ Batch ${batchNum}/${totalBatches} complete`);
           } catch (error) {
-            if (error.message.includes('Quota exceeded')) {
-              console.log(`   ⚠️  Quota hit on batch ${batchNum}, waiting 5 seconds...`);
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              // Retry once
-              try {
-                await this.sheets.spreadsheets.batchUpdate({
-                  spreadsheetId: this.spreadsheetId,
-                  requestBody: { requests: batch }
-                });
-                console.log(`   ✅ Batch ${batchNum}/${totalBatches} complete after retry`);
-              } catch (retryError) {
-                console.error(`   ❌ Batch ${batchNum} failed even after retry:`, retryError.message);
-                throw retryError; // Re-throw to stop further batches
-              }
-            } else {
-              throw error;
-            }
+            console.error(`   ❌ Batch ${batchNum} failed:`, error.message);
           }
           
-          // ✅ Increased delay from 200ms to 1000ms (1 second)
           if (i + batchSize < requests.length) {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
