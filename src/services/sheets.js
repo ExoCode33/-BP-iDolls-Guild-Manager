@@ -1171,6 +1171,7 @@ class GoogleSheetsService {
             },
             fields: 'userEnteredFormat.backgroundColor'
           }
+        });
         
         // Get type text
         const typeText = meta.isMain ? 'Main' : (meta.isAlt ? 'Alt' : 'Subclass');
