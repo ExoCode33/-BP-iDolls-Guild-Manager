@@ -347,7 +347,8 @@ function buildErrorLog(location, error, context = {}) {
   return msg;
 }
 
-function buildBatchLog(events) {
+// ✅ NEW: Detailed batch log showing individual events
+function buildDetailedBatchLog(events) {
   const grouped = {};
   for (const evt of events) {
     if (!grouped[evt.category]) grouped[evt.category] = [];
@@ -356,7 +357,7 @@ function buildBatchLog(events) {
   
   let msg = '```ansi\n';
   msg += `${d.pink}${DISCORD_LINE}${d.reset}\n`;
-  msg += `${d.pink}${d.bold}📦 ACTIVITY SUMMARY${d.reset}  ${d.gray}${shortTime()}${d.reset}\n`;
+  msg += `${d.pink}${d.bold}📦 ACTIVITY BATCH${d.reset}  ${d.gray}${shortTime()}${d.reset}\n`;
   msg += `${d.white}Total      ${d.reset}${d.yellow}${events.length} events${d.reset}\n`;
   msg += `\n`;
   
@@ -364,21 +365,41 @@ function buildBatchLog(events) {
     const cat = LOG_CATEGORIES[category];
     if (!cat) continue;
     
-    const agg = {};
-    for (const evt of catEvents) {
-      const key = evt.data.action || evt.data.command || 'event';
-      if (!agg[key]) agg[key] = { count: 0, users: new Set() };
-      agg[key].count++;
-      if (evt.data.user) agg[key].users.add(evt.data.user);
-    }
-    
     msg += `${d.yellow}${cat.emoji} ${cat.name}${d.reset} ${d.gray}(${catEvents.length})${d.reset}\n`;
     
-    for (const [key, data] of Object.entries(agg)) {
-      const uCount = data.users.size;
-      const uText = uCount > 0 ? ` ${d.gray}(${uCount} users)${d.reset}` : '';
-      msg += `${d.white}   ${key}${d.reset} ${d.cyan}×${data.count}${d.reset}${uText}\n`;
+    // Show individual events with details
+    for (const evt of catEvents.slice(0, 15)) { // Limit to 15 per category to avoid message length issues
+      const data = evt.data;
+      
+      // Format based on category type
+      if (category === 'commands') {
+        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}→${d.reset} ${d.cyan}${data.command}${d.reset}\n`;
+      } else if (category === 'registration') {
+        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}→${d.reset} ${d.green}${data.details}${d.reset}\n`;
+      } else if (category === 'editing') {
+        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}→${d.reset} ${d.cyan}${data.action}${d.reset} ${d.gray}(${data.oldValue} → ${data.newValue})${d.reset}\n`;
+      } else if (category === 'deletion') {
+        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}→${d.reset} ${d.red}${data.details}${d.reset}\n`;
+      } else if (category === 'profileViews') {
+        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}viewed${d.reset} ${d.cyan}${data.target}${d.reset}\n`;
+      } else if (category === 'interactions') {
+        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}→${d.reset} ${d.white}${data.details.slice(0, 30)}${d.reset}\n`;
+      } else if (category === 'sheetsSync') {
+        msg += `${d.white}   Synced ${data.count} records${d.reset} ${d.gray}(${data.duration}ms)${d.reset}\n`;
+      } else if (category === 'nicknameSync') {
+        msg += `${d.white}   Updated ${data.updated} nicknames${d.reset}${data.failed ? ` ${d.gray}(${data.failed} failed)${d.reset}` : ''}\n`;
+      } else {
+        // Generic format
+        msg += `${d.white}   ${data.user || data.action || 'Event'}${d.reset}\n`;
+      }
     }
+    
+    // Show "and X more..." if truncated
+    if (catEvents.length > 15) {
+      msg += `${d.gray}   ...and ${catEvents.length - 15} more${d.reset}\n`;
+    }
+    
+    msg += `\n`;
   }
   
   msg += `${d.pink}${DISCORD_LINE}${d.reset}\n`;
@@ -536,7 +557,8 @@ class Logger {
     consoleBatch(events.length);
     
     try {
-      await this.channel.send(buildBatchLog(events));
+      // ✅ Use detailed batch log instead of summary
+      await this.channel.send(buildDetailedBatchLog(events));
       console.log(`[LOGGER] ✅ Flushed ${events.length} events to Discord`);
     } catch (e) {
       console.error('[LOGGER] ❌ Failed to send batch:', e.message);
@@ -589,7 +611,7 @@ class Logger {
       return false;
     }
     
-    // Immediate categories - never batch these
+    // ✅ FIXED: Only startup, shutdown, and errors are immediate
     const immediate = ['startup', 'shutdown', 'errors'];
     if (this.batchInterval === 0 || immediate.includes(category)) {
       return false;
@@ -671,14 +693,24 @@ class Logger {
     }
   }
 
+  // ✅ FIXED: Now uses queue() for batching
   sheetsSync(count, duration) {
     consoleSync('sheets', count, duration);
-    this.send('sheetsSync', buildSyncLog('sheets', count, duration));
+    
+    const data = { action: 'Sheets Sync', count, duration };
+    if (!this.queue('sheetsSync', data)) {
+      this.send('sheetsSync', buildSyncLog('sheets', count, duration));
+    }
   }
 
+  // ✅ FIXED: Now uses queue() for batching
   nicknameSync(updated, failed) {
     consoleSync('nickname', updated, 0);
-    this.send('nicknameSync', buildSyncLog('nickname', updated, 0));
+    
+    const data = { action: 'Nickname Sync', updated, failed };
+    if (!this.queue('nicknameSync', data)) {
+      this.send('nicknameSync', buildSyncLog('nickname', updated, 0));
+    }
   }
 
   error(category, message, error = null, context = {}) {
