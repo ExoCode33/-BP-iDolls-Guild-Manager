@@ -52,7 +52,7 @@ const shortTime = () => {
 };
 
 const CONSOLE_LINE = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-const DISCORD_LINE = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+const DISCORD_LINE = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSOLE LOG BUILDERS
@@ -357,7 +357,7 @@ function buildDetailedBatchLog(events) {
   
   let msg = '```ansi\n';
   msg += `${d.pink}${DISCORD_LINE}${d.reset}\n`;
-  msg += `${d.pink}${d.bold}📦 ACTIVITY BATCH${d.reset}  ${d.gray}${shortTime()}${d.reset}\n`;
+  msg += `${d.pink}${d.bold}📦 BATCH${d.reset}  ${d.gray}${shortTime()}${d.reset}\n`;
   msg += `${d.white}Total      ${d.reset}${d.yellow}${events.length} events${d.reset}\n`;
   msg += `\n`;
   
@@ -373,24 +373,26 @@ function buildDetailedBatchLog(events) {
       
       // Format based on category type
       if (category === 'commands') {
-        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}→${d.reset} ${d.cyan}${data.command}${d.reset}\n`;
+        msg += `${d.white}   ${data.user.slice(0, 18)}${d.reset} ${d.gray}→${d.reset} ${d.cyan}${data.command.slice(0, 20)}${d.reset}\n`;
       } else if (category === 'registration') {
-        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}→${d.reset} ${d.green}${data.details}${d.reset}\n`;
+        msg += `${d.white}   ${data.user.slice(0, 18)}${d.reset} ${d.gray}→${d.reset} ${d.green}${data.details.slice(0, 22)}${d.reset}\n`;
       } else if (category === 'editing') {
-        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}→${d.reset} ${d.cyan}${data.action}${d.reset} ${d.gray}(${data.oldValue} → ${data.newValue})${d.reset}\n`;
+        const oldVal = String(data.oldValue).slice(0, 10);
+        const newVal = String(data.newValue).slice(0, 10);
+        msg += `${d.white}   ${data.user.slice(0, 18)}${d.reset} ${d.gray}→${d.reset} ${d.cyan}${data.action.slice(0, 15)}${d.reset} ${d.gray}(${oldVal} → ${newVal})${d.reset}\n`;
       } else if (category === 'deletion') {
-        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}→${d.reset} ${d.red}${data.details}${d.reset}\n`;
+        msg += `${d.white}   ${data.user.slice(0, 18)}${d.reset} ${d.gray}→${d.reset} ${d.red}${data.details.slice(0, 20)}${d.reset}\n`;
       } else if (category === 'profileViews') {
-        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}viewed${d.reset} ${d.cyan}${data.target}${d.reset}\n`;
+        msg += `${d.white}   ${data.user.slice(0, 18)}${d.reset} ${d.gray}viewed${d.reset} ${d.cyan}${data.target.slice(0, 15)}${d.reset}\n`;
       } else if (category === 'interactions') {
-        msg += `${d.white}   ${data.user}${d.reset} ${d.gray}→${d.reset} ${d.white}${data.details.slice(0, 30)}${d.reset}\n`;
+        msg += `${d.white}   ${data.user.slice(0, 18)}${d.reset} ${d.gray}→${d.reset} ${d.white}${data.details.slice(0, 20)}${d.reset}\n`;
       } else if (category === 'sheetsSync') {
         msg += `${d.white}   Synced ${data.count} records${d.reset} ${d.gray}(${data.duration}ms)${d.reset}\n`;
       } else if (category === 'nicknameSync') {
         msg += `${d.white}   Updated ${data.updated} nicknames${d.reset}${data.failed ? ` ${d.gray}(${data.failed} failed)${d.reset}` : ''}\n`;
       } else {
         // Generic format
-        msg += `${d.white}   ${data.user || data.action || 'Event'}${d.reset}\n`;
+        msg += `${d.white}   ${(data.user || data.action || 'Event').slice(0, 30)}${d.reset}\n`;
       }
     }
     
