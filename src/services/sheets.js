@@ -307,17 +307,17 @@ class GoogleSheetsService {
 
   /**
    * Get cell background color based on local time (for Overview sheet)
-   * Pastel green = Prime time (18:00-23:59, 00:00-01:59)
-   * Pastel yellow = Less common (02:00-05:59, 12:00-13:59)
+   * Pastel green = Prime time (18:00-23:59, 00:00)
+   * Pastel yellow = Less common (01:00-05:59, 12:00-13:59)
    * Pastel red = Off hours (06:00-11:59, 14:00-17:59)
    */
   getTimePeriodColor(hour) {
-    // Prime gaming hours (6 PM - 2 AM)
-    if ((hour >= 18 && hour <= 23) || (hour >= 0 && hour <= 1)) {
+    // Prime gaming hours (6 PM - midnight)
+    if ((hour >= 18 && hour <= 23) || hour === 0) {
       return { red: 0.85, green: 0.95, blue: 0.85 }; // Pastel green
     }
-    // Less common hours (2 AM - 6 AM, 12 PM - 2 PM)
-    else if ((hour >= 2 && hour <= 5) || (hour >= 12 && hour <= 13)) {
+    // Less common hours (1 AM - 6 AM, 12 PM - 2 PM)
+    else if ((hour >= 1 && hour <= 5) || (hour >= 12 && hour <= 13)) {
       return { red: 0.98, green: 0.98, blue: 0.80 }; // Pastel yellow
     }
     // Off hours (6 AM - 12 PM, 2 PM - 6 PM)
