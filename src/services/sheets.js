@@ -640,7 +640,7 @@ class GoogleSheetsService {
         },
         {
           name: 'iDolls Overview',
-          filter: (char) => char.guild && char.guild.toLowerCase().includes('idoll'), // iDolls members for overview
+          filter: (char) => char.guild && char.guild.toLowerCase().includes('idoll'), // ✅ iDolls only (excludes visitors)
           isOverview: true // Special flag for overview sheet
         }
       ];
