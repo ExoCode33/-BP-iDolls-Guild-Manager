@@ -809,13 +809,7 @@ class GoogleSheetsService {
       const rows = [];
       for (let i = 0; i < 24; i++) {
         const utcHour = (i + 1) % 24; // Start at 1am, wrap around to 0am at the end
-        
-        // Add "Daily Reset" tag for 7:00 AM UTC
-        const utcTimeLabel = utcHour === 7 
-          ? `${String(utcHour).padStart(2, '0')}:00 (Daily Reset)` 
-          : `${String(utcHour).padStart(2, '0')}:00`;
-        
-        const row = [utcTimeLabel];
+        const row = [`${String(utcHour).padStart(2, '0')}:00`];
         
         sortedTimezones.forEach(({ offset }) => {
           let localHour = utcHour + offset;
@@ -900,6 +894,43 @@ class GoogleSheetsService {
         // Check if this is the 7:00 AM UTC row (Daily Reset row)
         const isDailyResetRow = (utcHour === 7);
         
+        // Apply grey shade to UTC Time column for 7:00 AM row
+        if (isDailyResetRow) {
+          colorRequests.push({
+            repeatCell: {
+              range: {
+                sheetId: sheetId,
+                startRowIndex: rowIndex,
+                endRowIndex: rowIndex + 1,
+                startColumnIndex: 0,
+                endColumnIndex: 1
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: {
+                    red: 0.95 * 0.90,
+                    green: 0.95 * 0.90,
+                    blue: 0.95 * 0.90
+                  },
+                  textFormat: {
+                    foregroundColor: {
+                      red: 0.2,
+                      green: 0.2,
+                      blue: 0.2
+                    },
+                    fontSize: 10,
+                    bold: true,
+                    fontFamily: 'Montserrat'
+                  },
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'MIDDLE'
+                }
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
+            }
+          });
+        }
+        
         // For each timezone column
         for (let colIndex = 0; colIndex < sortedTimezones.length; colIndex++) {
           const { offset } = sortedTimezones[colIndex];
@@ -912,12 +943,12 @@ class GoogleSheetsService {
           // Get color based on local time
           let bgColor = this.getTimePeriodColor(Math.floor(localHour));
           
-          // Apply grey shade for Daily Reset row (darken by multiplying by 0.75)
+          // Apply lighter grey shade for Daily Reset row (darken by multiplying by 0.90)
           if (isDailyResetRow) {
             bgColor = {
-              red: bgColor.red * 0.75,
-              green: bgColor.green * 0.75,
-              blue: bgColor.blue * 0.75
+              red: bgColor.red * 0.90,
+              green: bgColor.green * 0.90,
+              blue: bgColor.blue * 0.90
             };
           }
           
