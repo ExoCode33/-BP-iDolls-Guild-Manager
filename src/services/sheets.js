@@ -743,14 +743,21 @@ class GoogleSheetsService {
 
       const sheetId = targetSheet.properties.sheetId;
 
-      // ✅ STEP 1: Collect all unique timezones from characters
+      // ✅ STEP 1: Collect all unique timezones from UNIQUE USERS (not characters)
       const timezoneMap = new Map(); // timezone -> count
+      const processedUsers = new Set(); // Track already processed users
       
       for (const char of characters) {
+        // Skip if we already counted this user
+        if (processedUsers.has(char.user_id)) {
+          continue;
+        }
+        
         try {
           const userTimezone = await TimezoneRepo.get(char.user_id);
           if (userTimezone) {
             timezoneMap.set(userTimezone, (timezoneMap.get(userTimezone) || 0) + 1);
+            processedUsers.add(char.user_id); // Mark user as counted
           }
         } catch (error) {
           // Skip if error
@@ -2169,13 +2176,13 @@ class GoogleSheetsService {
     return await this.fullSync(allCharactersWithSubclasses);
   }
 
-  async init() {
-    return await this.initialize();
-  }
-
-  async sync(characters, client) {
+  async init(client) {
     this.client = client;
-    return await this.fullSync(characters);
+    const success = await this.initialize();
+    if (!success) {
+      console.log('⚠️  [SHEETS] Service not available');
+    }
+    return success;
   }
 }
 
