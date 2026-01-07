@@ -693,9 +693,9 @@ class GoogleSheetsService {
       
       let targetSheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
       
-      // Create sheet if it doesn't exist
+      // Create sheet if it doesn't exist, otherwise use existing
       if (!targetSheet) {
-        console.log(`   📋 "${sheetName}" tab not found - creating it...`);
+        console.log(`   📋 Creating new tab "${sheetName}"...`);
         const addSheetResponse = await this.sheets.spreadsheets.batchUpdate({
           spreadsheetId: this.spreadsheetId,
           requestBody: {
@@ -714,8 +714,10 @@ class GoogleSheetsService {
         });
         
         const newSheetId = addSheetResponse.data.replies[0].addSheet.properties.sheetId;
-        console.log(`   ✅ Created "${sheetName}" tab with ID: ${newSheetId}`);
+        console.log(`   ✅ Created tab with ID: ${newSheetId}`);
         targetSheet = { properties: { sheetId: newSheetId, title: sheetName } };
+      } else {
+        console.log(`   ✅ Using existing tab "${sheetName}"`);
       }
 
       const sheetId = targetSheet.properties.sheetId;
@@ -798,9 +800,9 @@ class GoogleSheetsService {
       
       let targetSheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
       
-      // Create sheet if it doesn't exist
+      // Create sheet if it doesn't exist, otherwise use existing
       if (!targetSheet) {
-        console.log(`   📋 "${sheetName}" tab not found - creating it...`);
+        console.log(`   📋 Creating new tab "${sheetName}"...`);
         const addSheetResponse = await this.sheets.spreadsheets.batchUpdate({
           spreadsheetId: this.spreadsheetId,
           requestBody: {
@@ -819,9 +821,11 @@ class GoogleSheetsService {
         });
         
         const newSheetId = addSheetResponse.data.replies[0].addSheet.properties.sheetId;
-        console.log(`   ✅ Created "${sheetName}" tab with ID: ${newSheetId}`);
+        console.log(`   ✅ Created tab with ID: ${newSheetId}`);
         
         targetSheet = { properties: { sheetId: newSheetId, title: sheetName } };
+      } else {
+        console.log(`   ✅ Using existing tab "${sheetName}"`);
       }
 
       const sheetId = targetSheet.properties.sheetId;
