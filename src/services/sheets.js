@@ -750,7 +750,8 @@ class GoogleSheetsService {
       for (const [tz, count] of timezoneMap.entries()) {
         const offset = this.getTimezoneOffset(tz);
         const abbr = this.getTimezoneAbbreviation(tz);
-        const key = offset.toString(); // Group by offset only
+        // Use offset as number with fixed precision to avoid floating point issues
+        const key = offset.toFixed(2); // Group by offset (e.g., "-5.00", "5.50")
         
         if (offsetGroups.has(key)) {
           // Add to existing group
@@ -823,7 +824,13 @@ class GoogleSheetsService {
         rows.push(row);
       }
 
-      // ✅ STEP 5: Write all data to sheet
+      // ✅ STEP 5: Clear existing data first, then write all data to sheet
+      // This ensures old columns are removed when timezone grouping changes
+      await this.sheets.spreadsheets.values.clear({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}!A1:Z100`, // Clear a large range to remove old data
+      });
+      
       const allData = [headers, ...rows];
       
       await this.sheets.spreadsheets.values.update({
