@@ -2303,10 +2303,18 @@ class GoogleSheetsService {
     });
     console.log(`🔄 [SHEETS] Sync started (${allCharactersWithSubclasses.length} chars) - ${timestamp}`);
     
+    const syncStartTime = Date.now();
+    
     try {
       this.lastSyncTime = Date.now();
       await this.syncMemberList(allCharactersWithSubclasses);
+      
+      const syncDuration = Date.now() - syncStartTime;
       console.log(`✅ [SHEETS] Sync complete - ${timestamp}`);
+      
+      // ✅ Log to Discord (will be batched)
+      logger.sheetsSync(allCharactersWithSubclasses.length, syncDuration);
+      
     } catch (error) {
       console.error(`❌ [SHEETS] Sync error:`, error.message);
       
