@@ -2176,6 +2176,10 @@ class GoogleSheetsService {
     return await this.fullSync(allCharactersWithSubclasses);
   }
 
+  async sync(allCharactersWithSubclasses) {
+    return await this.fullSync(allCharactersWithSubclasses);
+  }
+
   async init(client) {
     this.client = client;
     const success = await this.initialize();
