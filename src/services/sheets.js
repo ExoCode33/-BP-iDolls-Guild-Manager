@@ -308,19 +308,19 @@ class GoogleSheetsService {
   /**
    * Get cell background color based on local time (for Overview sheet)
    * Pastel green = Prime time (18:00-23:59, 00:00)
-   * Pastel yellow = Less common (01:00-05:59, 12:00-13:59)
-   * Pastel red = Off hours (06:00-11:59, 14:00-17:59)
+   * Pastel yellow = Early morning (01:00-02:59)
+   * Pastel red = Off hours (03:00-17:59)
    */
   getTimePeriodColor(hour) {
     // Prime gaming hours (6 PM - midnight)
     if ((hour >= 18 && hour <= 23) || hour === 0) {
       return { red: 0.85, green: 0.95, blue: 0.85 }; // Pastel green
     }
-    // Less common hours (1 AM - 6 AM, 12 PM - 2 PM)
-    else if ((hour >= 1 && hour <= 5) || (hour >= 12 && hour <= 13)) {
+    // Early morning hours (1 AM - 2:59 AM)
+    else if (hour >= 1 && hour <= 2) {
       return { red: 0.98, green: 0.98, blue: 0.80 }; // Pastel yellow
     }
-    // Off hours (6 AM - 12 PM, 2 PM - 6 PM)
+    // Off hours (3 AM - 5:59 PM)
     else {
       return { red: 0.98, green: 0.85, blue: 0.85 }; // Pastel red
     }
@@ -790,13 +790,18 @@ class GoogleSheetsService {
         return '';
       };
 
-      // ✅ STEP 3: Build header row with combined timezone abbreviations (format: "15 ‧ JST/KST ‧ ASIA")
+      // ✅ STEP 3: Build header row with region on first line, timezone info on second (format: "NA\n16 ‧ PST")
       const headers = ['UTC Time'];
       sortedTimezones.forEach(({ abbrs, count, sampleTz }) => {
         const region = getRegionTag(sampleTz);
-        const regionTag = region ? ` ‧ ${region}` : '';
         const combinedAbbrs = abbrs.join('/'); // Join multiple abbreviations with /
-        headers.push(`${count} ‧ ${combinedAbbrs}${regionTag}`);
+        
+        // Format: Region on line 1, count and timezone on line 2
+        if (region) {
+          headers.push(`${region}\n${count} ‧ ${combinedAbbrs}`);
+        } else {
+          headers.push(`${count} ‧ ${combinedAbbrs}`);
+        }
       });
 
       // ✅ STEP 4: Build time conversion rows (01:00 to 00:00 - starting at 1am UTC)
@@ -1272,6 +1277,7 @@ class GoogleSheetsService {
                 },
                 horizontalAlignment: 'CENTER',
                 verticalAlignment: 'MIDDLE',
+                wrapStrategy: 'WRAP', // ✅ Enable text wrapping for multi-line headers
                 padding: {
                   top: 12,
                   bottom: 12,
@@ -1280,7 +1286,7 @@ class GoogleSheetsService {
                 }
               }
             },
-            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding)'
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy,padding)'
           }
         },
         // UTC Time column (A) formatting - darker background
@@ -1396,6 +1402,22 @@ class GoogleSheetsService {
           }
         });
       }
+      
+      // Set header row height to accommodate 2 lines
+      requests.push({
+        updateDimensionProperties: {
+          range: {
+            sheetId: sheetId,
+            dimension: 'ROWS',
+            startIndex: 0,
+            endIndex: 1
+          },
+          properties: {
+            pixelSize: 60 // ✅ Taller header for 2 lines of text
+          },
+          fields: 'pixelSize'
+        }
+      });
 
       await this.sheets.spreadsheets.batchUpdate({
         spreadsheetId: this.spreadsheetId,
