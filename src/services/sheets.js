@@ -771,14 +771,14 @@ class GoogleSheetsService {
         }
       }
       
-      // Convert to array and sort by UTC offset
+      // Convert to array and sort by member count (descending - most members first)
       const sortedTimezones = Array.from(offsetGroups.values())
         .sort((a, b) => {
-          // Sort by UTC offset (ascending - westmost first)
-          return a.offset - b.offset;
+          // Sort by member count (descending - highest first)
+          return b.count - a.count;
         });
 
-      console.log(`   🌍 Found ${sortedTimezones.length} unique UTC offset groups (sorted by offset)`);
+      console.log(`   🌍 Found ${sortedTimezones.length} unique UTC offset groups (sorted by member count)`);
 
       // ✅ Helper: Get region tag for timezone
       const getRegionTag = (timezone) => {
@@ -809,7 +809,13 @@ class GoogleSheetsService {
       const rows = [];
       for (let i = 0; i < 24; i++) {
         const utcHour = (i + 1) % 24; // Start at 1am, wrap around to 0am at the end
-        const row = [`${String(utcHour).padStart(2, '0')}:00`];
+        
+        // Add "Daily Reset" tag for 7:00 AM UTC
+        const utcTimeLabel = utcHour === 7 
+          ? `${String(utcHour).padStart(2, '0')}:00 (Daily Reset)` 
+          : `${String(utcHour).padStart(2, '0')}:00`;
+        
+        const row = [utcTimeLabel];
         
         sortedTimezones.forEach(({ offset }) => {
           let localHour = utcHour + offset;
@@ -891,6 +897,9 @@ class GoogleSheetsService {
         const utcHour = (i + 1) % 24; // Start at 1am, wrap around to 0am at the end
         const rowIndex = i + 1; // +1 because row 0 is header
         
+        // Check if this is the 7:00 AM UTC row (Daily Reset row)
+        const isDailyResetRow = (utcHour === 7);
+        
         // For each timezone column
         for (let colIndex = 0; colIndex < sortedTimezones.length; colIndex++) {
           const { offset } = sortedTimezones[colIndex];
@@ -901,7 +910,16 @@ class GoogleSheetsService {
           if (localHour >= 24) localHour -= 24;
           
           // Get color based on local time
-          const bgColor = this.getTimePeriodColor(Math.floor(localHour));
+          let bgColor = this.getTimePeriodColor(Math.floor(localHour));
+          
+          // Apply grey shade for Daily Reset row (darken by multiplying by 0.75)
+          if (isDailyResetRow) {
+            bgColor = {
+              red: bgColor.red * 0.75,
+              green: bgColor.green * 0.75,
+              blue: bgColor.blue * 0.75
+            };
+          }
           
           colorRequests.push({
             repeatCell: {
