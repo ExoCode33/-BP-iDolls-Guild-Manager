@@ -616,6 +616,11 @@ class GoogleSheetsService {
         {
           name: 'Honored Guests',
           filter: (char) => char.guild && char.guild.toLowerCase().includes('visitor') // Visitors only
+        },
+        {
+          name: 'iDolls Overview',
+          filter: (char) => char.guild && char.guild.toLowerCase().includes('idoll'), // iDolls members for overview
+          isOverview: true // Special flag for overview sheet
         }
       ];
 
@@ -647,7 +652,12 @@ class GoogleSheetsService {
         }
         
         try {
-          await this.syncToSheet(sheetConfig.name, filteredCharacters);
+          // Route to appropriate sync function
+          if (sheetConfig.isOverview) {
+            await this.syncOverviewSheet(sheetConfig.name, filteredCharacters);
+          } else {
+            await this.syncToSheet(sheetConfig.name, filteredCharacters);
+          }
         } catch (error) {
           console.error(`❌ [SHEETS] Error syncing "${sheetConfig.name}":`, error.message);
           
@@ -672,6 +682,111 @@ class GoogleSheetsService {
     } finally {
       // ✅ Always release lock
       this.isSyncing = false;
+    }
+  }
+
+  async syncOverviewSheet(sheetName, characters) {
+    try {
+      const spreadsheet = await this.sheets.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId,
+      });
+      
+      let targetSheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
+      
+      // Create sheet if it doesn't exist
+      if (!targetSheet) {
+        console.log(`   📋 "${sheetName}" tab not found - creating it...`);
+        const addSheetResponse = await this.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: this.spreadsheetId,
+          requestBody: {
+            requests: [{
+              addSheet: {
+                properties: {
+                  title: sheetName,
+                  gridProperties: {
+                    rowCount: 50,
+                    columnCount: 20
+                  }
+                }
+              }
+            }]
+          }
+        });
+        
+        const newSheetId = addSheetResponse.data.replies[0].addSheet.properties.sheetId;
+        console.log(`   ✅ Created "${sheetName}" tab with ID: ${newSheetId}`);
+        targetSheet = { properties: { sheetId: newSheetId, title: sheetName } };
+      }
+
+      const sheetId = targetSheet.properties.sheetId;
+
+      // ✅ STEP 1: Collect all unique timezones from characters
+      const timezoneMap = new Map(); // timezone -> count
+      
+      for (const char of characters) {
+        try {
+          const userTimezone = await TimezoneRepo.get(char.user_id);
+          if (userTimezone) {
+            timezoneMap.set(userTimezone, (timezoneMap.get(userTimezone) || 0) + 1);
+          }
+        } catch (error) {
+          // Skip if error
+        }
+      }
+
+      // ✅ STEP 2: Sort timezones by member count (descending)
+      const sortedTimezones = Array.from(timezoneMap.entries())
+        .sort((a, b) => b[1] - a[1]) // Sort by count, highest first
+        .map(([tz, count]) => ({ timezone: tz, count }));
+
+      console.log(`   🌍 Found ${sortedTimezones.length} unique timezones`);
+
+      // ✅ STEP 3: Build header row
+      const headers = ['UTC Time'];
+      sortedTimezones.forEach(({ timezone, count }) => {
+        const abbr = this.getTimezoneAbbreviation(timezone);
+        headers.push(`${abbr} (${count})`);
+      });
+
+      // ✅ STEP 4: Build time conversion rows (00:00 to 23:00)
+      const rows = [];
+      for (let utcHour = 0; utcHour < 24; utcHour++) {
+        const row = [`${String(utcHour).padStart(2, '0')}:00`];
+        
+        sortedTimezones.forEach(({ timezone }) => {
+          const offset = this.getTimezoneOffset(timezone);
+          let localHour = utcHour + offset;
+          
+          // Handle day wraparound
+          if (localHour < 0) localHour += 24;
+          if (localHour >= 24) localHour -= 24;
+          
+          row.push(`${String(Math.floor(localHour)).padStart(2, '0')}:00`);
+        });
+        
+        rows.push(row);
+      }
+
+      // ✅ STEP 5: Write all data to sheet
+      const allData = [headers, ...rows];
+      
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'USER_ENTERED',
+        resource: {
+          values: allData,
+        },
+      });
+
+      // ✅ STEP 6: Apply formatting
+      await this.formatOverviewSheet(sheetName, sheetId, headers.length);
+
+      console.log(`✅ [SHEETS] "${sheetName}" synced successfully`);
+
+    } catch (error) {
+      console.error('❌ [SHEETS] Overview sync error:', error.message);
+      console.error('🐛 Full error:', error);
     }
   }
 
@@ -974,6 +1089,228 @@ class GoogleSheetsService {
       } else {
         console.error('🐛 [SHEETS] Full error:', error);
       }
+    }
+  }
+
+  async formatOverviewSheet(sheetName, sheetId, columnCount) {
+    if (!this.sheets) return;
+
+    try {
+      const requests = [
+        // Freeze first row and first column
+        {
+          updateSheetProperties: {
+            properties: {
+              sheetId: sheetId,
+              gridProperties: {
+                frozenRowCount: 1,
+                frozenColumnCount: 1,
+                hideGridlines: false
+              },
+              tabColor: {
+                red: 0.87,
+                green: 0.11,
+                blue: 0.49
+              } // Fuchsia pink tab
+            },
+            fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount,gridProperties.hideGridlines,tabColor'
+          }
+        },
+        // Header row formatting
+        {
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: 0,
+              endRowIndex: 1,
+              startColumnIndex: 0,
+              endColumnIndex: columnCount
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: {
+                  red: 0.87,
+                  green: 0.11,
+                  blue: 0.49
+                }, // Fuchsia pink header
+                textFormat: {
+                  foregroundColor: {
+                    red: 1,
+                    green: 1,
+                    blue: 1
+                  },
+                  fontSize: 11,
+                  bold: true,
+                  fontFamily: 'Montserrat'
+                },
+                horizontalAlignment: 'CENTER',
+                verticalAlignment: 'MIDDLE',
+                padding: {
+                  top: 12,
+                  bottom: 12,
+                  left: 8,
+                  right: 8
+                }
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding)'
+          }
+        },
+        // UTC Time column (A) formatting - darker background
+        {
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: 1,
+              endRowIndex: 25,
+              startColumnIndex: 0,
+              endColumnIndex: 1
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: {
+                  red: 0.95,
+                  green: 0.95,
+                  blue: 0.95
+                }, // Light gray for UTC column
+                textFormat: {
+                  foregroundColor: {
+                    red: 0.2,
+                    green: 0.2,
+                    blue: 0.2
+                  },
+                  fontSize: 10,
+                  bold: true,
+                  fontFamily: 'Montserrat'
+                },
+                horizontalAlignment: 'CENTER',
+                verticalAlignment: 'MIDDLE'
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
+          }
+        },
+        // Data cells formatting (time conversions)
+        {
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: 1,
+              endRowIndex: 25,
+              startColumnIndex: 1,
+              endColumnIndex: columnCount
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: {
+                  red: 1,
+                  green: 1,
+                  blue: 1
+                }, // White background
+                textFormat: {
+                  foregroundColor: {
+                    red: 0.3,
+                    green: 0.3,
+                    blue: 0.3
+                  },
+                  fontSize: 10,
+                  fontFamily: 'Montserrat'
+                },
+                horizontalAlignment: 'CENTER',
+                verticalAlignment: 'MIDDLE'
+              }
+            },
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
+          }
+        },
+        // Borders for entire table
+        {
+          updateBorders: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: 0,
+              endRowIndex: 25,
+              startColumnIndex: 0,
+              endColumnIndex: columnCount
+            },
+            top: {
+              style: 'SOLID',
+              width: 1,
+              color: { red: 0.85, green: 0.85, blue: 0.87 }
+            },
+            bottom: {
+              style: 'SOLID',
+              width: 1,
+              color: { red: 0.85, green: 0.85, blue: 0.87 }
+            },
+            left: {
+              style: 'SOLID',
+              width: 1,
+              color: { red: 0.85, green: 0.85, blue: 0.87 }
+            },
+            right: {
+              style: 'SOLID',
+              width: 1,
+              color: { red: 0.85, green: 0.85, blue: 0.87 }
+            },
+            innerHorizontal: {
+              style: 'SOLID',
+              width: 1,
+              color: { red: 0.90, green: 0.90, blue: 0.92 }
+            },
+            innerVertical: {
+              style: 'SOLID',
+              width: 1,
+              color: { red: 0.90, green: 0.90, blue: 0.92 }
+            }
+          }
+        },
+        // Thick border after header row
+        {
+          updateBorders: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: 0,
+              endRowIndex: 1,
+              startColumnIndex: 0,
+              endColumnIndex: columnCount
+            },
+            bottom: {
+              style: 'SOLID_THICK',
+              width: 3,
+              color: { red: 0.87, green: 0.11, blue: 0.49 } // Fuchsia pink
+            }
+          }
+        }
+      ];
+
+      // Set column widths
+      for (let i = 0; i < columnCount; i++) {
+        const width = i === 0 ? 100 : 110; // UTC column slightly narrower
+        requests.push({
+          updateDimensionProperties: {
+            range: {
+              sheetId: sheetId,
+              dimension: 'COLUMNS',
+              startIndex: i,
+              endIndex: i + 1
+            },
+            properties: {
+              pixelSize: width
+            },
+            fields: 'pixelSize'
+          }
+        });
+      }
+
+      await this.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: this.spreadsheetId,
+        requestBody: { requests }
+      });
+
+      console.log(`   ✅ Overview formatting applied`);
+    } catch (error) {
+      console.error(`   ❌ Overview formatting error:`, error.message);
     }
   }
 
