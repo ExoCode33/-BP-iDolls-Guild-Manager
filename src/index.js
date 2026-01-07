@@ -67,7 +67,7 @@ client.once(Events.ClientReady, async () => {
   classRoleService.init(client);
   console.log('✅ Class role service initialized');
   
-  await sheets.init();
+  await sheets.init(client); // ✅ FIXED: Pass the Discord client so usernames can be fetched
 
   // Step 5: Send startup log (now that logger is ready)
   logger.startup(client.user.tag, commands.size);
